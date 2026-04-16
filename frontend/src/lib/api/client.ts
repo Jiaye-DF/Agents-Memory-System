@@ -6,6 +6,7 @@ interface RequestOptions {
   headers?: Record<string, string>;
   body?: unknown;
   params?: Record<string, string>;
+  formData?: FormData;
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -64,11 +65,13 @@ async function request<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
-  const { headers = {}, body, params } = options;
+  const { headers = {}, body, params, formData } = options;
   const url = buildUrl(path, params);
 
+  const isFormData = formData instanceof FormData;
+
   const requestHeaders: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...headers,
   };
 
@@ -82,7 +85,9 @@ async function request<T>(
     credentials: "include",
   };
 
-  if (body !== undefined && method !== "GET") {
+  if (isFormData) {
+    fetchOptions.body = formData;
+  } else if (body !== undefined && method !== "GET") {
     fetchOptions.body = JSON.stringify(body);
   }
 

@@ -8,3 +8,10 @@ export type {
   TokenPayload,
 } from "./auth";
 export type { User, Role, UpdateUserRequest } from "./admin";
+export type {
+  Skill,
+  SkillUpdateRequest,
+  VisibilityRequest,
+  FileTreeNode,
+  SkillUploadParams,
+} from "./skills";
