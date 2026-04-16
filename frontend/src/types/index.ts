@@ -8,3 +8,9 @@ export type {
   TokenPayload,
 } from "./auth";
 export type { User, Role, UpdateUserRequest } from "./admin";
+export type {
+  Agent,
+  AgentCreateRequest,
+  AgentUpdateRequest,
+  VisibilityRequest,
+} from "./agents";

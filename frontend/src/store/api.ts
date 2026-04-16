@@ -36,7 +36,7 @@ export const baseApi = createApi({
       return { error: message };
     }
   },
-  tagTypes: ["Users"],
+  tagTypes: ["Users", "Agents"],
   endpoints: () => ({}),
 });
 
