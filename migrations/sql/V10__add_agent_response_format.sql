@@ -1,0 +1,1 @@
+ALTER TABLE agent ADD COLUMN IF NOT EXISTS response_format VARCHAR(20) DEFAULT 'markdown';

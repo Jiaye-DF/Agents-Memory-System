@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
@@ -10,11 +10,9 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   useListSkillsQuery,
   useDeleteSkillMutation,
-  useToggleVisibilityMutation,
+  useToggleSkillVisibilityMutation,
 } from "@/store/skillsApi";
 import type { Skill } from "@/types";
-
-type TabType = "mine" | "public";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -92,7 +90,6 @@ export default function SkillsListPage(): React.ReactNode {
   const { userUid, isLoading: authLoading } = useAuth();
   const { showDialog } = useDialog();
 
-  const [activeTab, setActiveTab] = useState<TabType>("mine");
   const [limit, setLimit] = useState<number>(20);
   const [cursor, setCursor] = useState<string | null>(null);
   const [cursorHistory, setCursorHistory] = useState<string[]>([]);
@@ -103,15 +100,9 @@ export default function SkillsListPage(): React.ReactNode {
   );
 
   const [deleteSkill] = useDeleteSkillMutation();
-  const [toggleVisibility] = useToggleVisibilityMutation();
+  const [toggleVisibility] = useToggleSkillVisibilityMutation();
 
-  const filteredSkills = useMemo((): Skill[] => {
-    if (!data?.items) return [];
-    if (activeTab === "mine") {
-      return data.items.filter((s) => s.owner_uid === userUid);
-    }
-    return data.items.filter((s) => s.visibility === "public");
-  }, [data?.items, activeTab, userUid]);
+  const skills = data?.items ?? [];
 
   const handleDelete = useCallback(
     (skillUid: string): void => {
@@ -167,13 +158,6 @@ export default function SkillsListPage(): React.ReactNode {
     [showDialog, toggleVisibility]
   );
 
-  const handleTabChange = useCallback(
-    (tab: TabType): void => {
-      setActiveTab(tab);
-    },
-    []
-  );
-
   const handleNextPage = useCallback((): void => {
     if (data?.next_cursor) {
       setCursorHistory((prev) => [...prev, cursor ?? ""]);
@@ -210,47 +194,20 @@ export default function SkillsListPage(): React.ReactNode {
       </div>
 
       <div className="rounded-xl bg-card-bg p-6 shadow-sm">
-        <div className="mb-4 flex gap-2">
-          <button
-            type="button"
-            onClick={() => handleTabChange("mine")}
-            className={`min-h-[44px] rounded-xl px-4 py-2 text-sm font-medium transition-colors hover:cursor-pointer ${
-              activeTab === "mine"
-                ? "bg-primary text-white"
-                : "bg-muted-bg text-foreground hover:bg-border"
-            }`}
-          >
-            我的 Skills
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange("public")}
-            className={`min-h-[44px] rounded-xl px-4 py-2 text-sm font-medium transition-colors hover:cursor-pointer ${
-              activeTab === "public"
-                ? "bg-primary text-white"
-                : "bg-muted-bg text-foreground hover:bg-border"
-            }`}
-          >
-            公開 Skills
-          </button>
-        </div>
-
         {isLoading || isFetching ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <CardSkeleton key={i} />
             ))}
           </div>
-        ) : filteredSkills.length === 0 ? (
+        ) : skills.length === 0 ? (
           <div className="py-12 text-center text-muted">
-            {activeTab === "mine"
-              ? "尚無 Skills，點擊右上角上傳第一個 Skill。"
-              : "目前沒有公開的 Skills。"}
+            尚無 Skills，點擊右上角上傳第一個 Skill。
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredSkills.map((skill) => (
+              {skills.map((skill) => (
                 <SkillCard
                   key={skill.skill_uid}
                   skill={skill}

@@ -1,21 +1,20 @@
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
 ALGORITHM = "HS256"
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
-def create_access_token(user_uid: str, role: str) -> str:
+def create_access_token(user_uid: str, role: str, username: str) -> str:
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "user_uid": user_uid,
         "role": role,
+        "username": username,
         "exp": expire,
         "iat": now,
         "type": "access",
@@ -23,12 +22,13 @@ def create_access_token(user_uid: str, role: str) -> str:
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
-def create_refresh_token(user_uid: str, role: str) -> str:
+def create_refresh_token(user_uid: str, role: str, username: str) -> str:
     now = datetime.now(timezone.utc)
     expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     payload = {
         "user_uid": user_uid,
         "role": role,
+        "username": username,
         "exp": expire,
         "iat": now,
         "type": "refresh",
@@ -45,8 +45,8 @@ def verify_token(token: str) -> dict | None:
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return bcrypt.checkpw(plain.encode(), hashed.encode())

@@ -90,8 +90,8 @@ async def login(data: LoginRequest, db: AsyncSession) -> tuple[str, str]:
     )
 
     role_name = user.role.name
-    access_token = create_access_token(str(user.user_uid), role_name)
-    refresh_token = create_refresh_token(str(user.user_uid), role_name)
+    access_token = create_access_token(str(user.user_uid), role_name, user.username)
+    refresh_token = create_refresh_token(str(user.user_uid), role_name, user.username)
 
     return access_token, refresh_token
 
@@ -129,8 +129,8 @@ async def refresh(refresh_token: str, db: AsyncSession) -> tuple[str, str]:
         raise AppError(detail="無效的 Token", response_code=401, status_code=401)
 
     role_name = user.role.name
-    new_access_token = create_access_token(str(user.user_uid), role_name)
-    new_refresh_token = create_refresh_token(str(user.user_uid), role_name)
+    new_access_token = create_access_token(str(user.user_uid), role_name, user.username)
+    new_refresh_token = create_refresh_token(str(user.user_uid), role_name, user.username)
 
     exp = payload.get("exp")
     if exp is not None:

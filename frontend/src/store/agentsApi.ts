@@ -68,7 +68,7 @@ export const agentsApi = baseApi.injectEndpoints({
       invalidatesTags: ["Agents"],
     }),
 
-    toggleVisibility: builder.mutation<
+    toggleAgentVisibility: builder.mutation<
       Agent,
       { agentUid: string; body: VisibilityRequest }
     >({
@@ -113,6 +113,6 @@ export const {
   useCreateAgentMutation,
   useUpdateAgentMutation,
   useDeleteAgentMutation,
-  useToggleVisibilityMutation,
+  useToggleAgentVisibilityMutation,
   useLazyDownloadAgentQuery,
 } = agentsApi;

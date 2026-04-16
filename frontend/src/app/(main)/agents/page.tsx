@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
@@ -10,11 +10,8 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   useListAgentsQuery,
   useDeleteAgentMutation,
-  useToggleVisibilityMutation,
+  useToggleAgentVisibilityMutation,
 } from "@/store/agentsApi";
-import type { Agent } from "@/types";
-
-type TabValue = "mine" | "public";
 
 interface AgentCardProps {
   agent: Agent;
@@ -106,22 +103,15 @@ export default function AgentsPage(): React.ReactNode {
   const { userUid } = useAuth();
   const { showDialog } = useDialog();
 
-  const [activeTab, setActiveTab] = useState<TabValue>("mine");
   const [limit, setLimit] = useState<number>(20);
   const [cursor, setCursor] = useState<string | null>(null);
   const [cursorHistory, setCursorHistory] = useState<string[]>([]);
 
   const { data, isLoading, isFetching } = useListAgentsQuery({ limit, cursor });
   const [deleteAgent] = useDeleteAgentMutation();
-  const [toggleVisibility] = useToggleVisibilityMutation();
+  const [toggleVisibility] = useToggleAgentVisibilityMutation();
 
-  const filteredAgents = useMemo((): Agent[] => {
-    if (!data?.items) return [];
-    if (activeTab === "mine") {
-      return data.items.filter((a) => a.owner_uid === userUid);
-    }
-    return data.items.filter((a) => a.visibility === "public");
-  }, [data?.items, activeTab, userUid]);
+  const agents = data?.items ?? [];
 
   const handleDelete = useCallback(
     (agentUid: string): void => {
@@ -199,18 +189,6 @@ export default function AgentsPage(): React.ReactNode {
     setCursorHistory([]);
   }, []);
 
-  const handleTabChange = useCallback((tab: TabValue): void => {
-    setActiveTab(tab);
-  }, []);
-
-  const handleTabMine = useCallback((): void => {
-    handleTabChange("mine");
-  }, [handleTabChange]);
-
-  const handleTabPublic = useCallback((): void => {
-    handleTabChange("public");
-  }, [handleTabChange]);
-
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -221,44 +199,17 @@ export default function AgentsPage(): React.ReactNode {
       </div>
 
       <div className="rounded-xl bg-card-bg p-6 shadow-sm">
-        <div className="mb-4 flex gap-2">
-          <button
-            type="button"
-            onClick={handleTabMine}
-            className={`min-h-[44px] rounded-xl px-4 py-2 text-sm font-medium transition-colors hover:cursor-pointer ${
-              activeTab === "mine"
-                ? "bg-primary text-white"
-                : "bg-muted-bg text-foreground hover:bg-border"
-            }`}
-          >
-            我的 Agent
-          </button>
-          <button
-            type="button"
-            onClick={handleTabPublic}
-            className={`min-h-[44px] rounded-xl px-4 py-2 text-sm font-medium transition-colors hover:cursor-pointer ${
-              activeTab === "public"
-                ? "bg-primary text-white"
-                : "bg-muted-bg text-foreground hover:bg-border"
-            }`}
-          >
-            公開 Agent
-          </button>
-        </div>
-
         {isLoading || isFetching ? (
           <PageLoading />
         ) : (
           <>
-            {filteredAgents.length === 0 ? (
+            {agents.length === 0 ? (
               <div className="py-12 text-center text-muted">
-                {activeTab === "mine"
-                  ? "尚未建立任何 Agent"
-                  : "目前沒有公開的 Agent"}
+                尚未建立任何 Agent，點擊右上角新增。
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredAgents.map((agent) => (
+                {agents.map((agent) => (
                   <AgentCard
                     key={agent.agent_uid}
                     agent={agent}

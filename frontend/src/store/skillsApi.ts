@@ -79,7 +79,7 @@ export const skillsApi = baseApi.injectEndpoints({
       invalidatesTags: ["Skills"],
     }),
 
-    toggleVisibility: builder.mutation<
+    toggleSkillVisibility: builder.mutation<
       Skill,
       { skillUid: string; body: VisibilityRequest }
     >({
@@ -106,6 +106,6 @@ export const {
   useUploadSkillMutation,
   useUpdateSkillMutation,
   useDeleteSkillMutation,
-  useToggleVisibilityMutation,
+  useToggleSkillVisibilityMutation,
   useGetFileTreeQuery,
 } = skillsApi;

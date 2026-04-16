@@ -7,6 +7,11 @@ export interface Agent {
   style: string | null;
   identity: string | null;
   role_prompt: string | null;
+  model: string | null;
+  temperature: number | null;
+  max_tokens: number | null;
+  greeting: string | null;
+  response_format: string | null;
   visibility: "public" | "private";
   is_active: boolean;
   skill_uids: string[];
@@ -21,6 +26,11 @@ export interface AgentCreateRequest {
   style?: string | null;
   identity?: string | null;
   role_prompt?: string | null;
+  model?: string | null;
+  temperature?: number | null;
+  max_tokens?: number | null;
+  greeting?: string | null;
+  response_format?: string | null;
   visibility?: "public" | "private";
   skill_uids?: string[];
 }
@@ -32,6 +42,11 @@ export interface AgentUpdateRequest {
   style?: string | null;
   identity?: string | null;
   role_prompt?: string | null;
+  model?: string | null;
+  temperature?: number | null;
+  max_tokens?: number | null;
+  greeting?: string | null;
+  response_format?: string | null;
   skill_uids?: string[];
 }
 

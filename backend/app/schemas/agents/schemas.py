@@ -10,6 +10,11 @@ class AgentCreateRequest(BaseModel):
     style: str | None = None
     identity: str | None = None
     role_prompt: str | None = None
+    model: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    greeting: str | None = None
+    response_format: str | None = "markdown"
     visibility: str = "private"
     skill_uids: list[str] | None = None
 
@@ -37,6 +42,11 @@ class AgentUpdateRequest(BaseModel):
     style: str | None = None
     identity: str | None = None
     role_prompt: str | None = None
+    model: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    greeting: str | None = None
+    response_format: str | None = None
     skill_uids: list[str] | None = None
 
     @field_validator("name")
@@ -60,6 +70,11 @@ class AgentResponse(BaseModel):
     style: str | None
     identity: str | None
     role_prompt: str | None
+    model: str | None
+    temperature: float | None
+    max_tokens: int | None
+    greeting: str | None
+    response_format: str | None
     visibility: str
     is_active: bool
     skill_uids: list[str]

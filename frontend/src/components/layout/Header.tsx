@@ -3,6 +3,7 @@
 import React, { useCallback } from "react";
 import Link from "next/link";
 import { Logo } from "./Logo";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -20,7 +21,7 @@ export const Header = React.memo(function Header({
   }, [onLogout]);
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center border-b border-border bg-header-bg px-4">
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center border-b border-border bg-header-bg px-4 shadow-[0_2px_8px_var(--color-shadow)]">
       <div className="flex flex-1 items-center gap-3">
         <button
           type="button"
@@ -29,8 +30,8 @@ export const Header = React.memo(function Header({
           aria-label="切換側邊選單"
         >
           <svg
-            width="20"
-            height="20"
+            width="22"
+            height="22"
             viewBox="0 0 20 20"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -54,11 +55,12 @@ export const Header = React.memo(function Header({
         </Link>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-sm text-muted">{username}</span>
+        <ThemeSwitcher />
+        <span className="text-base text-foreground">{username}</span>
         <button
           type="button"
           onClick={handleLogout}
-          className="min-h-[44px] min-w-[44px] rounded-xl px-3 py-2 text-sm font-medium text-destructive transition-colors hover:cursor-pointer hover:bg-error-bg"
+          className="min-h-[44px] min-w-[44px] rounded-xl px-3 py-2 text-base font-medium text-destructive transition-colors hover:cursor-pointer hover:bg-error-bg"
         >
           登出
         </button>

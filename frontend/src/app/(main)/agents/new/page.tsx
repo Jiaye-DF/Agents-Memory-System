@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { useDialog } from "@/hooks/useDialog";
 import { useCreateAgentMutation } from "@/store/agentsApi";
+import { useListModelsQuery } from "@/store/modelsApi";
 
 interface FormState {
   name: string;
@@ -14,11 +15,18 @@ interface FormState {
   style: string;
   identity: string;
   role_prompt: string;
+  model: string;
+  temperature: string;
+  max_tokens: string;
+  greeting: string;
+  response_format: string;
   visibility: "public" | "private";
 }
 
 interface FormErrors {
   name?: string;
+  temperature?: string;
+  max_tokens?: string;
 }
 
 const INITIAL_FORM: FormState = {
@@ -28,6 +36,11 @@ const INITIAL_FORM: FormState = {
   style: "",
   identity: "",
   role_prompt: "",
+  model: "",
+  temperature: "0.7",
+  max_tokens: "4096",
+  greeting: "",
+  response_format: "markdown",
   visibility: "private",
 };
 
@@ -35,6 +48,7 @@ export default function AgentNewPage(): React.ReactNode {
   const router = useRouter();
   const { showDialog } = useDialog();
   const [createAgent, { isLoading }] = useCreateAgentMutation();
+  const { data: modelsData } = useListModelsQuery();
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -61,9 +75,21 @@ export default function AgentNewPage(): React.ReactNode {
     } else if (form.name.length > 100) {
       newErrors.name = "名稱長度不可超過 100 字元";
     }
+    if (form.temperature) {
+      const temp = parseFloat(form.temperature);
+      if (isNaN(temp) || temp < 0 || temp > 2) {
+        newErrors.temperature = "溫度需介於 0 至 2 之間";
+      }
+    }
+    if (form.max_tokens) {
+      const tokens = parseInt(form.max_tokens, 10);
+      if (isNaN(tokens) || tokens < 1 || tokens > 200000) {
+        newErrors.max_tokens = "Token 數需介於 1 至 200000 之間";
+      }
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [form.name]);
+  }, [form.name, form.temperature, form.max_tokens]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
@@ -78,6 +104,11 @@ export default function AgentNewPage(): React.ReactNode {
           style: form.style || null,
           identity: form.identity || null,
           role_prompt: form.role_prompt || null,
+          model: form.model || null,
+          temperature: form.temperature ? parseFloat(form.temperature) : null,
+          max_tokens: form.max_tokens ? parseInt(form.max_tokens, 10) : null,
+          greeting: form.greeting || null,
+          response_format: form.response_format || "markdown",
           visibility: form.visibility,
           skill_uids: [],
         }).unwrap();
@@ -171,6 +202,80 @@ export default function AgentNewPage(): React.ReactNode {
               rows={5}
               className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
             />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="w-full">
+              <label
+                htmlFor="model"
+                className="mb-1.5 block text-sm font-medium text-foreground"
+              >
+                模型
+              </label>
+              <select
+                id="model"
+                value={form.model}
+                onChange={handleChange("model")}
+                className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+              >
+                <option value="">預設</option>
+                {modelsData?.items?.map((m) => (
+                  <option key={m.model_id} value={m.model_id}>
+                    {m.display_name}（{m.provider}）
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Input
+              label="溫度 (Temperature)"
+              value={form.temperature}
+              onChange={handleChange("temperature")}
+              placeholder="0.0 ~ 2.0"
+              error={errors.temperature}
+            />
+            <Input
+              label="最大 Token 數"
+              value={form.max_tokens}
+              onChange={handleChange("max_tokens")}
+              placeholder="例如：4096"
+              error={errors.max_tokens}
+            />
+          </div>
+
+          <div className="w-full">
+            <label
+              htmlFor="greeting"
+              className="mb-1.5 block text-sm font-medium text-foreground"
+            >
+              開場白
+            </label>
+            <textarea
+              id="greeting"
+              value={form.greeting}
+              onChange={handleChange("greeting")}
+              placeholder="Agent 對話開始時的第一句話"
+              rows={2}
+              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+            />
+          </div>
+
+          <div className="w-full">
+            <label
+              htmlFor="response_format"
+              className="mb-1.5 block text-sm font-medium text-foreground"
+            >
+              回覆格式
+            </label>
+            <select
+              id="response_format"
+              value={form.response_format}
+              onChange={handleChange("response_format")}
+              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+            >
+              <option value="markdown">Markdown</option>
+              <option value="plain_text">純文字</option>
+              <option value="json">JSON</option>
+            </select>
           </div>
 
           <div className="w-full">
