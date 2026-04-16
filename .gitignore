@@ -39,6 +39,9 @@ credentials.json
 *.pem
 *.p12
 
+# Data (runtime storage, not versioned)
+data/
+
 # Logs
 *.log
 logs/

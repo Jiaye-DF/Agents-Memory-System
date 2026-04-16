@@ -1,6 +1,6 @@
 # 前端規範
 
-技術棧：Next.js 15 (App Router) + React 19 + TailwindCSS 4 + Redux Toolkit + TypeScript 5
+> 技術棧與版本定義參閱 [00-overview.md § 前端](00-overview.md#前端)
 
 ---
 

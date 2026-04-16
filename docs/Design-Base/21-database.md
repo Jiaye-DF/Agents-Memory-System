@@ -1,6 +1,6 @@
 # 資料庫規範
 
-技術棧：PostgreSQL 17 / pgvector / Redis / SQLAlchemy 2 / Flyway
+> 技術棧與版本定義參閱 [00-overview.md § 資料庫](00-overview.md#資料庫)
 
 ---
 
@@ -134,34 +134,12 @@ AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 -- 啟用擴充
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- 範例：memory 資料表含向量欄位
-CREATE TABLE memory (
-    pid           BIGSERIAL    PRIMARY KEY,
-    memory_uid    UUID         NOT NULL DEFAULT gen_random_uuid(),
-    agent_uid     UUID         NOT NULL,
-    content       TEXT         NOT NULL,
-    embedding     VECTOR(1536),
-    memory_type   VARCHAR(20)  NOT NULL DEFAULT 'long_term',
-    is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
-    is_deleted    BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
+-- 向量欄位加入業務資料表（建表結構遵循 § 必備欄位）
+-- 範例：embedding VECTOR(1536)
 
+-- HNSW 索引
 CREATE INDEX idx_memory_embedding ON memory
     USING hnsw (embedding vector_cosine_ops);
-
-COMMENT ON TABLE  memory                  IS '記憶儲存表';
-COMMENT ON COLUMN memory.pid              IS '內部自增主鍵';
-COMMENT ON COLUMN memory.memory_uid       IS '對外唯一識別碼（UUID）';
-COMMENT ON COLUMN memory.agent_uid        IS '所屬 Agent 的 UID';
-COMMENT ON COLUMN memory.content          IS '記憶文字內容';
-COMMENT ON COLUMN memory.embedding        IS '向量嵌入（用於語意搜尋）';
-COMMENT ON COLUMN memory.memory_type      IS '記憶分類（short_term / long_term / context）';
-COMMENT ON COLUMN memory.is_active        IS '是否啟用';
-COMMENT ON COLUMN memory.is_deleted       IS '是否軟刪除';
-COMMENT ON COLUMN memory.created_at       IS '建立時間';
-COMMENT ON COLUMN memory.updated_at       IS '更新時間（Trigger 自動維護）';
 ```
 
 - 語意搜尋使用餘弦相似度（`<=>`）查詢最近鄰向量

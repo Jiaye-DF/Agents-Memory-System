@@ -54,13 +54,13 @@
 | RTK Query     | latest | 伺服器資料快取與同步     |
 | TypeScript    | 5      | 型別安全                 |
 
-> 前端細節參閱 [10-frontend.md](10-frontend.md)
+> 前端細節參閱 [10-frontend.md](10-frontend.md)、[11-ui-ux.md](11-ui-ux.md)
 
 ### 後端
 
 | 技術       | 版本     | 用途                 |
 | ---------- | -------- | -------------------- |
-| Python     | 3.12+    | 主要語言             |
+| Python     | 3.14+    | 主要語言             |
 | FastAPI    | latest   | Web 框架             |
 | SQLAlchemy | 2        | ORM                  |
 | Pydantic   | 2        | 資料驗證與序列化     |
@@ -76,6 +76,8 @@
 | PostgreSQL | 17       | 主要關聯式資料庫               |
 | pgvector   | latest   | 向量索引擴充（記憶語意搜尋）   |
 | Redis      | latest   | 快取、Session、佇列            |
+
+> 資料庫細節參閱 [21-database.md](21-database.md)
 
 ### 第三方服務
 
@@ -95,116 +97,19 @@
 
 ---
 
-## Monorepo 目錄結構
+## 細部規範索引
 
-```text
-agents-memory-system/
-├── backend/                        # FastAPI 後端
-│   ├── app/
-│   │   ├── main.py                 # FastAPI 進入點
-│   │   ├── api/
-│   │   │   ├── deps.py             # 共用依賴（DB session、認證）
-│   │   │   └── v1/                 # API v1 路由
-│   │   │       ├── router.py       # v1 總路由
-│   │   │       ├── agents/         # Agent 管理
-│   │   │       ├── skills/         # Skills 管理
-│   │   │       ├── memories/       # 記憶管理
-│   │   │       ├── conversations/  # 對話管理
-│   │   │       ├── auth/           # 登入驗證
-│   │   │       └── health.py       # 健康檢查
-│   │   ├── core/                   # 核心模組
-│   │   │   ├── config.py           # 環境變數與設定
-│   │   │   ├── database.py         # DB 連線池
-│   │   │   ├── response.py         # 統一回應格式
-│   │   │   └── exceptions.py       # 統一例外處理
-│   │   ├── models/                 # SQLAlchemy 模型
-│   │   ├── schemas/                # Pydantic Schema
-│   │   ├── services/               # 業務邏輯層
-│   │   ├── repositories/           # 資料存取層
-│   │   ├── clients/                # 第三方服務 Client
-│   │   │   ├── openrouter/         # OpenRouter API
-│   │   │   ├── line/               # LINE Messaging API
-│   │   │   └── telegram/           # Telegram Bot API
-│   │   └── engine/                 # Agent 引擎
-│   │       ├── agent_runner.py     # Agent 執行器
-│   │       ├── skill_loader.py     # Skill 載入器
-│   │       └── rag/                # RAG Pipeline
-│   ├── tests/
-│   ├── Dockerfile
-│   └── pyproject.toml
-├── frontend/                       # Next.js 前端
-│   ├── src/
-│   │   ├── app/                    # App Router 頁面
-│   │   ├── components/             # 共用元件
-│   │   ├── lib/
-│   │   │   └── api/                # API Client（禁止元件直接 fetch）
-│   │   └── store/                  # Redux Store + RTK Query
-│   ├── public/
-│   ├── Dockerfile
-│   ├── package.json
-│   └── tsconfig.json
-├── migrations/                     # Flyway DB Migration
-│   └── sql/                        # V{版號}__{描述}.sql
-├── docs/
-│   ├── Design-Base/                # 設計規範
-│   └── Tasks/                      # 版本任務規格
-├── .claude/
-│   └── commands/                   # Claude Code 自訂指令
-├── docker-compose.dev.yml          # 開發環境
-├── .env.example
-├── .gitignore
-├── CLAUDE.md
-└── README.md
-```
+| 文件 | 涵蓋範圍 |
+| --- | --- |
+| [10-frontend.md](10-frontend.md) | 前端目錄結構、API 呼叫、狀態管理、TypeScript 規則、渲染效能 |
+| [11-ui-ux.md](11-ui-ux.md) | 樣式主題、Header / Sidebar 佈局、Dialog、RWD、Loading |
+| [20-backend.md](20-backend.md) | 後端分層架構、API 路由、回應格式、例外處理、CORS、Logging |
+| [21-database.md](21-database.md) | 資料庫命名、必備欄位、軟刪除、pgvector、Redis、Migration |
+| [30-login.md](30-login.md) | 認證機制（雙 Token）、註冊 / 登入 / 忘記密碼流程 |
+| [40-permission.md](40-permission.md) | 角色定義、端點權限對照、資源存取控制 |
 
 ---
 
-## 核心功能模組
+## 開發注意事項
 
-### Agent 管理
-
-- 建立、編輯、刪除自定義 Agent
-- 為 Agent 指派 Skills 組合
-- Agent 參數設定（系統提示詞、模型選擇、溫度等）
-
-### Skills 系統
-
-- 預定義 Skills（網路搜尋、檔案讀取、計算等）
-- Skills 參數設定與輸入驗證
-- Skills 執行結果回傳與錯誤處理
-
-### 記憶管理
-
-- 記憶 CRUD 操作
-- 記憶向量化儲存與語意搜尋（pgvector）
-- 記憶分類：短期 / 長期 / 情境
-- 記憶自動摘要與整理
-
-### Agentic RAG
-
-- Agent 驅動的多步驟檢索流程
-- 上下文組合與知識召回
-- 透過 OpenRouter 串接多 LLM 模型生成回應
-
-### 多平台整合
-
-- LINE / Telegram Webhook 接收與回覆
-- 統一訊息處理管線（平台無關的抽象層）
-- 對話歷史記錄與追蹤
-
-### 登入與權限
-
-- 使用者登入驗證機制（細節參閱 [30-login.md](30-login.md)）
-- 角色與權限控管（細節參閱 [40-permission.md](40-permission.md)）
-
----
-
-## 規範約束
-
-- 前端**禁止**直接呼叫第三方外部服務 API，所有外部服務呼叫須經由後端代理
-- API Token、密碼、連線字串等敏感資訊一律透過環境變數注入，**禁止**寫死於程式碼
-- 後端 API 統一前綴 `/api/v1`，Swagger 文件路徑固定為 `/api/docs`
-- 後端分層架構：`api` → `services` → `repositories` → `models`，禁止跨層呼叫
-- 資料庫 Migration 由 Flyway 管理，禁止手動修改已合併的 Migration 檔案
 - 開發過程中若需安裝新套件，可自行執行安裝指令（前端 `npm install`、後端 `pip install` 或更新 `pyproject.toml`），無須額外確認
-- 其餘前端、後端、資料庫、部署等細部規範，參閱對應的 Design-Base 文件

@@ -103,7 +103,6 @@ COMMENT ON COLUMN "user".role_uid IS '所屬角色 UID（關聯 user_role）';
 | ----------------------------------- | ------------ |
 | `POST /api/v1/auth/register`        | 註冊         |
 | `POST /api/v1/auth/login`           | 登入         |
-| `POST /api/v1/auth/forgot-password` | 申請重設密碼 |
 | `POST /api/v1/auth/reset-password`  | 重設密碼     |
 | `GET  /api/v1/health`               | 健康檢查     |
 
@@ -197,24 +196,4 @@ async def get_agents_by_user(
 
 ## 回應格式
 
-權限相關錯誤回應遵循 `20-backend.md § 統一回應格式`：
-
-```json
-// 未認證（Token 無效或過期）
-{
-  "success": false,
-  "data": null,
-  "detail": "請重新登入",
-  "response_code": 401
-}
-
-// 權限不足
-{
-  "success": false,
-  "data": null,
-  "detail": "權限不足",
-  "response_code": 403
-}
-```
-
-- **禁止**在 `detail` 中揭露所需角色或當前角色資訊
+權限錯誤回應遵循 [20-backend.md § 統一回應格式](20-backend.md#統一回應格式)，`response_code` 使用 `401`（未認證）/ `403`（權限不足），**禁止**在 `detail` 中揭露所需角色或當前角色資訊。

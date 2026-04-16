@@ -1,6 +1,6 @@
 # 後端規範
 
-技術棧：Python 3.14+ / FastAPI / SQLAlchemy 2 / Pydantic 2 / Redis / Uvicorn
+> 技術棧與版本定義參閱 [00-overview.md § 後端](00-overview.md#後端)
 
 ---
 
