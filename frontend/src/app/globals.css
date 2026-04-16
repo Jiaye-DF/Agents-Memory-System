@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+:root {
+  --color-background: #ffffff;
+  --color-foreground: #171717;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-card-bg: #f9fafb;
+  --color-border: #e5e7eb;
+  --color-muted: #6b7280;
+  --color-muted-bg: #f3f4f6;
+  --color-destructive: #dc2626;
+  --color-destructive-hover: #b91c1c;
+  --color-success: #16a34a;
+  --color-success-hover: #15803d;
+  --color-warning: #d97706;
+  --color-warning-bg: #fef3c7;
+  --color-info: #2563eb;
+  --color-info-bg: #dbeafe;
+  --color-error-bg: #fee2e2;
+  --color-header-bg: #ffffff;
+  --color-sidebar-bg: #f9fafb;
+  --color-sidebar-hover: #e5e7eb;
+  --color-sidebar-active: #dbeafe;
+  --color-overlay: rgba(0, 0, 0, 0.5);
+  --color-input-bg: #ffffff;
+  --color-input-border: #d1d5db;
+  --color-input-focus: #2563eb;
+  --color-shadow: rgba(0, 0, 0, 0.1);
+}
+
+.dark {
+  --color-background: #0a0a0a;
+  --color-foreground: #ededed;
+  --color-primary: #60a5fa;
+  --color-primary-hover: #93c5fd;
+  --color-accent: #93c5fd;
+  --color-accent-hover: #bfdbfe;
+  --color-card-bg: #171717;
+  --color-border: #2e2e2e;
+  --color-muted: #a1a1aa;
+  --color-muted-bg: #1c1c1c;
+  --color-destructive: #ef4444;
+  --color-destructive-hover: #f87171;
+  --color-success: #22c55e;
+  --color-success-hover: #4ade80;
+  --color-warning: #f59e0b;
+  --color-warning-bg: #422006;
+  --color-info: #60a5fa;
+  --color-info-bg: #1e3a5f;
+  --color-error-bg: #450a0a;
+  --color-header-bg: #0a0a0a;
+  --color-sidebar-bg: #111111;
+  --color-sidebar-hover: #1c1c1c;
+  --color-sidebar-active: #1e3a5f;
+  --color-overlay: rgba(0, 0, 0, 0.7);
+  --color-input-bg: #171717;
+  --color-input-border: #2e2e2e;
+  --color-input-focus: #60a5fa;
+  --color-shadow: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="cool"] {
+  --color-background: #f0f4f8;
+  --color-foreground: #1e293b;
+  --color-primary: #0ea5e9;
+  --color-primary-hover: #0284c7;
+  --color-accent: #06b6d4;
+  --color-accent-hover: #0891b2;
+  --color-card-bg: #e0f2fe;
+  --color-border: #bae6fd;
+  --color-muted: #64748b;
+  --color-muted-bg: #e2e8f0;
+  --color-destructive: #dc2626;
+  --color-destructive-hover: #b91c1c;
+  --color-success: #059669;
+  --color-success-hover: #047857;
+  --color-warning: #d97706;
+  --color-warning-bg: #fef3c7;
+  --color-info: #0ea5e9;
+  --color-info-bg: #e0f2fe;
+  --color-error-bg: #fee2e2;
+  --color-header-bg: #e0f2fe;
+  --color-sidebar-bg: #e0f2fe;
+  --color-sidebar-hover: #bae6fd;
+  --color-sidebar-active: #7dd3fc;
+  --color-overlay: rgba(0, 0, 0, 0.5);
+  --color-input-bg: #ffffff;
+  --color-input-border: #bae6fd;
+  --color-input-focus: #0ea5e9;
+  --color-shadow: rgba(14, 165, 233, 0.1);
+}
+
+[data-theme="warm"] {
+  --color-background: #fdf6ec;
+  --color-foreground: #44403c;
+  --color-primary: #ea580c;
+  --color-primary-hover: #c2410c;
+  --color-accent: #f59e0b;
+  --color-accent-hover: #d97706;
+  --color-card-bg: #fff7ed;
+  --color-border: #fed7aa;
+  --color-muted: #78716c;
+  --color-muted-bg: #f5f0e8;
+  --color-destructive: #dc2626;
+  --color-destructive-hover: #b91c1c;
+  --color-success: #16a34a;
+  --color-success-hover: #15803d;
+  --color-warning: #d97706;
+  --color-warning-bg: #fef3c7;
+  --color-info: #ea580c;
+  --color-info-bg: #fff7ed;
+  --color-error-bg: #fee2e2;
+  --color-header-bg: #fff7ed;
+  --color-sidebar-bg: #fff7ed;
+  --color-sidebar-hover: #fed7aa;
+  --color-sidebar-active: #fdba74;
+  --color-overlay: rgba(0, 0, 0, 0.5);
+  --color-input-bg: #ffffff;
+  --color-input-border: #fed7aa;
+  --color-input-focus: #ea580c;
+  --color-shadow: rgba(234, 88, 12, 0.1);
+}
+
+[data-theme="purple"] {
+  --color-background: #faf5ff;
+  --color-foreground: #3b0764;
+  --color-primary: #a855f7;
+  --color-primary-hover: #9333ea;
+  --color-accent: #e879f9;
+  --color-accent-hover: #d946ef;
+  --color-card-bg: #f3e8ff;
+  --color-border: #e9d5ff;
+  --color-muted: #7e22ce;
+  --color-muted-bg: #f3e8ff;
+  --color-destructive: #dc2626;
+  --color-destructive-hover: #b91c1c;
+  --color-success: #16a34a;
+  --color-success-hover: #15803d;
+  --color-warning: #d97706;
+  --color-warning-bg: #fef3c7;
+  --color-info: #a855f7;
+  --color-info-bg: #f3e8ff;
+  --color-error-bg: #fee2e2;
+  --color-header-bg: #f3e8ff;
+  --color-sidebar-bg: #f3e8ff;
+  --color-sidebar-hover: #e9d5ff;
+  --color-sidebar-active: #d8b4fe;
+  --color-overlay: rgba(0, 0, 0, 0.5);
+  --color-input-bg: #ffffff;
+  --color-input-border: #e9d5ff;
+  --color-input-focus: #a855f7;
+  --color-shadow: rgba(168, 85, 247, 0.1);
+}
+
+@theme inline {
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-foreground);
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-card-bg: var(--color-card-bg);
+  --color-border: var(--color-border);
+  --color-muted: var(--color-muted);
+  --color-muted-bg: var(--color-muted-bg);
+  --color-destructive: var(--color-destructive);
+  --color-destructive-hover: var(--color-destructive-hover);
+  --color-success: var(--color-success);
+  --color-success-hover: var(--color-success-hover);
+  --color-warning: var(--color-warning);
+  --color-warning-bg: var(--color-warning-bg);
+  --color-info: var(--color-info);
+  --color-info-bg: var(--color-info-bg);
+  --color-error-bg: var(--color-error-bg);
+  --color-header-bg: var(--color-header-bg);
+  --color-sidebar-bg: var(--color-sidebar-bg);
+  --color-sidebar-hover: var(--color-sidebar-hover);
+  --color-sidebar-active: var(--color-sidebar-active);
+  --color-overlay: var(--color-overlay);
+  --color-input-bg: var(--color-input-bg);
+  --color-input-border: var(--color-input-border);
+  --color-input-focus: var(--color-input-focus);
+  --color-shadow: var(--color-shadow);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
