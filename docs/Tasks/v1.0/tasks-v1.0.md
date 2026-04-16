@@ -24,13 +24,13 @@
 
 ## 已確認決策
 
-| # | 決策 | 結論 |
-| --- | --- | --- |
-| 1 | Skills 檔案儲存 | 專案內 `data/skills/`，已加入 `.gitignore` |
-| 2 | 重設密碼機制 | 使用者輸入帳號＋使用者名稱驗證身分，通過後直接設定新密碼（雙重確認） |
-| 3 | Skills 檔案大小上限 | 50MB |
-| 4 | 初始 admin 帳號 | 不做 Seed，手動註冊後由 DB 修改角色 |
-| 5 | 分頁規格 | Cursor-based（keyset），以 `pid` 排序；前端提供 select/options 選擇每頁筆數 |
+| #   | 決策                | 結論                                                                        |
+| --- | ------------------- | --------------------------------------------------------------------------- |
+| 1   | Skills 檔案儲存     | 專案內 `data/skills/`，已加入 `.gitignore`                                  |
+| 2   | 重設密碼機制        | 使用者輸入帳號＋使用者名稱驗證身分，通過後直接設定新密碼（雙重確認）        |
+| 3   | Skills 檔案大小上限 | 50MB                                                                        |
+| 4   | 初始 admin 帳號     | 不做 Seed，手動註冊後由 DB 修改角色                                         |
+| 5   | 分頁規格            | Cursor-based（keyset），以 `pid` 排序；前端提供 select/options 選擇每頁筆數 |
 
 ---
 
@@ -40,10 +40,10 @@
 
 ### API 參數
 
-| 參數 | 型別 | 說明 |
-| --- | --- | --- |
-| `limit` | `int` | 每頁筆數，前端 select/options 可選（10 / 20 / 50），預設 20 |
-| `cursor` | `str \| null` | 上一頁回傳的 opaque token，首頁不傳 |
+| 參數     | 型別          | 說明                                                        |
+| -------- | ------------- | ----------------------------------------------------------- |
+| `limit`  | `int`         | 每頁筆數，前端 select/options 可選（10 / 20 / 50），預設 20 |
+| `cursor` | `str \| null` | 上一頁回傳的 opaque token，首頁不傳                         |
 
 ### 回應格式（包裝於 `data` 內）
 
@@ -83,11 +83,11 @@ Wave 3（功能模組，依賴 Wave 2，彼此獨立）
 
 ### Agent 間介面約定
 
-| 依賴關係 | 說明 |
-| --- | --- |
+| 依賴關係        | 說明                                                                                                                 |
+| --------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Wave 1 → Wave 2 | Agent C/D 依賴 Agent A 的核心模組（`core/`、Base model、`deps.py`）與 Agent B 的 UI 元件（Dialog、Layout、分頁元件） |
-| Wave 2 → Wave 3 | Agent E/F 依賴 Agent C 的認證依賴（`get_current_user`、`require_role`）與 Agent D 的共用頁面模式 |
-| Agent E ↔ F | `agent_skill` 多對多表由 Agent E 建立；Agent F 完成後再整合 Skills 關聯與 AGENTS.md 下載功能 |
+| Wave 2 → Wave 3 | Agent E/F 依賴 Agent C 的認證依賴（`get_current_user`、`require_role`）與 Agent D 的共用頁面模式                     |
+| Agent E ↔ F     | `agent_skill` 多對多表由 Agent E 建立；Agent F 完成後再整合 Skills 關聯與 AGENTS.md 下載功能                         |
 
 ---
 
@@ -217,13 +217,13 @@ Wave 3（功能模組，依賴 Wave 2，彼此獨立）
 
 ### 1-2 後端 API
 
-| 端點 | 說明 |
-| ---- | ---- |
-| `POST /api/v1/auth/register` | 使用者註冊（預設角色 member） |
-| `POST /api/v1/auth/login` | 登入，回傳 Access Token（body）+ Refresh Token（HttpOnly Cookie） |
-| `POST /api/v1/auth/logout` | 登出，清除 Cookie + Redis 黑名單 |
-| `POST /api/v1/auth/refresh` | 刷新 Access Token |
-| `POST /api/v1/auth/reset-password` | 驗證帳號＋使用者名稱後重設密碼 |
+| 端點                               | 說明                                                              |
+| ---------------------------------- | ----------------------------------------------------------------- |
+| `POST /api/v1/auth/register`       | 使用者註冊（預設角色 member）                                     |
+| `POST /api/v1/auth/login`          | 登入，回傳 Access Token（body）+ Refresh Token（HttpOnly Cookie） |
+| `POST /api/v1/auth/logout`         | 登出，清除 Cookie + Redis 黑名單                                  |
+| `POST /api/v1/auth/refresh`        | 刷新 Access Token                                                 |
+| `POST /api/v1/auth/reset-password` | 驗證帳號＋使用者名稱後重設密碼                                    |
 
 - [ ] 分層實作：`api/v1/auth/` → `services/auth_service.py` → `repositories/user_repository.py`
 - [ ] Pydantic Schemas：RegisterRequest, LoginRequest, TokenResponse, ResetPasswordRequest（account + username + new_password + confirm_password）
@@ -265,12 +265,12 @@ Wave 3（功能模組，依賴 Wave 2，彼此獨立）
 
 ### 2-2 後端 API（admin 專用）
 
-| 端點 | 說明 |
-| ---- | ---- |
-| `GET /api/v1/admin/users` | 查詢使用者列表（cursor-based 分頁） |
-| `GET /api/v1/admin/users/{user_uid}` | 查詢單一使用者 |
+| 端點                                 | 說明                                 |
+| ------------------------------------ | ------------------------------------ |
+| `GET /api/v1/admin/users`            | 查詢使用者列表（cursor-based 分頁）  |
+| `GET /api/v1/admin/users/{user_uid}` | 查詢單一使用者                       |
 | `PUT /api/v1/admin/users/{user_uid}` | 更新使用者資訊（角色指派、解除鎖定） |
-| `GET /api/v1/admin/roles` | 查詢角色列表 |
+| `GET /api/v1/admin/roles`            | 查詢角色列表                         |
 
 - [ ] 分層實作：`api/v1/admin/` → `services/` → `repositories/`
 - [ ] 所有 admin 端點套用 `require_role("admin")`
@@ -301,20 +301,21 @@ Wave 3（功能模組，依賴 Wave 2，彼此獨立）
 
 ### 3-2 後端 API
 
-| 端點 | 說明 |
-| ---- | ---- |
-| `GET /api/v1/agents` | 查詢自己的 Agent 列表 + 公開 Agent（cursor-based 分頁） |
-| `POST /api/v1/agents` | 建立 Agent |
-| `GET /api/v1/agents/{agent_uid}` | 查詢 Agent 詳情 |
-| `PUT /api/v1/agents/{agent_uid}` | 更新 Agent 設定 |
-| `DELETE /api/v1/agents/{agent_uid}` | 軟刪除 Agent |
-| `PATCH /api/v1/agents/{agent_uid}/visibility` | 切換公開 / 私人 |
-| `GET /api/v1/agents/{agent_uid}/download` | 下載 AGENTS.md + 關聯 Skills |
+| 端點                                          | 說明                                                    |
+| --------------------------------------------- | ------------------------------------------------------- |
+| `GET /api/v1/agents`                          | 查詢自己的 Agent 列表 + 公開 Agent（cursor-based 分頁） |
+| `POST /api/v1/agents`                         | 建立 Agent                                              |
+| `GET /api/v1/agents/{agent_uid}`              | 查詢 Agent 詳情                                         |
+| `PUT /api/v1/agents/{agent_uid}`              | 更新 Agent 設定                                         |
+| `DELETE /api/v1/agents/{agent_uid}`           | 軟刪除 Agent                                            |
+| `PATCH /api/v1/agents/{agent_uid}/visibility` | 切換公開 / 私人                                         |
+| `GET /api/v1/agents/{agent_uid}/download`     | 下載 AGENTS.md + 關聯 Skills                            |
 
 - [ ] 分層實作：`api/v1/agents/` → `services/agent_service.py` → `repositories/agent_repository.py`
 - [ ] 資源存取控制：member 僅操作 `owner_uid` 為自己的 Agent；admin 可操作全部
 - [ ] 即使 admin 也不可修改他人 Agent 的公開/私人/刪除狀態（僅能透過 DB）
 - [ ] 下載功能：動態組合 Agent 設定 + 關聯 Skills 為 AGENTS.md 格式（無關聯 Skills 時僅匯出 Agent 設定）
+      /fu
 
 ### 3-3 前端頁面
 
@@ -346,16 +347,16 @@ Wave 3（功能模組，依賴 Wave 2，彼此獨立）
 
 ### 4-2 後端 API
 
-| 端點 | 說明 |
-| ---- | ---- |
-| `GET /api/v1/skills` | 查詢自己的 Skills + 公開 Skills（cursor-based 分頁） |
-| `POST /api/v1/skills` | 上傳 Skill（接收檔案 + metadata） |
-| `GET /api/v1/skills/{skill_uid}` | 查詢 Skill 詳情（含檔案目錄結構） |
-| `PUT /api/v1/skills/{skill_uid}` | 更新 Skill metadata |
-| `DELETE /api/v1/skills/{skill_uid}` | 軟刪除 Skill |
-| `PATCH /api/v1/skills/{skill_uid}/visibility` | 切換公開 / 私人 |
-| `GET /api/v1/skills/{skill_uid}/download` | 下載 Skill .zip 檔案 |
-| `GET /api/v1/skills/{skill_uid}/tree` | 取得檔案目錄樹（供前端 GitHub 風格顯示） |
+| 端點                                          | 說明                                                 |
+| --------------------------------------------- | ---------------------------------------------------- |
+| `GET /api/v1/skills`                          | 查詢自己的 Skills + 公開 Skills（cursor-based 分頁） |
+| `POST /api/v1/skills`                         | 上傳 Skill（接收檔案 + metadata）                    |
+| `GET /api/v1/skills/{skill_uid}`              | 查詢 Skill 詳情（含檔案目錄結構）                    |
+| `PUT /api/v1/skills/{skill_uid}`              | 更新 Skill metadata                                  |
+| `DELETE /api/v1/skills/{skill_uid}`           | 軟刪除 Skill                                         |
+| `PATCH /api/v1/skills/{skill_uid}/visibility` | 切換公開 / 私人                                      |
+| `GET /api/v1/skills/{skill_uid}/download`     | 下載 Skill .zip 檔案                                 |
+| `GET /api/v1/skills/{skill_uid}/tree`         | 取得檔案目錄樹（供前端 GitHub 風格顯示）             |
 
 - [ ] 分層實作：`api/v1/skills/` → `services/skill_service.py` → `repositories/skill_repository.py`
 - [ ] 上傳處理：
