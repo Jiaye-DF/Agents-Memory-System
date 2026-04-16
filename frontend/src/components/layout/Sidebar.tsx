@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { SidebarState } from "@/hooks/useSidebar";
@@ -9,12 +9,14 @@ interface SidebarItem {
   label: string;
   href: string;
   icon: React.ReactNode;
+  adminOnly?: boolean;
 }
 
 interface SidebarProps {
   state: SidebarState;
   isOverlay: boolean;
   onClose: () => void;
+  role?: string | null;
 }
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
@@ -50,12 +52,15 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
     ),
   },
   {
-    label: "Admin",
+    label: "User Management",
     href: "/admin/users",
+    adminOnly: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M10 3C6.13401 3 3 6.13401 3 10C3 13.866 6.13401 17 10 17C13.866 17 17 13.866 17 10C17 6.13401 13.866 3 10 3Z" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M10 7V10L12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M13 7C13 8.65685 11.6569 10 10 10C8.34315 10 7 8.65685 7 7C7 5.34315 8.34315 4 10 4C11.6569 4 13 5.34315 13 7Z" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M5 16C5 13.2386 7.23858 11 10 11C12.7614 11 15 13.2386 15 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M15 4L17 6L15 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M17 6H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -71,12 +76,22 @@ export const Sidebar = React.memo(function Sidebar({
   state,
   isOverlay,
   onClose,
+  role,
 }: SidebarProps): React.ReactNode {
   const pathname = usePathname();
 
   const handleOverlayClick = useCallback((): void => {
     onClose();
   }, [onClose]);
+
+  const visibleItems = useMemo(
+    (): SidebarItem[] =>
+      SIDEBAR_ITEMS.filter((item) => {
+        if (item.adminOnly && role !== "admin") return false;
+        return true;
+      }),
+    [role]
+  );
 
   if (state === "hidden" && !isOverlay) {
     return null;
@@ -89,7 +104,7 @@ export const Sidebar = React.memo(function Sidebar({
       }`}
     >
       <div className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-        {SIDEBAR_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
             <Link

@@ -6,14 +6,18 @@ import { Logo } from "./Logo";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
+  username?: string;
+  onLogout?: () => void;
 }
 
 export const Header = React.memo(function Header({
   onToggleSidebar,
+  username = "使用者",
+  onLogout,
 }: HeaderProps): React.ReactNode {
   const handleLogout = useCallback((): void => {
-    // TODO: 實作登出邏輯
-  }, []);
+    onLogout?.();
+  }, [onLogout]);
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center border-b border-border bg-header-bg px-4">
@@ -50,7 +54,7 @@ export const Header = React.memo(function Header({
         </Link>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-sm text-muted">使用者</span>
+        <span className="text-sm text-muted">{username}</span>
         <button
           type="button"
           onClick={handleLogout}
