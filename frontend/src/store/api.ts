@@ -7,6 +7,7 @@ interface BaseQueryArgs {
   path: string;
   body?: unknown;
   params?: Record<string, string>;
+  formData?: FormData;
 }
 
 const customBaseQuery = fakeBaseQuery<string>();
@@ -20,6 +21,7 @@ export const baseApi = createApi({
         {
           body: args.body,
           params: args.params,
+          formData: args.formData,
         }
       );
 
@@ -36,7 +38,7 @@ export const baseApi = createApi({
       return { error: message };
     }
   },
-  tagTypes: ["Users", "Agents"],
+  tagTypes: ["Users", "Agents", "Skills"],
   endpoints: () => ({}),
 });
 

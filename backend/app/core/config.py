@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    SKILLS_UPLOAD_DIR: str = "data/skills"
+    SKILLS_MAX_FILE_SIZE: int = 50 * 1024 * 1024
+
     @property
     def DATABASE_URL(self) -> str:
         return (

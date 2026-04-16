@@ -14,3 +14,9 @@ export type {
   AgentUpdateRequest,
   VisibilityRequest,
 } from "./agents";
+export type {
+  Skill,
+  SkillUpdateRequest,
+  FileTreeNode,
+  SkillUploadParams,
+} from "./skills";
