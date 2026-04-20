@@ -5,7 +5,7 @@ import time
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients import openai_embedding
+from app.clients.openrouter import embed as openrouter_embed
 from app.clients.openrouter import extract_memory
 from app.core.database import AsyncSessionLocal
 from app.core.redis import get_redis
@@ -155,7 +155,7 @@ async def _process_batch(
             )
             if not embed_input.strip():
                 embed_input = combined[:1000]
-            vector = await openai_embedding.embed(embed_input)
+            vector = await openrouter_embed(embed_input)
             await chat_memory_repository.create(
                 {
                     "chat_session_uid": session_uid,

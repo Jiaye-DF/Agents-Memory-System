@@ -9,7 +9,7 @@
 - 新增 `chat_memory` 表（含 `vector(1536)` 欄位 + pgvector HNSW 索引）
 - Redis queue 非同步 worker：消費記憶任務，產出 keywords / entities / topic / embedding
 - OpenRouter 小模型摘要（`memory.extractor_model`，預設 `anthropic/claude-haiku-4-5`）
-- OpenAI `text-embedding-3-small` embedding（1536 維）
+- OpenRouter `openai/text-embedding-3-small` embedding（1536 維）
 - RAG 檢索 service：單 session scope，cosine similarity
 - 在 v1.1.1 的 `chat_service.send_message` 注入 `<memory>` 區塊到 system prompt
 - `rag.*` / `memory.*` 系統設定 seed + admin 設定 UI 支援
@@ -28,7 +28,7 @@
 - v1.1.1 已完成 `chat_message` 表與對話 pipeline
 - `migrations/sql/V1__...` 已啟用 pgvector 擴充（v1.0 既有）
 - `system_setting` 表可用，admin 於 `/admin/settings` 可編輯
-- `.env` 需新增 `OPENAI_API_KEY`（專用於 embedding，與 OpenRouter 金鑰分離）
+- embedding 與 LLM 對話統一走 `OPENROUTER_API_KEY`，不另設 key
 
 ---
 
@@ -37,7 +37,7 @@
 | #   | 決策                | 結論                                                                           |
 | --- | ------------------- | ------------------------------------------------------------------------------ |
 | 1   | 記憶抽取 Model      | 預設 `anthropic/claude-haiku-4-5`；admin 可於 `system_setting` 改              |
-| 2   | Embedding 方案      | OpenAI `text-embedding-3-small`（1536 維）直連；DB 欄位鎖 `vector(1536)`         |
+| 2   | Embedding 方案    | OpenRouter `openai/text-embedding-3-small`（1536 維）；欄位鎖 `vector(1536)`    |
 | 3   | 批次 Trigger        | OR 條件：每 5 則 OR idle 60 秒                                                  |
 | 4   | 預篩規則可配置      | `memory.skip_rules` 存 JSON 於 `system_setting`，admin 可調                     |
 | 5   | RAG scope（v1.1）   | 僅 session（檢索該 session 自己的 `chat_memory`）                                |
@@ -125,12 +125,12 @@
 
 ### 1-6 Client
 
-- [ ] `app/clients/openai_embedding.py`：
-  - `async def embed(text: str) -> list[float]`（回傳 1536 維向量）
-  - 使用 `AsyncOpenAI(api_key=OPENAI_API_KEY)`
-  - `model="text-embedding-3-small"`
+- [ ] `app/clients/openrouter/client.py` 擴充 `async def embed(text: str) -> list[float]`：
+  - 呼叫 `https://openrouter.ai/api/v1/embeddings`
+  - 使用 `OPENROUTER_API_KEY` + `HTTP-Referer` + `X-Title` headers
+  - `model="openai/text-embedding-3-small"`，回傳 1536 維向量
 
-- [ ] `app/clients/openrouter.py` 擴充 `async def extract_memory(messages: list[dict], model: str) -> MemoryExtractResult`
+- [ ] `app/clients/openrouter/client.py` 擴充 `async def extract_memory(messages: list[dict], model: str) -> MemoryExtractResult`
   - 使用 `response_format={"type": "json_schema", "json_schema": {...}}`
   - prompt：「請從以下對話中抽取關鍵資訊，回覆固定 JSON 結構」
 
@@ -257,4 +257,4 @@
 - [ ] Embedding API 斷線時，對話不中斷（log 警告、memory worker 重入 queue）
 - [ ] Session 軟刪除後，該 session 的 `chat_memory` 被清除
 - [ ] Admin 無法讀 `GET /chat/sessions/{uid}/memories`（403）
-- [ ] `.env.example` 新增 `OPENAI_API_KEY`（embedding 專用）
+- [ ] `.env.example` 的 `OPENROUTER_API_KEY` 同時供 LLM 對話與 embedding 使用，不另增 key

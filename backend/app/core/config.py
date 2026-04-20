@@ -28,8 +28,6 @@ class Settings(BaseSettings):
     OPENROUTER_HTTP_REFERER: str = "http://localhost:3000"
     OPENROUTER_APP_TITLE: str = "Agents Memory System"
 
-    OPENAI_API_KEY: str = ""
-
     @property
     def DATABASE_URL(self) -> str:
         return (

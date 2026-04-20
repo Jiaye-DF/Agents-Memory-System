@@ -35,7 +35,7 @@ v1.1 於此之上新增對話與記憶層，不改動既有 v1.0 資料表（僅
 | --- | --- |
 | LLM 呼叫（streaming） | `httpx` + OpenRouter Chat Completions API（SSE） |
 | 訊息 / Session 持久化 | SQLAlchemy + PostgreSQL |
-| Embedding | OpenAI `text-embedding-3-small`（1536 維） |
+| Embedding | OpenRouter `openai/text-embedding-3-small`（1536 維，共用 `OPENROUTER_API_KEY`） |
 | 向量檢索 | pgvector cosine similarity |
 | 非同步任務 | Redis queue + 後端 worker（FastAPI lifespan 啟動） |
 | 結構化輸出 | Pydantic + OpenRouter `response_format: json_schema` |

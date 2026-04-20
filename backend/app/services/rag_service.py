@@ -2,7 +2,7 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients import openai_embedding
+from app.clients.openrouter import embed as openrouter_embed
 from app.models.chat_memory import ChatMemory
 from app.repositories import chat_memory_repository
 from app.services import system_setting_service
@@ -40,7 +40,7 @@ async def retrieve(
         return []
 
     try:
-        vector = await openai_embedding.embed(cleaned[:4000])
+        vector = await openrouter_embed(cleaned[:4000])
     except Exception as exc:
         logger.warning("rag_service embedding 失敗，略過注入: %s", exc)
         return []

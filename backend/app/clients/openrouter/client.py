@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 
 OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_EMBEDDINGS_URL = "https://openrouter.ai/api/v1/embeddings"
+
+EMBEDDING_MODEL = "openai/text-embedding-3-small"
+EMBEDDING_DIMENSIONS = 1536
 
 MEMORY_EXTRACT_JSON_SCHEMA = {
     "type": "object",
@@ -144,6 +148,77 @@ async def stream_chat_completion(
             response_code=502,
             status_code=502,
         ) from exc
+
+
+async def embed(text: str) -> list[float]:
+    """
+    呼叫 OpenRouter embeddings 端點，將文字轉為 1536 維向量。
+    統一使用 OpenRouter 管理 key，避免多來源憑證分散。
+    """
+    cleaned = (text or "").strip()
+    if not cleaned:
+        raise AppError(
+            detail="embedding 輸入為空", response_code=400, status_code=400
+        )
+
+    if not settings.OPENROUTER_API_KEY:
+        raise AppError(
+            detail="OPENROUTER_API_KEY 未設定，無法呼叫 embedding API",
+            response_code=500,
+            status_code=500,
+        )
+
+    headers = {
+        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": settings.OPENROUTER_HTTP_REFERER,
+        "X-Title": settings.OPENROUTER_APP_TITLE,
+    }
+    body = {"model": EMBEDDING_MODEL, "input": cleaned}
+    timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(
+                OPENROUTER_EMBEDDINGS_URL, headers=headers, json=body
+            )
+            if resp.status_code >= 400:
+                logger.warning(
+                    "OpenRouter embedding 回應錯誤 %s: %s",
+                    resp.status_code,
+                    resp.text[:500],
+                )
+                raise AppError(
+                    detail=f"embedding 呼叫失敗（HTTP {resp.status_code}）",
+                    response_code=502,
+                    status_code=502,
+                )
+            payload = resp.json()
+    except AppError:
+        raise
+    except httpx.HTTPError as exc:
+        logger.warning("OpenRouter embedding 連線失敗: %s", exc)
+        raise AppError(
+            detail="無法連線至 OpenRouter（embedding）",
+            response_code=502,
+            status_code=502,
+        ) from exc
+
+    data = payload.get("data") or []
+    if not data or not isinstance(data[0], dict):
+        raise AppError(
+            detail="embedding 回應為空",
+            response_code=502,
+            status_code=502,
+        )
+    vector = data[0].get("embedding")
+    if not isinstance(vector, list):
+        raise AppError(
+            detail="embedding 回應格式異常",
+            response_code=502,
+            status_code=502,
+        )
+    return [float(v) for v in vector]
 
 
 async def extract_memory(
