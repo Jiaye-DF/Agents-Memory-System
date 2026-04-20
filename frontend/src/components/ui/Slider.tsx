@@ -17,6 +17,7 @@ interface SliderProps {
   disabled?: boolean;
   id?: string;
   className?: string;
+  ariaLabel?: string;
 }
 
 export const Slider = React.memo(function Slider({
@@ -29,6 +30,7 @@ export const Slider = React.memo(function Slider({
   disabled = false,
   id,
   className = "",
+  ariaLabel,
 }: SliderProps): React.ReactNode {
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -51,6 +53,7 @@ export const Slider = React.memo(function Slider({
         value={value}
         disabled={disabled}
         onChange={handleChange}
+        aria-label={ariaLabel}
         className="h-2 w-full cursor-pointer appearance-none rounded-xl bg-muted-bg accent-primary disabled:cursor-not-allowed disabled:opacity-50"
       />
       {marks && marks.length > 0 && (

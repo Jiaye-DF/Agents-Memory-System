@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
 import { Toggle } from "@/components/ui/Toggle";
+import { Slider } from "@/components/ui/Slider";
+import { PresetButton } from "@/components/ui/PresetButton";
 import { ModalDialog } from "@/components/ui/ModalDialog";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
@@ -50,6 +52,12 @@ interface TemplateFormValues {
   sort_order: string;
   is_active: boolean;
 }
+
+const TEMPERATURE_PRESETS = [
+  { label: "精確", value: 0.2 },
+  { label: "自然", value: 0.7 },
+  { label: "創意", value: 1.2 },
+];
 
 const DEFAULT_VALUES: TemplateFormValues = {
   template_key: "",
@@ -209,7 +217,7 @@ const TemplateFormDialog = React.memo(function TemplateFormDialog({
   );
 
   return (
-    <ModalDialog title={title} onClose={onClose}>
+    <ModalDialog title={title} onClose={onClose} size="lg">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
           <label
@@ -260,17 +268,17 @@ const TemplateFormDialog = React.memo(function TemplateFormDialog({
             onChange={(e) => setField("description", e.target.value)}
             disabled={submitting}
             rows={2}
-            placeholder="同時填入 agent.description"
+            placeholder="簡短說明此範本的用途，例如：協助撰寫與除錯 Python 程式碼"
             className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
           />
         </div>
 
         <Input
-          label="套用的 Agent 名稱"
+          label="預設 Agent 名稱"
           value={values.name}
           onChange={(e) => setField("name", e.target.value)}
           disabled={submitting}
-          placeholder="套用時填入 agent.name"
+          placeholder="使用者套用範本後預設填入的名稱，例如：Python 開發助手"
         />
 
         <Input
@@ -278,7 +286,7 @@ const TemplateFormDialog = React.memo(function TemplateFormDialog({
           value={values.identity}
           onChange={(e) => setField("identity", e.target.value)}
           disabled={submitting}
-          placeholder="如：資深 Python 工程師"
+          placeholder="例如：資深 Python 工程師，熟悉常用框架"
         />
 
         <div>
@@ -309,7 +317,7 @@ const TemplateFormDialog = React.memo(function TemplateFormDialog({
           value={values.style}
           onChange={(e) => setField("style", e.target.value)}
           disabled={submitting}
-          placeholder="如：專業、精確、務實"
+          placeholder="例如：專業、精確、務實"
         />
 
         <div>
@@ -325,7 +333,7 @@ const TemplateFormDialog = React.memo(function TemplateFormDialog({
             onChange={(e) => setField("role_prompt", e.target.value)}
             disabled={submitting}
             rows={6}
-            placeholder="詳細的 role prompt"
+            placeholder="描述 Agent 的工作方式與回覆規則，例如：請以資深工程師角度回答，並列出可執行的範例"
             className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
           />
         </div>
@@ -343,29 +351,70 @@ const TemplateFormDialog = React.memo(function TemplateFormDialog({
             onChange={(e) => setField("greeting", e.target.value)}
             disabled={submitting}
             rows={2}
+            placeholder="Agent 對話開始時的第一句話"
             className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="溫度"
-            type="number"
-            value={values.temperature}
-            onChange={(e) => setField("temperature", e.target.value)}
-            error={errors.temperature}
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label
+              htmlFor="tpl-temp"
+              className="text-base font-medium text-foreground"
+            >
+              回答風格
+              <span className="ml-1 text-sm font-normal text-muted">
+                (Temperature)
+              </span>
+            </label>
+            <span className="rounded-xl bg-muted-bg px-2 py-0.5 font-mono text-base text-foreground">
+              {(Number(values.temperature) || 0).toFixed(1)}
+            </span>
+          </div>
+          <Slider
+            id="tpl-temp"
+            ariaLabel="回答風格"
+            min={0}
+            max={2}
+            step={0.1}
+            value={Number(values.temperature) || 0}
+            onChange={(next) => setField("temperature", String(next))}
             disabled={submitting}
-            placeholder="0 ~ 2"
+            marks={[
+              { value: 0, label: "0.0" },
+              { value: 1, label: "1.0" },
+              { value: 2, label: "2.0" },
+            ]}
           />
-          <Input
-            label="最大 Token"
-            type="number"
-            value={values.max_tokens}
-            onChange={(e) => setField("max_tokens", e.target.value)}
-            error={errors.max_tokens}
-            disabled={submitting}
-          />
+          <div className="mt-3 flex flex-wrap gap-2">
+            {TEMPERATURE_PRESETS.map((p) => (
+              <PresetButton
+                key={p.label}
+                active={
+                  Math.abs((Number(values.temperature) || 0) - p.value) < 0.0001
+                }
+                onClick={() => setField("temperature", String(p.value))}
+                disabled={submitting}
+              >
+                {p.label} {p.value.toFixed(1)}
+              </PresetButton>
+            ))}
+          </div>
+          {errors.temperature && (
+            <p className="mt-1 text-base text-destructive">
+              {errors.temperature}
+            </p>
+          )}
         </div>
+
+        <Input
+          label="最大 Token"
+          type="number"
+          value={values.max_tokens}
+          onChange={(e) => setField("max_tokens", e.target.value)}
+          error={errors.max_tokens}
+          disabled={submitting}
+        />
 
         <div>
           <label

@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Slider } from "@/components/ui/Slider";
+import { PresetButton } from "@/components/ui/PresetButton";
 import { MultiSelect } from "@/components/ui/MultiSelect";
 import type { MultiSelectOption } from "@/components/ui/MultiSelect";
 import { ModalDialog } from "@/components/ui/ModalDialog";
@@ -120,32 +121,6 @@ const Section = React.memo(function Section({
       </div>
       <div className="flex flex-col gap-4">{children}</div>
     </section>
-  );
-});
-
-interface PresetButtonProps {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}
-
-const PresetButton = React.memo(function PresetButton({
-  active,
-  onClick,
-  children,
-}: PresetButtonProps): React.ReactNode {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors hover:cursor-pointer ${
-        active
-          ? "border-primary bg-primary text-white"
-          : "border-border bg-muted-bg text-foreground hover:bg-border"
-      }`}
-    >
-      {children}
-    </button>
   );
 });
 
@@ -954,6 +929,7 @@ export function AgentForm({
                 </div>
                 <Slider
                   id="temperature"
+                  ariaLabel="回答風格"
                   min={0}
                   max={2}
                   step={0.1}

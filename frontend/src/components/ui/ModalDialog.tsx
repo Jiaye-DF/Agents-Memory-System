@@ -74,10 +74,14 @@ export const ModalDialog = React.memo(function ModalDialog({
       onClick={handleOverlayClick}
     >
       <div
-        className={`w-full ${SIZE_CLASSES[size]} rounded-xl bg-card-bg p-6 shadow-lg`}
+        className={`flex max-h-[calc(100vh-2rem)] w-full flex-col ${SIZE_CLASSES[size]} rounded-xl bg-card-bg shadow-lg`}
       >
-        <h3 className="mb-4 text-xl font-semibold text-foreground">{title}</h3>
-        {children}
+        <h3 className="px-6 pb-4 pt-6 text-xl font-semibold text-foreground">
+          {title}
+        </h3>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+          {children}
+        </div>
       </div>
     </div>
   );
