@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.core.pagination import decode_cursor, encode_cursor
 from app.models.agent import Agent
@@ -25,8 +26,8 @@ def _agent_to_dict(agent: Agent, skill_uids: list[str]) -> dict:
         "visibility": agent.visibility,
         "is_active": agent.is_active,
         "skill_uids": skill_uids,
-        "created_at": agent.created_at.isoformat(),
-        "updated_at": agent.updated_at.isoformat(),
+        "created_at": to_taipei_iso(agent.created_at),
+        "updated_at": to_taipei_iso(agent.updated_at),
     }
 
 

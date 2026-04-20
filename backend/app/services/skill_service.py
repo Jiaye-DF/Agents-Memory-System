@@ -10,6 +10,7 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.core.pagination import decode_cursor, encode_cursor
 from app.models.skill import Skill
@@ -39,8 +40,8 @@ def _skill_to_dict(skill: Skill) -> dict:
         "file_size": skill.file_size,
         "visibility": skill.visibility,
         "is_active": skill.is_active,
-        "created_at": skill.created_at.isoformat(),
-        "updated_at": skill.updated_at.isoformat(),
+        "created_at": to_taipei_iso(skill.created_at),
+        "updated_at": to_taipei_iso(skill.updated_at),
     }
 
 

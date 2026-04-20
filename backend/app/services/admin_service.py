@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.core.pagination import decode_cursor, encode_cursor
 from app.models.user import User
@@ -15,8 +16,8 @@ def _user_to_dict(user: User) -> dict:
         "role_name": user.role.name,
         "is_active": user.is_active,
         "login_fail_count": user.login_fail_count,
-        "locked_until": user.locked_until.isoformat() if user.locked_until else None,
-        "created_at": user.created_at.isoformat(),
+        "locked_until": to_taipei_iso(user.locked_until),
+        "created_at": to_taipei_iso(user.created_at),
     }
 
 

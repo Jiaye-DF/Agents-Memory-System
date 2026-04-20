@@ -247,6 +247,7 @@ const FormDialog = React.memo(function FormDialog({
 });
 
 type StatusFilter = "all" | "active" | "inactive";
+type SortOrder = "newest" | "oldest";
 
 interface FilterChipProps {
   active: boolean;
@@ -352,6 +353,7 @@ export default function AdminModelsPage(): React.ReactNode {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [vendorFilter, setVendorFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [formState, setFormState] = useState<FormState | null>(null);
 
   useEffect(() => {
@@ -387,7 +389,7 @@ export default function AdminModelsPage(): React.ReactNode {
 
   const filteredModels = useMemo((): LlmModelAdmin[] => {
     const term = searchTerm.trim().toLowerCase();
-    return items.filter((m) => {
+    const matched = items.filter((m) => {
       if (vendorFilter !== "all" && !m.model_id.startsWith(`${vendorFilter}/`)) {
         return false;
       }
@@ -399,7 +401,12 @@ export default function AdminModelsPage(): React.ReactNode {
         m.display_name.toLowerCase().includes(term)
       );
     });
-  }, [items, searchTerm, vendorFilter, statusFilter]);
+    const sorted = [...matched].sort((a, b) => {
+      const diff = a.created_at.localeCompare(b.created_at);
+      return sortOrder === "newest" ? -diff : diff;
+    });
+    return sorted;
+  }, [items, searchTerm, vendorFilter, statusFilter, sortOrder]);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -699,6 +706,22 @@ export default function AdminModelsPage(): React.ReactNode {
               onClick={() => setStatusFilter("inactive")}
             >
               停用
+            </FilterChip>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="shrink-0 text-sm text-muted">排序：</span>
+            <FilterChip
+              active={sortOrder === "newest"}
+              onClick={() => setSortOrder("newest")}
+            >
+              最新
+            </FilterChip>
+            <FilterChip
+              active={sortOrder === "oldest"}
+              onClick={() => setSortOrder("oldest")}
+            >
+              最舊
             </FilterChip>
           </div>
         </div>

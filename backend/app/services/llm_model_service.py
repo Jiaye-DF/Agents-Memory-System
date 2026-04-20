@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.core.pagination import decode_cursor, encode_cursor
 from app.models.llm_model import LlmModel
@@ -21,8 +22,8 @@ def _to_dict(model: LlmModel) -> dict:
         "display_name": model.display_name,
         "is_active": model.is_active,
         "is_deleted": model.is_deleted,
-        "created_at": model.created_at.isoformat(),
-        "updated_at": model.updated_at.isoformat(),
+        "created_at": to_taipei_iso(model.created_at),
+        "updated_at": to_taipei_iso(model.updated_at),
     }
 
 
