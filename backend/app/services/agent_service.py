@@ -30,6 +30,7 @@ def _agent_to_dict(agent: Agent, skill_uids: list[str]) -> dict:
         "max_tokens": agent.max_tokens,
         "greeting": agent.greeting,
         "response_format": agent.response_format,
+        "response_format_example": agent.response_format_example,
         "visibility": agent.visibility,
         "is_active": agent.is_active,
         "skill_uids": skill_uids,
@@ -86,6 +87,7 @@ async def create_agent(
             "max_tokens": data.max_tokens,
             "greeting": data.greeting,
             "response_format": data.response_format,
+            "response_format_example": data.response_format_example,
             "visibility": data.visibility,
         },
         db,
@@ -172,6 +174,8 @@ async def update_agent(
         update_data["greeting"] = data.greeting
     if data.response_format is not None:
         update_data["response_format"] = data.response_format
+    if data.response_format_example is not None:
+        update_data["response_format_example"] = data.response_format_example
 
     if update_data:
         await agent_repository.update(agent, update_data, db)

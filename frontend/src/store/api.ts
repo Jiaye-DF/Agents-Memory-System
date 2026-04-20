@@ -43,6 +43,8 @@ export const baseApi = createApi({
     "AdminLlmModels",
     "AgentLanguages",
     "AdminAgentLanguages",
+    "AgentTemplates",
+    "AdminAgentTemplates",
     "PublicSettings",
     "AdminSettings",
   ],

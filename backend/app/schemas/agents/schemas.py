@@ -15,6 +15,7 @@ class AgentCreateRequest(BaseModel):
     max_tokens: int | None = None
     greeting: str | None = None
     response_format: str | None = "markdown"
+    response_format_example: str | None = None
     visibility: str = "private"
     skill_uids: list[str] | None = None
 
@@ -47,6 +48,7 @@ class AgentUpdateRequest(BaseModel):
     max_tokens: int | None = None
     greeting: str | None = None
     response_format: str | None = None
+    response_format_example: str | None = None
     skill_uids: list[str] | None = None
 
     @field_validator("name")
@@ -76,6 +78,7 @@ class AgentResponse(BaseModel):
     max_tokens: int | None
     greeting: str | None
     response_format: str | None
+    response_format_example: str | None
     visibility: str
     is_active: bool
     skill_uids: list[str]

@@ -33,6 +33,11 @@ export type {
   AgentLanguageUpdateRequest,
 } from "./agent-languages";
 export type {
+  AgentTemplate,
+  AgentTemplateCreateRequest,
+  AgentTemplateUpdateRequest,
+} from "./agent-templates";
+export type {
   SystemSetting,
   SystemSettingUpdateRequest,
   SystemSettingValueType,

@@ -29,6 +29,9 @@ class Agent(Base):
     response_format: Mapped[str | None] = mapped_column(
         String(20), nullable=True, default="markdown"
     )
+    response_format_example: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
     visibility: Mapped[str] = mapped_column(
         String(10), nullable=False, default="private"
     )

@@ -11,6 +11,11 @@ from app.schemas.agent_languages.schemas import (
     AgentLanguageResponse,
     AgentLanguageUpdateRequest,
 )
+from app.schemas.agent_templates.schemas import (
+    AgentTemplateCreateRequest,
+    AgentTemplateResponse,
+    AgentTemplateUpdateRequest,
+)
 from app.schemas.auth.schemas import TokenPayload
 from app.schemas.models.schemas import (
     LlmModelAdminResponse,
@@ -29,6 +34,7 @@ from app.schemas.system_settings.schemas import (
 from app.services import (
     admin_service,
     agent_language_service,
+    agent_template_service,
     llm_model_service,
     system_setting_service,
 )
@@ -274,3 +280,79 @@ async def update_setting_admin(
 ) -> JSONResponse:
     result = await system_setting_service.update_setting(key, data, db)
     return success(data=result)
+
+
+# ============================================================
+# Agent 範本管理
+# ============================================================
+
+
+@router.get(
+    "/agent-templates",
+    response_model=ApiResponse[PaginatedData[AgentTemplateResponse]],
+)
+async def list_agent_templates_admin(
+    _current_user: TokenPayload = require_role("admin"),
+    cursor: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await agent_template_service.list_templates_admin(
+        cursor, limit, db
+    )
+    return success(data=result)
+
+
+@router.post(
+    "/agent-templates",
+    response_model=ApiResponse[AgentTemplateResponse],
+)
+async def create_agent_template(
+    data: AgentTemplateCreateRequest,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await agent_template_service.create_template(data, db)
+    return success(data=result, response_code=201)
+
+
+@router.get(
+    "/agent-templates/{agent_template_uid}",
+    response_model=ApiResponse[AgentTemplateResponse],
+)
+async def get_agent_template(
+    agent_template_uid: str,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await agent_template_service.get_template(agent_template_uid, db)
+    return success(data=result)
+
+
+@router.put(
+    "/agent-templates/{agent_template_uid}",
+    response_model=ApiResponse[AgentTemplateResponse],
+)
+async def update_agent_template(
+    agent_template_uid: str,
+    data: AgentTemplateUpdateRequest,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await agent_template_service.update_template(
+        agent_template_uid, data, db
+    )
+    return success(data=result)
+
+
+@router.delete(
+    "/agent-templates/{agent_template_uid}",
+    response_model=ApiResponse[MessageData],
+)
+async def delete_agent_template(
+    agent_template_uid: str,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    await agent_template_service.delete_template(agent_template_uid, db)
+    return success(data={"message": "範本已刪除"})

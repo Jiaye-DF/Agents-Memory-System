@@ -25,10 +25,9 @@ import { useListModelsQuery } from "@/store/modelsApi";
 import { useListSkillsQuery } from "@/store/skillsApi";
 import { useListAgentLanguagesQuery } from "@/store/agentLanguagesApi";
 import { useGetPublicSettingsQuery } from "@/store/systemSettingsApi";
-import { AGENT_TEMPLATES } from "@/utils/agentTemplates";
-import type { AgentTemplate, AgentTemplateValues } from "@/utils/agentTemplates";
+import { useListAgentTemplatesQuery } from "@/store/agentTemplatesApi";
 import { composeSystemPrompt } from "@/utils/agentPrompt";
-import type { Agent } from "@/types";
+import type { Agent, AgentTemplate } from "@/types";
 
 type Mode = "create" | "edit";
 
@@ -49,6 +48,7 @@ interface FormState {
   max_tokens: number;
   greeting: string;
   response_format: string;
+  response_format_example: string;
   visibility: "public" | "private";
   skill_uids: string[];
 }
@@ -72,15 +72,23 @@ const DEFAULT_FORM: FormState = {
   max_tokens: 4096,
   greeting: "",
   response_format: "markdown",
+  response_format_example: "",
   visibility: "private",
   skill_uids: [],
 };
 
 const TEMPERATURE_PRESETS = [
-  { label: "保守", value: 0.2 },
-  { label: "平衡", value: 0.7 },
-  { label: "發散", value: 1.2 },
+  { label: "精確", value: 0.2 },
+  { label: "自然", value: 0.7 },
+  { label: "創意", value: 1.2 },
 ];
+
+const DEFAULT_JSON_EXAMPLE = `{
+  "title": "...",
+  "items": [
+    { "name": "...", "value": 0 }
+  ]
+}`;
 
 const TOKEN_PRESETS = [
   { label: "1K", value: 1024 },
@@ -248,6 +256,7 @@ function agentToFormState(
       typeof agent.max_tokens === "number" ? agent.max_tokens : 4096,
     greeting: agent.greeting ?? "",
     response_format: agent.response_format ?? "markdown",
+    response_format_example: agent.response_format_example ?? "",
     visibility: agent.visibility,
     skill_uids: agent.skill_uids ?? [],
     ...overrides,
@@ -256,24 +265,28 @@ function agentToFormState(
 
 function applyTemplateValues(
   prev: FormState,
-  values: AgentTemplateValues
+  tpl: AgentTemplate
 ): FormState {
+  const nextFormat = tpl.response_format ?? prev.response_format;
+  const nextExample = tpl.response_format_example ?? "";
   return {
     ...prev,
-    name: values.name ?? prev.name,
-    description: values.description ?? prev.description,
-    language: values.language ?? prev.language,
-    style: values.style ?? prev.style,
-    identity: values.identity ?? prev.identity,
-    role_prompt: values.role_prompt ?? prev.role_prompt,
-    greeting: values.greeting ?? prev.greeting,
+    name: tpl.name ?? prev.name,
+    description: tpl.description ?? prev.description,
+    language: tpl.language ?? prev.language,
+    style: tpl.style ?? prev.style,
+    identity: tpl.identity ?? prev.identity,
+    role_prompt: tpl.role_prompt ?? prev.role_prompt,
+    greeting: tpl.greeting ?? prev.greeting,
     temperature:
-      typeof values.temperature === "number"
-        ? values.temperature
-        : prev.temperature,
+      typeof tpl.temperature === "number" ? tpl.temperature : prev.temperature,
     max_tokens:
-      typeof values.max_tokens === "number" ? values.max_tokens : prev.max_tokens,
-    response_format: values.response_format ?? prev.response_format,
+      typeof tpl.max_tokens === "number" ? tpl.max_tokens : prev.max_tokens,
+    response_format: nextFormat,
+    response_format_example:
+      nextFormat === "json"
+        ? nextExample || prev.response_format_example || DEFAULT_JSON_EXAMPLE
+        : "",
   };
 }
 
@@ -290,8 +303,11 @@ export function AgentForm({
 
   const { data: modelsData } = useListModelsQuery();
   const { data: languagesData } = useListAgentLanguagesQuery();
-  const { data: skillsData } = useListSkillsQuery({ limit: 100 });
+  const { data: skillsData } = useListSkillsQuery({ limit: 50 });
   const { data: publicSettings } = useGetPublicSettingsQuery();
+  const { data: templatesData } = useListAgentTemplatesQuery(undefined, {
+    skip: mode !== "create",
+  });
 
   const fromUid = mode === "create" ? searchParams?.get("from") ?? null : null;
   const { data: fromAgent } = useGetAgentQuery(fromUid ?? "", {
@@ -318,6 +334,10 @@ export function AgentForm({
   );
   const models = useMemo(() => modelsData?.items ?? [], [modelsData]);
   const skills = useMemo(() => skillsData?.items ?? [], [skillsData]);
+  const templates = useMemo(
+    (): AgentTemplate[] => templatesData?.items ?? [],
+    [templatesData]
+  );
 
   const maxSkills = useMemo((): number => {
     const raw = publicSettings?.["agent.max_skills"];
@@ -497,7 +517,22 @@ export function AgentForm({
 
   const handleResponseFormatChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>): void => {
-      setField("response_format", e.target.value);
+      const next = e.target.value;
+      setForm((prev) => ({
+        ...prev,
+        response_format: next,
+        response_format_example:
+          next === "json" && !prev.response_format_example
+            ? DEFAULT_JSON_EXAMPLE
+            : prev.response_format_example,
+      }));
+    },
+    []
+  );
+
+  const handleResponseFormatExampleChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
+      setField("response_format_example", e.target.value);
     },
     [setField]
   );
@@ -513,7 +548,7 @@ export function AgentForm({
         }));
         return;
       }
-      setForm((prev) => applyTemplateValues(prev, template.values));
+      setForm((prev) => applyTemplateValues(prev, template));
     },
     []
   );
@@ -609,6 +644,10 @@ export function AgentForm({
           typeof form.max_tokens === "number" ? form.max_tokens : null,
         greeting: form.greeting || null,
         response_format: form.response_format || "markdown",
+        response_format_example:
+          form.response_format === "json"
+            ? form.response_format_example || null
+            : null,
         skill_uids: form.skill_uids,
       };
 
@@ -726,21 +765,29 @@ export function AgentForm({
                     <span className="font-medium text-foreground">空白</span>
                     <span className="text-sm text-muted">清空所有欄位</span>
                   </button>
-                  {AGENT_TEMPLATES.map((t) => (
-                    <button
-                      key={t.key}
-                      type="button"
-                      onClick={() => applyTemplate(t)}
-                      className="flex w-full flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left hover:cursor-pointer hover:bg-muted-bg"
-                    >
-                      <span className="font-medium text-foreground">
-                        {t.label}
-                      </span>
-                      <span className="line-clamp-1 text-sm text-muted">
-                        {t.description}
-                      </span>
-                    </button>
-                  ))}
+                  {templates.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-muted">
+                      尚無可用範本
+                    </div>
+                  ) : (
+                    templates.map((t) => (
+                      <button
+                        key={t.agent_template_uid}
+                        type="button"
+                        onClick={() => applyTemplate(t)}
+                        className="flex w-full flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left hover:cursor-pointer hover:bg-muted-bg"
+                      >
+                        <span className="font-medium text-foreground">
+                          {t.label}
+                        </span>
+                        {t.description && (
+                          <span className="line-clamp-1 text-sm text-muted">
+                            {t.description}
+                          </span>
+                        )}
+                      </button>
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -896,7 +943,10 @@ export function AgentForm({
                     htmlFor="temperature"
                     className="text-base font-medium text-foreground"
                   >
-                    溫度 (Temperature)
+                    回答風格
+                    <span className="ml-1 text-sm font-normal text-muted">
+                      (Temperature)
+                    </span>
                   </label>
                   <span className="rounded-xl bg-muted-bg px-2 py-0.5 font-mono text-base text-foreground">
                     {form.temperature.toFixed(1)}
@@ -994,6 +1044,29 @@ export function AgentForm({
                   <option value="plain_text">純文字</option>
                   <option value="json">JSON</option>
                 </select>
+
+                {form.response_format === "json" && (
+                  <div className="mt-3">
+                    <label
+                      htmlFor="response_format_example"
+                      className="mb-1.5 block text-base font-medium text-foreground"
+                    >
+                      JSON 範例
+                    </label>
+                    <p className="mb-2 text-sm text-muted">
+                      提供期望的回覆結構範例，LLM 會依此格式輸出。
+                    </p>
+                    <textarea
+                      id="response_format_example"
+                      value={form.response_format_example}
+                      onChange={handleResponseFormatExampleChange}
+                      placeholder={DEFAULT_JSON_EXAMPLE}
+                      rows={8}
+                      spellCheck={false}
+                      className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 font-mono text-sm text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+                    />
+                  </div>
+                )}
               </div>
             </Section>
 
