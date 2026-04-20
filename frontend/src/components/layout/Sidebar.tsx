@@ -21,7 +21,7 @@ interface SidebarProps {
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
   {
-    label: "Dashboard",
+    label: "儀表板",
     href: "/dashboard",
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -33,7 +33,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
     ),
   },
   {
-    label: "Agents",
+    label: "Agent 管理",
     href: "/agents",
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -43,7 +43,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
     ),
   },
   {
-    label: "Skills",
+    label: "Skill 管理",
     href: "/skills",
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -52,7 +52,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
     ),
   },
   {
-    label: "User Management",
+    label: "使用者管理",
     href: "/admin/users",
     adminOnly: true,
     icon: (
@@ -61,6 +61,18 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
         <path d="M5 16C5 13.2386 7.23858 11 10 11C12.7614 11 15 13.2386 15 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         <path d="M15 4L17 6L15 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M17 6H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    label: "LLM 模型管理",
+    href: "/admin/models",
+    adminOnly: true,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="4" y="4" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="7.5" y="7.5" width="5" height="5" rx="0.5" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M4 8H2M4 12H2M18 8H16M18 12H16M8 4V2M12 4V2M8 18V16M12 18V16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
   },

@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { Pagination } from "@/components/ui/Pagination";
+import { Input } from "@/components/ui/Input";
 import { PageLoading } from "@/components/ui/Loading";
 import { useDialog } from "@/hooks/useDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +13,11 @@ import {
   useToggleSkillVisibilityMutation,
 } from "@/store/skillsApi";
 import type { Skill } from "@/types";
+import { parseSearch, matchByTextAndAuthor } from "@/utils/search";
+import { formatDateTime } from "@/utils/datetime";
+
+type VisibilityFilter = "all" | "public" | "private";
+type SortOrder = "newest" | "oldest";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -64,6 +69,11 @@ const SkillRow = React.memo(function SkillRow({
           >
             {skill.visibility === "public" ? "公開" : "私人"}
           </span>
+          {skill.owner_username && (
+            <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+              @{skill.owner_username}
+            </span>
+          )}
         </div>
 
         {skill.description && (
@@ -75,6 +85,7 @@ const SkillRow = React.memo(function SkillRow({
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
           <span>{formatFileSize(skill.file_size)}</span>
           <span className="truncate">{skill.original_filename}</span>
+          <span>上傳於 {formatDateTime(skill.created_at)}</span>
         </div>
       </div>
 
@@ -92,23 +103,78 @@ const SkillRow = React.memo(function SkillRow({
   );
 });
 
+interface FilterChipProps {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+const FilterChip = React.memo(function FilterChip({
+  active,
+  onClick,
+  children,
+}: FilterChipProps): React.ReactNode {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
+        active
+          ? "bg-primary text-white"
+          : "bg-muted-bg text-muted hover:bg-border"
+      }`}
+    >
+      {children}
+    </button>
+  );
+});
+
 export default function SkillsListPage(): React.ReactNode {
   const { userUid, isLoading: authLoading } = useAuth();
   const { showDialog } = useDialog();
 
-  const [limit, setLimit] = useState<number>(20);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
+  const [query, setQuery] = useState<string>("");
+  const [visibilityFilter, setVisibilityFilter] =
+    useState<VisibilityFilter>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
 
   const { data, isLoading, isFetching } = useListSkillsQuery(
-    { limit, cursor },
+    { limit: 50, cursor: null },
     { skip: authLoading }
   );
 
   const [deleteSkill] = useDeleteSkillMutation();
   const [toggleVisibility] = useToggleSkillVisibilityMutation();
 
-  const skills = data?.items ?? [];
+  const skills = useMemo((): Skill[] => data?.items ?? [], [data]);
+
+  const parsed = useMemo(() => parseSearch(query), [query]);
+
+  const filteredSkills = useMemo((): Skill[] => {
+    const matched = skills.filter((s) => {
+      if (visibilityFilter !== "all" && s.visibility !== visibilityFilter) {
+        return false;
+      }
+      return matchByTextAndAuthor(
+        s.name,
+        s.description,
+        s.owner_username,
+        parsed
+      );
+    });
+    const sorted = [...matched].sort((a, b) => {
+      const diff = a.created_at.localeCompare(b.created_at);
+      return sortOrder === "newest" ? -diff : diff;
+    });
+    return sorted;
+  }, [skills, visibilityFilter, parsed, sortOrder]);
+
+  const handleQueryChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>): void => {
+      setQuery(e.target.value);
+    },
+    []
+  );
 
   const handleDelete = useCallback(
     (skillUid: string): void => {
@@ -164,28 +230,6 @@ export default function SkillsListPage(): React.ReactNode {
     [showDialog, toggleVisibility]
   );
 
-  const handleNextPage = useCallback((): void => {
-    if (data?.next_cursor) {
-      setCursorHistory((prev) => [...prev, cursor ?? ""]);
-      setCursor(data.next_cursor);
-    }
-  }, [data?.next_cursor, cursor]);
-
-  const handlePrevPage = useCallback((): void => {
-    setCursorHistory((prev) => {
-      const newHistory = [...prev];
-      const prevCursor = newHistory.pop();
-      setCursor(prevCursor || null);
-      return newHistory;
-    });
-  }, []);
-
-  const handleLimitChange = useCallback((newLimit: number): void => {
-    setLimit(newLimit);
-    setCursor(null);
-    setCursorHistory([]);
-  }, []);
-
   if (authLoading) {
     return <PageLoading />;
   }
@@ -199,6 +243,53 @@ export default function SkillsListPage(): React.ReactNode {
         </Link>
       </div>
 
+      <div className="mb-4 flex flex-col gap-3">
+        <Input
+          placeholder="搜尋名稱、描述，或輸入 @作者 篩選（可多個）"
+          value={query}
+          onChange={handleQueryChange}
+        />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="shrink-0 text-sm text-muted">可見性：</span>
+          <FilterChip
+            active={visibilityFilter === "all"}
+            onClick={() => setVisibilityFilter("all")}
+          >
+            全部
+          </FilterChip>
+          <FilterChip
+            active={visibilityFilter === "public"}
+            onClick={() => setVisibilityFilter("public")}
+          >
+            公開
+          </FilterChip>
+          <FilterChip
+            active={visibilityFilter === "private"}
+            onClick={() => setVisibilityFilter("private")}
+          >
+            私人
+          </FilterChip>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="shrink-0 text-sm text-muted">排序：</span>
+          <FilterChip
+            active={sortOrder === "newest"}
+            onClick={() => setSortOrder("newest")}
+          >
+            由新到舊
+          </FilterChip>
+          <FilterChip
+            active={sortOrder === "oldest"}
+            onClick={() => setSortOrder("oldest")}
+          >
+            由舊到新
+          </FilterChip>
+        </div>
+
+      </div>
+
       <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
         {isLoading || isFetching ? (
           <PageLoading />
@@ -206,30 +297,22 @@ export default function SkillsListPage(): React.ReactNode {
           <div className="py-12 text-center text-muted">
             尚無 Skills，點擊右上角上傳第一個 Skill。
           </div>
+        ) : filteredSkills.length === 0 ? (
+          <div className="py-12 text-center text-muted">
+            沒有符合條件的 Skills
+          </div>
         ) : (
-          <>
-            <div className="divide-y divide-border">
-              {skills.map((skill) => (
-                <SkillRow
-                  key={skill.skill_uid}
-                  skill={skill}
-                  isOwner={skill.owner_uid === userUid}
-                  onDelete={handleDelete}
-                  onToggleVisibility={handleToggleVisibility}
-                />
-              ))}
-            </div>
-            <div className="border-t border-border p-4">
-              <Pagination
-                hasNext={data?.has_next ?? false}
-                hasPrev={cursorHistory.length > 0}
-                limit={limit}
-                onNextPage={handleNextPage}
-                onPrevPage={handlePrevPage}
-                onLimitChange={handleLimitChange}
+          <div className="divide-y divide-border">
+            {filteredSkills.map((skill) => (
+              <SkillRow
+                key={skill.skill_uid}
+                skill={skill}
+                isOwner={skill.owner_uid === userUid}
+                onDelete={handleDelete}
+                onToggleVisibility={handleToggleVisibility}
               />
-            </div>
-          </>
+            ))}
+          </div>
         )}
       </div>
     </div>

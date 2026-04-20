@@ -2,10 +2,16 @@
 
 import React, { useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import {
+  oneLight,
+  vscDarkPlus,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
 import { useDialog } from "@/hooks/useDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 import {
   useGetSkillQuery,
   useGetFileTreeQuery,
@@ -14,6 +20,7 @@ import {
 import { getAccessToken } from "@/lib/api/client";
 import type { FileTreeNode } from "@/types";
 import { formatDateTime } from "@/utils/datetime";
+import { detectLanguage } from "@/utils/language";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -109,7 +116,7 @@ const TreeNode = React.memo(function TreeNode({
       type="button"
       onClick={handleSelect}
       className={`flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-base text-foreground transition-colors hover:cursor-pointer hover:bg-muted-bg ${
-        isSelected ? "bg-primary/10 text-primary" : ""
+        isSelected ? "bg-sidebar-active font-semibold" : ""
       }`}
       style={{ paddingLeft }}
     >
@@ -120,7 +127,7 @@ const TreeNode = React.memo(function TreeNode({
           height="16"
           viewBox="0 0 16 16"
           fill="none"
-          className={isSelected ? "text-primary" : "text-muted"}
+          className={isSelected ? "text-foreground" : "text-muted"}
         >
           <rect
             x="2"
@@ -168,15 +175,14 @@ interface CodeViewerProps {
 }
 
 function CodeViewer({ skillUid, path }: CodeViewerProps): React.ReactNode {
+  const { theme } = useTheme();
   const { data, isFetching, error } = useGetFileContentQuery({
     skillUid,
     path,
   });
 
-  const lines = useMemo((): string[] => {
-    if (!data || data.encoding !== "text" || data.too_large) return [];
-    return data.content.split("\n");
-  }, [data]);
+  const language = useMemo((): string => detectLanguage(path), [path]);
+  const highlightStyle = theme === "dark" ? vscDarkPlus : oneLight;
 
   if (isFetching) {
     return <div className="p-6 text-center text-muted">載入中...</div>;
@@ -207,17 +213,32 @@ function CodeViewer({ skillUid, path }: CodeViewerProps): React.ReactNode {
   }
 
   return (
-    <div className="flex max-h-[70vh] overflow-auto font-mono text-sm">
-      <div className="sticky left-0 select-none border-r border-border bg-muted-bg px-3 py-3 text-right text-muted">
-        {lines.map((_, i) => (
-          <div key={i} className="leading-6">
-            {i + 1}
-          </div>
-        ))}
-      </div>
-      <pre className="flex-1 px-4 py-3 leading-6 text-foreground">
-        <code>{data.content}</code>
-      </pre>
+    <div className="max-h-[70vh] overflow-auto">
+      <SyntaxHighlighter
+        language={language}
+        style={highlightStyle}
+        showLineNumbers
+        wrapLongLines={false}
+        customStyle={{
+          margin: 0,
+          padding: "0.75rem 1rem",
+          background: "transparent",
+          fontSize: "0.875rem",
+          lineHeight: 1.6,
+        }}
+        lineNumberStyle={{
+          minWidth: "2.5em",
+          paddingRight: "1em",
+          textAlign: "right",
+          userSelect: "none",
+          opacity: 0.5,
+        }}
+        codeTagProps={{
+          style: { fontFamily: "var(--font-mono, monospace)" },
+        }}
+      >
+        {data.content}
+      </SyntaxHighlighter>
     </div>
   );
 }
@@ -397,8 +418,8 @@ export default function SkillDetailPage(): React.ReactNode {
           {treeLoading ? (
             <div className="py-8 text-center text-muted">載入中...</div>
           ) : treeData?.tree && treeData.tree.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(240px,300px)_1fr]">
-              <div className="rounded-xl border border-border p-1 lg:max-h-[70vh] lg:overflow-auto">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)]">
+              <div className="min-w-0 rounded-xl border border-border p-1 lg:max-h-[70vh] lg:overflow-auto">
                 {treeData.tree.map((node) => (
                   <TreeNode
                     key={node.name}
@@ -410,7 +431,7 @@ export default function SkillDetailPage(): React.ReactNode {
                   />
                 ))}
               </div>
-              <div className="overflow-hidden rounded-xl border border-border">
+              <div className="min-w-0 overflow-hidden rounded-xl border border-border">
                 {selectedPath ? (
                   <>
                     <div className="flex items-center justify-between border-b border-border bg-muted-bg px-4 py-2">

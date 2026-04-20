@@ -1,3 +1,4 @@
+import io
 import logging
 import mimetypes
 import os
@@ -49,7 +50,7 @@ def _validate_file(file: UploadFile) -> None:
 
     if ext in BLOCKED_EXTENSIONS:
         raise AppError(
-            detail="不允許上傳 .exe 檔案",
+            detail=f"不允許上傳 {ext} 檔案：{filename}",
             response_code=400,
             status_code=400,
         )
@@ -59,52 +60,116 @@ def _validate_file(file: UploadFile) -> None:
 
     if content_type in BLOCKED_MIME_TYPES or guessed_type in BLOCKED_MIME_TYPES:
         raise AppError(
-            detail="不允許上傳可執行檔案",
+            detail=f"不允許上傳可執行檔案：{filename}",
             response_code=400,
             status_code=400,
         )
+
+
+def _validate_relative_path(rel_path: str) -> str:
+    normalized = rel_path.replace("\\", "/").strip()
+    if not normalized:
+        raise AppError(detail="檔案路徑不可為空", response_code=400, status_code=400)
+    if normalized.startswith("/"):
+        raise AppError(
+            detail=f"不允許絕對路徑：{rel_path}",
+            response_code=400,
+            status_code=400,
+        )
+    parts = normalized.split("/")
+    if any(p in ("..", "") for p in parts):
+        raise AppError(
+            detail=f"不允許的路徑：{rel_path}",
+            response_code=400,
+            status_code=400,
+        )
+    return normalized
+
+
+def _common_top_folder(paths: list[str]) -> str | None:
+    if not paths or "/" not in paths[0]:
+        return None
+    top = paths[0].split("/", 1)[0]
+    if all(p == top or p.startswith(f"{top}/") for p in paths):
+        return top
+    return None
 
 
 async def upload_skill(
     user_uid: str,
     name: str,
     description: str,
-    file: UploadFile,
+    files: list[UploadFile],
     db: AsyncSession,
 ) -> dict:
-    _validate_file(file)
-
-    file_content = await file.read()
-    file_size = len(file_content)
-
-    if file_size > settings.SKILLS_MAX_FILE_SIZE:
+    if not files:
         raise AppError(
-            detail=f"檔案大小超過上限（{settings.SKILLS_MAX_FILE_SIZE // (1024 * 1024)} MB）",
+            detail="請至少選擇一個檔案",
             response_code=400,
             status_code=400,
         )
 
-    if file_size == 0:
+    max_size = settings.SKILLS_MAX_FILE_SIZE
+    entries: list[tuple[str, bytes]] = []
+    total_size = 0
+
+    for uf in files:
+        _validate_file(uf)
+        rel_path = _validate_relative_path(uf.filename or "")
+        content = await uf.read()
+        total_size += len(content)
+        if total_size > max_size:
+            raise AppError(
+                detail=f"總檔案大小超過上限（{max_size // (1024 * 1024)} MB）",
+                response_code=400,
+                status_code=400,
+            )
+        entries.append((rel_path, content))
+
+    if total_size == 0:
         raise AppError(
             detail="檔案內容為空",
             response_code=400,
             status_code=400,
         )
 
+    is_single_zip = (
+        len(entries) == 1 and entries[0][0].lower().endswith(".zip")
+    )
+
     skill_uid = uuid.uuid4()
-    original_filename = file.filename or "unknown"
-    zip_filename = f"{os.path.splitext(original_filename)[0]}.zip"
+
+    if is_single_zip:
+        original_filename = entries[0][0]
+        zip_content = entries[0][1]
+    else:
+        paths = [p for p, _ in entries]
+        top_folder = _common_top_folder(paths)
+        original_filename = top_folder or name
+
+        buf = io.BytesIO()
+        try:
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                for rel_path, content in entries:
+                    zf.writestr(rel_path, content)
+        except Exception:
+            logger.exception("建立 ZIP 檔案失敗")
+            raise AppError(
+                detail="檔案封裝失敗，請稍後再試",
+                response_code=500,
+                status_code=500,
+            )
+        zip_content = buf.getvalue()
 
     skill_dir = Path(settings.SKILLS_UPLOAD_DIR) / str(skill_uid)
     skill_dir.mkdir(parents=True, exist_ok=True)
-
-    zip_path = skill_dir / zip_filename
+    base = os.path.splitext(os.path.basename(original_filename))[0] or name
+    zip_path = skill_dir / f"{base}.zip"
 
     try:
-        with zipfile.ZipFile(str(zip_path), "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr(original_filename, file_content)
+        zip_path.write_bytes(zip_content)
     except Exception:
-        logger.exception("建立 ZIP 檔案失敗")
+        logger.exception("檔案儲存失敗")
         raise AppError(
             detail="檔案儲存失敗，請稍後再試",
             response_code=500,
@@ -119,7 +184,7 @@ async def upload_skill(
             "description": description,
             "file_path": str(zip_path),
             "original_filename": original_filename,
-            "file_size": file_size,
+            "file_size": len(zip_content),
         },
         db,
     )

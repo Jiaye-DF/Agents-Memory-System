@@ -65,7 +65,7 @@ export default function MainLayout({
             onClose={handleCloseSidebar}
             role={role}
           />
-          <main className="flex-1 overflow-y-auto p-4 lg:p-6 xl:mx-auto xl:max-w-screen-xl">
+          <main className="flex-1 overflow-y-auto p-4 lg:p-6">
             {children}
           </main>
         </div>

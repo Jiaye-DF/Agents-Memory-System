@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useDialog } from "@/hooks/useDialog";
 import { useUploadSkillMutation } from "@/store/skillsApi";
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_TOTAL_SIZE = 50 * 1024 * 1024;
 const BLOCKED_EXTENSIONS = [".exe"];
 
 function formatFileSize(bytes: number): string {
@@ -16,6 +16,12 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024)
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function getRelativePath(file: File): string {
+  const rel = (file as File & { webkitRelativePath?: string })
+    .webkitRelativePath;
+  return rel && rel.length > 0 ? rel : file.name;
 }
 
 function getFileExtension(filename: string): string {
@@ -27,10 +33,11 @@ export default function SkillsUploadPage(): React.ReactNode {
   const router = useRouter();
   const { showDialog } = useDialog();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const [nameError, setNameError] = useState<string>("");
   const [descriptionError, setDescriptionError] = useState<string>("");
@@ -38,29 +45,52 @@ export default function SkillsUploadPage(): React.ReactNode {
 
   const [uploadSkill, { isLoading }] = useUploadSkillMutation();
 
-  const validateFile = useCallback(
-    (file: File): boolean => {
-      const ext = getFileExtension(file.name);
+  const totalSize = useMemo(
+    (): number => selectedFiles.reduce((sum, f) => sum + f.size, 0),
+    [selectedFiles]
+  );
 
-      if (BLOCKED_EXTENSIONS.includes(ext)) {
-        showDialog({
-          type: "error",
-          title: "不允許的檔案類型",
-          message: "不允許上傳 .exe 檔案。",
-        });
+  const topFolder = useMemo((): string | null => {
+    if (selectedFiles.length === 0) return null;
+    const first = getRelativePath(selectedFiles[0]);
+    if (!first.includes("/")) return null;
+    const top = first.split("/", 1)[0];
+    const allMatch = selectedFiles.every((f) => {
+      const p = getRelativePath(f);
+      return p === top || p.startsWith(`${top}/`);
+    });
+    return allMatch ? top : null;
+  }, [selectedFiles]);
+
+  const validateFiles = useCallback(
+    (files: File[]): boolean => {
+      if (files.length === 0) {
+        setFileError("請選擇檔案或資料夾");
         return false;
       }
 
-      if (file.size > MAX_FILE_SIZE) {
+      for (const f of files) {
+        const ext = getFileExtension(f.name);
+        if (BLOCKED_EXTENSIONS.includes(ext)) {
+          showDialog({
+            type: "error",
+            title: "不允許的檔案類型",
+            message: `不允許上傳 ${ext} 檔案：${getRelativePath(f)}`,
+          });
+          return false;
+        }
+      }
+
+      const total = files.reduce((sum, f) => sum + f.size, 0);
+      if (total > MAX_TOTAL_SIZE) {
         showDialog({
           type: "error",
           title: "檔案過大",
-          message: `檔案大小超過上限（50 MB）。目前大小：${formatFileSize(file.size)}`,
+          message: `總大小超過上限（50 MB）。目前總大小：${formatFileSize(total)}`,
         });
         return false;
       }
-
-      if (file.size === 0) {
+      if (total === 0) {
         setFileError("檔案內容為空");
         return false;
       }
@@ -70,36 +100,36 @@ export default function SkillsUploadPage(): React.ReactNode {
     [showDialog]
   );
 
-  const handleFileSelect = useCallback(
-    (file: File): void => {
+  const handleFiles = useCallback(
+    (files: File[]): void => {
       setFileError("");
-      if (validateFile(file)) {
-        setSelectedFile(file);
+      if (validateFiles(files)) {
+        setSelectedFiles(files);
       }
     },
-    [validateFile]
+    [validateFiles]
   );
 
-  const handleInputChange = useCallback(
+  const handleFileInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
-      const file = e.target.files?.[0];
-      if (file) {
-        handleFileSelect(file);
-      }
+      const list = e.target.files;
+      if (!list) return;
+      handleFiles(Array.from(list));
+      e.target.value = "";
     },
-    [handleFileSelect]
+    [handleFiles]
   );
 
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>): void => {
       e.preventDefault();
       setIsDragOver(false);
-      const file = e.dataTransfer.files[0];
-      if (file) {
-        handleFileSelect(file);
+      const dropped = Array.from(e.dataTransfer.files ?? []);
+      if (dropped.length > 0) {
+        handleFiles(dropped);
       }
     },
-    [handleFileSelect]
+    [handleFiles]
   );
 
   const handleDragOver = useCallback(
@@ -118,8 +148,17 @@ export default function SkillsUploadPage(): React.ReactNode {
     []
   );
 
-  const handleDropZoneClick = useCallback((): void => {
+  const handleSelectFiles = useCallback((): void => {
     fileInputRef.current?.click();
+  }, []);
+
+  const handleSelectFolder = useCallback((): void => {
+    folderInputRef.current?.click();
+  }, []);
+
+  const handleClearSelection = useCallback((): void => {
+    setSelectedFiles([]);
+    setFileError("");
   }, []);
 
   const handleNameChange = useCallback(
@@ -143,29 +182,25 @@ export default function SkillsUploadPage(): React.ReactNode {
       e.preventDefault();
 
       let hasError = false;
-
       if (!name.trim()) {
         setNameError("名稱為必填");
         hasError = true;
       }
-
       if (!description.trim()) {
         setDescriptionError("描述為必填");
         hasError = true;
       }
-
-      if (!selectedFile) {
-        setFileError("請選擇檔案");
+      if (selectedFiles.length === 0) {
+        setFileError("請選擇檔案或資料夾");
         hasError = true;
       }
-
-      if (hasError || !selectedFile) return;
+      if (hasError) return;
 
       try {
         await uploadSkill({
           name: name.trim(),
           description: description.trim(),
-          file: selectedFile,
+          files: selectedFiles,
         }).unwrap();
 
         showDialog({
@@ -186,8 +221,19 @@ export default function SkillsUploadPage(): React.ReactNode {
         });
       }
     },
-    [name, description, selectedFile, uploadSkill, showDialog, router]
+    [name, description, selectedFiles, uploadSkill, showDialog, router]
   );
+
+  const summary = useMemo((): string => {
+    if (selectedFiles.length === 0) return "";
+    if (selectedFiles.length === 1 && !topFolder) {
+      return `${selectedFiles[0].name}（${formatFileSize(totalSize)}）`;
+    }
+    if (topFolder) {
+      return `資料夾：${topFolder}／共 ${selectedFiles.length} 個檔案（${formatFileSize(totalSize)}）`;
+    }
+    return `共 ${selectedFiles.length} 個檔案（${formatFileSize(totalSize)}）`;
+  }, [selectedFiles, topFolder, totalSize]);
 
   return (
     <div>
@@ -196,33 +242,72 @@ export default function SkillsUploadPage(): React.ReactNode {
       <div className="rounded-xl bg-card-bg p-6 shadow-sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
           <div
-            onClick={handleDropZoneClick}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            className={`flex min-h-[160px] flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors hover:cursor-pointer ${
+            className={`flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors ${
               isDragOver
                 ? "border-primary bg-primary/5"
-                : "border-border hover:border-primary/50"
+                : "border-border"
             }`}
           >
             <input
               ref={fileInputRef}
               type="file"
-              onChange={handleInputChange}
+              multiple
+              aria-label="選擇檔案"
+              title="選擇檔案"
+              onChange={handleFileInputChange}
               className="hidden"
             />
-            {selectedFile ? (
-              <div className="text-center">
+            <input
+              ref={folderInputRef}
+              type="file"
+              aria-label="選擇資料夾"
+              title="選擇資料夾"
+              onChange={handleFileInputChange}
+              className="hidden"
+              {...({
+                webkitdirectory: "",
+                directory: "",
+              } as React.InputHTMLAttributes<HTMLInputElement>)}
+            />
+
+            {selectedFiles.length > 0 ? (
+              <div className="w-full text-center">
                 <p className="text-base font-medium text-foreground">
-                  {selectedFile.name}
+                  {summary}
                 </p>
-                <p className="mt-1 text-sm text-muted">
-                  {formatFileSize(selectedFile.size)}
-                </p>
-                <p className="mt-2 text-sm text-primary hover:cursor-pointer">
-                  點擊重新選擇檔案
-                </p>
+                {selectedFiles.length > 1 && (
+                  <div className="mx-auto mt-3 max-h-32 max-w-md overflow-auto rounded-xl border border-border bg-muted-bg/30 p-2 text-left font-mono text-sm text-muted">
+                    {selectedFiles.slice(0, 20).map((f, i) => (
+                      <div key={i} className="truncate">
+                        {getRelativePath(f)}
+                      </div>
+                    ))}
+                    {selectedFiles.length > 20 && (
+                      <div className="text-primary">
+                        ...還有 {selectedFiles.length - 20} 個檔案
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="mt-3 flex justify-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleSelectFiles}
+                  >
+                    重新選擇
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleClearSelection}
+                  >
+                    清除
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="text-center">
@@ -240,11 +325,27 @@ export default function SkillsUploadPage(): React.ReactNode {
                   />
                 </svg>
                 <p className="text-base text-muted">
-                  拖曳檔案至此處，或點擊選擇檔案
+                  拖曳 .zip 或多個檔案至此處
                 </p>
                 <p className="mt-1 text-sm text-muted">
-                  檔案大小上限 50 MB，禁止上傳 .exe
+                  總大小上限 50 MB，禁止上傳 .exe
                 </p>
+                <div className="mt-4 flex justify-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleSelectFolder}
+                  >
+                    選擇資料夾
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleSelectFiles}
+                  >
+                    選擇檔案
+                  </Button>
+                </div>
               </div>
             )}
           </div>

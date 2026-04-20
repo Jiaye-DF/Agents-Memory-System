@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { Pagination } from "@/components/ui/Pagination";
+import { Input } from "@/components/ui/Input";
 import { PageLoading } from "@/components/ui/Loading";
 import { useDialog } from "@/hooks/useDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,6 +12,16 @@ import {
   useDeleteAgentMutation,
   useToggleAgentVisibilityMutation,
 } from "@/store/agentsApi";
+import type { Agent } from "@/types";
+import {
+  parseSearch,
+  matchByTextAndAuthor,
+  toggleAuthorInQuery,
+} from "@/utils/search";
+import { formatDateTime } from "@/utils/datetime";
+
+type VisibilityFilter = "all" | "public" | "private";
+type SortOrder = "newest" | "oldest";
 
 interface AgentCardProps {
   agent: Agent;
@@ -56,17 +66,22 @@ const AgentCard = React.memo(function AgentCard({
         </span>
       </div>
 
-      {agent.description && (
-        <p className="line-clamp-2 text-base text-muted">{agent.description}</p>
+      {agent.owner_username && (
+        <span className="inline-flex w-fit rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+          @{agent.owner_username}
+        </span>
       )}
 
-      {!agent.description && (
+      {agent.description ? (
+        <p className="line-clamp-2 text-base text-muted">{agent.description}</p>
+      ) : (
         <p className="text-base text-muted italic">尚無描述</p>
       )}
 
-      <div className="flex flex-wrap gap-2 text-sm text-muted">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
         {agent.language && <span>語言：{agent.language}</span>}
         {agent.style && <span>風格：{agent.style}</span>}
+        <span>建立於 {formatDateTime(agent.created_at)}</span>
       </div>
 
       <div className="mt-auto flex items-center gap-2 border-t border-border pt-3">
@@ -85,11 +100,7 @@ const AgentCard = React.memo(function AgentCard({
             <Button variant="secondary" size="sm" onClick={handleToggle}>
               {agent.visibility === "public" ? "設為私人" : "設為公開"}
             </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDelete}
-            >
+            <Button variant="destructive" size="sm" onClick={handleDelete}>
               刪除
             </Button>
           </>
@@ -99,19 +110,89 @@ const AgentCard = React.memo(function AgentCard({
   );
 });
 
+interface FilterChipProps {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+const FilterChip = React.memo(function FilterChip({
+  active,
+  onClick,
+  children,
+}: FilterChipProps): React.ReactNode {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
+        active
+          ? "bg-primary text-white"
+          : "bg-muted-bg text-muted hover:bg-border"
+      }`}
+    >
+      {children}
+    </button>
+  );
+});
+
 export default function AgentsPage(): React.ReactNode {
   const { userUid } = useAuth();
   const { showDialog } = useDialog();
 
-  const [limit, setLimit] = useState<number>(20);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
+  const [query, setQuery] = useState<string>("");
+  const [visibilityFilter, setVisibilityFilter] =
+    useState<VisibilityFilter>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
 
-  const { data, isLoading, isFetching } = useListAgentsQuery({ limit, cursor });
+  const { data, isLoading, isFetching } = useListAgentsQuery({
+    limit: 50,
+    cursor: null,
+  });
   const [deleteAgent] = useDeleteAgentMutation();
   const [toggleVisibility] = useToggleAgentVisibilityMutation();
 
-  const agents = data?.items ?? [];
+  const agents = useMemo((): Agent[] => data?.items ?? [], [data]);
+
+  const parsed = useMemo(() => parseSearch(query), [query]);
+
+  const filteredAgents = useMemo((): Agent[] => {
+    const matched = agents.filter((a) => {
+      if (visibilityFilter !== "all" && a.visibility !== visibilityFilter) {
+        return false;
+      }
+      return matchByTextAndAuthor(
+        a.name,
+        a.description,
+        a.owner_username,
+        parsed
+      );
+    });
+    const sorted = [...matched].sort((a, b) => {
+      const diff = a.created_at.localeCompare(b.created_at);
+      return sortOrder === "newest" ? -diff : diff;
+    });
+    return sorted;
+  }, [agents, visibilityFilter, parsed, sortOrder]);
+
+  const authorOptions = useMemo((): string[] => {
+    const set = new Set<string>();
+    for (const a of agents) {
+      if (a.owner_username) set.add(a.owner_username);
+    }
+    return Array.from(set).sort();
+  }, [agents]);
+
+  const handleQueryChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>): void => {
+      setQuery(e.target.value);
+    },
+    []
+  );
+
+  const handleToggleAuthor = useCallback((author: string): void => {
+    setQuery((prev) => toggleAuthorInQuery(prev, author));
+  }, []);
 
   const handleDelete = useCallback(
     (agentUid: string): void => {
@@ -167,28 +248,6 @@ export default function AgentsPage(): React.ReactNode {
     [showDialog, toggleVisibility]
   );
 
-  const handleNextPage = useCallback((): void => {
-    if (data?.next_cursor) {
-      setCursorHistory((prev) => [...prev, cursor ?? ""]);
-      setCursor(data.next_cursor);
-    }
-  }, [data?.next_cursor, cursor]);
-
-  const handlePrevPage = useCallback((): void => {
-    setCursorHistory((prev) => {
-      const newHistory = [...prev];
-      const prevCursor = newHistory.pop();
-      setCursor(prevCursor || null);
-      return newHistory;
-    });
-  }, []);
-
-  const handleLimitChange = useCallback((newLimit: number): void => {
-    setLimit(newLimit);
-    setCursor(null);
-    setCursorHistory([]);
-  }, []);
-
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -198,39 +257,93 @@ export default function AgentsPage(): React.ReactNode {
         </Link>
       </div>
 
+      <div className="mb-4 flex flex-col gap-3">
+        <Input
+          placeholder="搜尋名稱、描述，或輸入 @作者 篩選（可多個）"
+          value={query}
+          onChange={handleQueryChange}
+        />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="shrink-0 text-sm text-muted">可見性：</span>
+          <FilterChip
+            active={visibilityFilter === "all"}
+            onClick={() => setVisibilityFilter("all")}
+          >
+            全部
+          </FilterChip>
+          <FilterChip
+            active={visibilityFilter === "public"}
+            onClick={() => setVisibilityFilter("public")}
+          >
+            公開
+          </FilterChip>
+          <FilterChip
+            active={visibilityFilter === "private"}
+            onClick={() => setVisibilityFilter("private")}
+          >
+            私人
+          </FilterChip>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="shrink-0 text-sm text-muted">排序：</span>
+          <FilterChip
+            active={sortOrder === "newest"}
+            onClick={() => setSortOrder("newest")}
+          >
+            由新到舊
+          </FilterChip>
+          <FilterChip
+            active={sortOrder === "oldest"}
+            onClick={() => setSortOrder("oldest")}
+          >
+            由舊到新
+          </FilterChip>
+        </div>
+
+        {authorOptions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="shrink-0 text-sm text-muted">作者：</span>
+            {authorOptions.map((author) => {
+              const isSelected = parsed.authors.includes(author.toLowerCase());
+              return (
+                <FilterChip
+                  key={author}
+                  active={isSelected}
+                  onClick={() => handleToggleAuthor(author)}
+                >
+                  @{author}
+                </FilterChip>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <div className="rounded-xl bg-card-bg p-6 shadow-sm">
         {isLoading || isFetching ? (
           <PageLoading />
+        ) : agents.length === 0 ? (
+          <div className="py-12 text-center text-muted">
+            尚未建立任何 Agent，點擊右上角新增。
+          </div>
+        ) : filteredAgents.length === 0 ? (
+          <div className="py-12 text-center text-muted">
+            沒有符合條件的 Agents
+          </div>
         ) : (
-          <>
-            {agents.length === 0 ? (
-              <div className="py-12 text-center text-muted">
-                尚未建立任何 Agent，點擊右上角新增。
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {agents.map((agent) => (
-                  <AgentCard
-                    key={agent.agent_uid}
-                    agent={agent}
-                    isOwner={agent.owner_uid === userUid}
-                    onDelete={handleDelete}
-                    onToggleVisibility={handleToggleVisibility}
-                  />
-                ))}
-              </div>
-            )}
-            <div className="mt-4">
-              <Pagination
-                hasNext={data?.has_next ?? false}
-                hasPrev={cursorHistory.length > 0}
-                limit={limit}
-                onNextPage={handleNextPage}
-                onPrevPage={handlePrevPage}
-                onLimitChange={handleLimitChange}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredAgents.map((agent) => (
+              <AgentCard
+                key={agent.agent_uid}
+                agent={agent}
+                isOwner={agent.owner_uid === userUid}
+                onDelete={handleDelete}
+                onToggleVisibility={handleToggleVisibility}
               />
-            </div>
-          </>
+            ))}
+          </div>
         )}
       </div>
     </div>

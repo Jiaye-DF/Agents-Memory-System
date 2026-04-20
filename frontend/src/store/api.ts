@@ -38,7 +38,7 @@ export const baseApi = createApi({
       return { error: message };
     }
   },
-  tagTypes: ["Users", "Agents", "Skills"],
+  tagTypes: ["Users", "Agents", "Skills", "AdminLlmModels"],
   endpoints: () => ({}),
 });
 

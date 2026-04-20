@@ -62,6 +62,7 @@ async def create(skill_data: dict, db: AsyncSession) -> Skill:
     skill = Skill(**skill_data)
     db.add(skill)
     await db.flush()
+    await db.refresh(skill)
     return skill
 
 

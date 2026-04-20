@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.11.2",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "react-redux": "^9.2.0"
+    "react-redux": "^9.2.0",
+    "react-syntax-highlighter": "^16.1.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

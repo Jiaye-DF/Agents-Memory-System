@@ -26,14 +26,14 @@ async def list_skills(
 
 @router.post("")
 async def upload_skill(
-    file: UploadFile = File(...),
+    files: list[UploadFile] = File(...),
     name: str = Form(...),
     description: str = Form(...),
     current_user: TokenPayload = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     result = await skill_service.upload_skill(
-        current_user.user_uid, name, description, file, db
+        current_user.user_uid, name, description, files, db
     )
     return success(data=result, response_code=201)
 

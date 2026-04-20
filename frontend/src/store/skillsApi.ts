@@ -46,11 +46,15 @@ export const skillsApi = baseApi.injectEndpoints({
     }),
 
     uploadSkill: builder.mutation<Skill, SkillUploadParams>({
-      query: ({ name, description, file }) => {
+      query: ({ name, description, files }) => {
         const formData = new FormData();
         formData.append("name", name);
         formData.append("description", description);
-        formData.append("file", file);
+        for (const f of files) {
+          const relative = (f as File & { webkitRelativePath?: string })
+            .webkitRelativePath;
+          formData.append("files", f, relative && relative.length > 0 ? relative : f.name);
+        }
         return {
           method: "post",
           path: "/skills",

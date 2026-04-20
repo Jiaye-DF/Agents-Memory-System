@@ -17,6 +17,34 @@ import {
 import type { User, Role } from "@/types";
 import { formatDateTime } from "@/utils/datetime";
 
+type RoleFilter = "all" | "admin" | "member";
+
+interface FilterChipProps {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+const FilterChip = React.memo(function FilterChip({
+  active,
+  onClick,
+  children,
+}: FilterChipProps): React.ReactNode {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
+        active
+          ? "bg-primary text-white"
+          : "bg-muted-bg text-muted hover:bg-border"
+      }`}
+    >
+      {children}
+    </button>
+  );
+});
+
 interface UserCardProps {
   user: User;
   roles: Role[];
@@ -104,6 +132,7 @@ export default function AdminUsersPage(): React.ReactNode {
   const [cursor, setCursor] = useState<string | null>(null);
   const [cursorHistory, setCursorHistory] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
 
   useEffect(() => {
     if (!authLoading && role !== "admin") {
@@ -127,15 +156,17 @@ export default function AdminUsersPage(): React.ReactNode {
 
   const filteredUsers = useMemo((): User[] => {
     if (!data?.items) return [];
-    if (!searchTerm) return data.items;
-    const term = searchTerm.toLowerCase();
-    return data.items.filter(
-      (user) =>
+    const term = searchTerm.trim().toLowerCase();
+    return data.items.filter((user) => {
+      if (roleFilter !== "all" && user.role_name !== roleFilter) return false;
+      if (!term) return true;
+      return (
         user.username.toLowerCase().includes(term) ||
         user.account.toLowerCase().includes(term) ||
         user.role_name.toLowerCase().includes(term)
-    );
-  }, [data?.items, searchTerm]);
+      );
+    });
+  }, [data?.items, searchTerm, roleFilter]);
 
   const handleRoleChange = useCallback(
     (userUid: string, roleUid: string): void => {
@@ -329,12 +360,33 @@ export default function AdminUsersPage(): React.ReactNode {
     <div>
       <h1 className="mb-4 text-3xl font-bold text-foreground">使用者管理</h1>
       <div className="rounded-xl bg-card-bg p-6 shadow-sm">
-        <div className="mb-4">
+        <div className="mb-4 flex flex-col gap-3">
           <Input
             placeholder="搜尋使用者名稱、帳號或角色..."
             value={searchTerm}
             onChange={handleSearchChange}
           />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="shrink-0 text-sm text-muted">角色：</span>
+            <FilterChip
+              active={roleFilter === "all"}
+              onClick={() => setRoleFilter("all")}
+            >
+              全部
+            </FilterChip>
+            <FilterChip
+              active={roleFilter === "admin"}
+              onClick={() => setRoleFilter("admin")}
+            >
+              admin
+            </FilterChip>
+            <FilterChip
+              active={roleFilter === "member"}
+              onClick={() => setRoleFilter("member")}
+            >
+              member
+            </FilterChip>
+          </div>
         </div>
 
         {isLoading || isFetching ? (

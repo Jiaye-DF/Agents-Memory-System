@@ -38,5 +38,5 @@ export interface FileContent {
 export interface SkillUploadParams {
   name: string;
   description: string;
-  file: File;
+  files: File[];
 }

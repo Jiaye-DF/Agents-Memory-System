@@ -21,3 +21,9 @@ export type {
   FileContent,
   SkillUploadParams,
 } from "./skills";
+export type {
+  LlmModel,
+  LlmModelAdmin,
+  LlmModelCreateRequest,
+  LlmModelUpdateRequest,
+} from "./models";

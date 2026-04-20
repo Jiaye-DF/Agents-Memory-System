@@ -65,6 +65,7 @@ async def create(agent_data: dict, db: AsyncSession) -> Agent:
     agent = Agent(**agent_data)
     db.add(agent)
     await db.flush()
+    await db.refresh(agent)
     return agent
 
 
