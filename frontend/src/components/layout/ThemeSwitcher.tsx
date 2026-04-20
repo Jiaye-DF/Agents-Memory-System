@@ -73,7 +73,7 @@ export const ThemeSwitcher = React.memo(function ThemeSwitcher(): React.ReactNod
                 setTheme(t);
                 setOpen(false);
               }}
-              className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:cursor-pointer hover:bg-muted-bg ${
+              className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-base transition-colors hover:cursor-pointer hover:bg-muted-bg ${
                 theme === t ? "font-semibold text-primary" : "text-foreground"
               }`}
             >

@@ -49,18 +49,18 @@ export const Header = React.memo(function Header({
           className="flex items-center gap-2 hover:cursor-pointer"
         >
           <Logo />
-          <span className="hidden text-lg font-semibold text-foreground sm:inline">
+          <span className="hidden text-xl font-semibold text-foreground sm:inline">
             Agents-Platform
           </span>
         </Link>
       </div>
       <div className="flex items-center gap-3">
         <ThemeSwitcher />
-        <span className="text-base text-foreground">{username}</span>
+        <span className="text-lg text-foreground">{username}</span>
         <button
           type="button"
           onClick={handleLogout}
-          className="min-h-[44px] min-w-[44px] rounded-xl px-3 py-2 text-base font-medium text-destructive transition-colors hover:cursor-pointer hover:bg-error-bg"
+          className="min-h-[44px] min-w-[44px] rounded-xl px-3 py-2 text-lg font-medium text-destructive transition-colors hover:cursor-pointer hover:bg-error-bg"
         >
           登出
         </button>

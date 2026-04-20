@@ -1,6 +1,7 @@
 export interface Skill {
   skill_uid: string;
   owner_uid: string;
+  owner_username: string | null;
   name: string;
   description: string;
   original_filename: string;
@@ -24,6 +25,14 @@ export interface FileTreeNode {
   name: string;
   type: "file" | "directory";
   children?: FileTreeNode[];
+}
+
+export interface FileContent {
+  path: string;
+  size: number;
+  encoding: "text" | "binary";
+  content: string;
+  too_large: boolean;
 }
 
 export interface SkillUploadParams {

@@ -188,8 +188,8 @@ export default function ResetPasswordPage(): React.ReactNode {
     <div className="w-full max-w-md rounded-xl bg-card-bg p-8 shadow-lg">
       <div className="mb-6 flex flex-col items-center gap-2">
         <Logo className="h-12 w-12" />
-        <h1 className="text-2xl font-bold text-foreground">重設密碼</h1>
-        <p className="text-sm text-muted">
+        <h1 className="text-3xl font-bold text-foreground">重設密碼</h1>
+        <p className="text-base text-muted">
           {step === "verify"
             ? "步驟 1：輸入帳號與使用者名稱進行驗證"
             : "步驟 2：設定新密碼"}
@@ -198,7 +198,7 @@ export default function ResetPasswordPage(): React.ReactNode {
 
       <div className="mb-6 flex items-center gap-2">
         <div
-          className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+          className={`flex h-8 w-8 items-center justify-center rounded-full text-base font-medium ${
             step === "verify"
               ? "bg-primary text-white"
               : "bg-success text-white"
@@ -212,7 +212,7 @@ export default function ResetPasswordPage(): React.ReactNode {
           }`}
         />
         <div
-          className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+          className={`flex h-8 w-8 items-center justify-center rounded-full text-base font-medium ${
             step === "reset"
               ? "bg-primary text-white"
               : "bg-muted-bg text-muted"
@@ -286,7 +286,7 @@ export default function ResetPasswordPage(): React.ReactNode {
         </form>
       )}
 
-      <div className="mt-4 text-center text-sm">
+      <div className="mt-4 text-center text-base">
         <Link
           href="/"
           className="text-primary transition-colors hover:cursor-pointer hover:text-primary-hover"

@@ -1,9 +1,10 @@
 import uuid
 
 from sqlalchemy import BigInteger, ForeignKey, String, Text, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+from app.models.user import User
 
 
 class Skill(Base):
@@ -23,3 +24,5 @@ class Skill(Base):
     visibility: Mapped[str] = mapped_column(
         String(10), nullable=False, default="private"
     )
+
+    owner: Mapped[User] = relationship(lazy="joined")

@@ -26,7 +26,7 @@ function TableInner<T>({
 }: TableProps<T>): React.ReactNode {
   if (data.length === 0) {
     return (
-      <div className="py-12 text-center text-sm text-muted">{emptyMessage}</div>
+      <div className="py-12 text-center text-base text-muted">{emptyMessage}</div>
     );
   }
 
@@ -47,7 +47,7 @@ function TableInner<T>({
 
       <div className={cardRender ? "hidden md:block" : "block"}>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse text-base">
             <thead>
               <tr className="border-b border-border">
                 {columns.map((col) => (

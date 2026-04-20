@@ -191,7 +191,7 @@ export default function SkillsUploadPage(): React.ReactNode {
 
   return (
     <div>
-      <h1 className="mb-4 text-2xl font-bold text-foreground">上傳 Skill</h1>
+      <h1 className="mb-4 text-3xl font-bold text-foreground">上傳 Skill</h1>
 
       <div className="rounded-xl bg-card-bg p-6 shadow-sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -214,13 +214,13 @@ export default function SkillsUploadPage(): React.ReactNode {
             />
             {selectedFile ? (
               <div className="text-center">
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-base font-medium text-foreground">
                   {selectedFile.name}
                 </p>
-                <p className="mt-1 text-xs text-muted">
+                <p className="mt-1 text-sm text-muted">
                   {formatFileSize(selectedFile.size)}
                 </p>
-                <p className="mt-2 text-xs text-primary hover:cursor-pointer">
+                <p className="mt-2 text-sm text-primary hover:cursor-pointer">
                   點擊重新選擇檔案
                 </p>
               </div>
@@ -239,17 +239,17 @@ export default function SkillsUploadPage(): React.ReactNode {
                     d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                   />
                 </svg>
-                <p className="text-sm text-muted">
+                <p className="text-base text-muted">
                   拖曳檔案至此處，或點擊選擇檔案
                 </p>
-                <p className="mt-1 text-xs text-muted">
+                <p className="mt-1 text-sm text-muted">
                   檔案大小上限 50 MB，禁止上傳 .exe
                 </p>
               </div>
             )}
           </div>
           {fileError && (
-            <p className="-mt-4 text-sm text-destructive">{fileError}</p>
+            <p className="-mt-4 text-base text-destructive">{fileError}</p>
           )}
 
           <Input
@@ -264,7 +264,7 @@ export default function SkillsUploadPage(): React.ReactNode {
           <div className="w-full">
             <label
               htmlFor="skill-description"
-              className="mb-1.5 block text-sm font-medium text-foreground"
+              className="mb-1.5 block text-base font-medium text-foreground"
             >
               描述<span className="ml-0.5 text-destructive">*</span>
             </label>
@@ -274,14 +274,14 @@ export default function SkillsUploadPage(): React.ReactNode {
               onChange={handleDescriptionChange}
               placeholder="輸入 Skill 描述"
               rows={4}
-              className={`min-h-[88px] w-full rounded-xl border bg-input-bg px-3 py-2 text-sm text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 ${
+              className={`min-h-[88px] w-full rounded-xl border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 ${
                 descriptionError
                   ? "border-destructive"
                   : "border-input-border"
               }`}
             />
             {descriptionError && (
-              <p className="mt-1 text-sm text-destructive">
+              <p className="mt-1 text-base text-destructive">
                 {descriptionError}
               </p>
             )}

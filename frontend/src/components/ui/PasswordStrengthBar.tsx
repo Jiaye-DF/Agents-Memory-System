@@ -38,7 +38,7 @@ export const PasswordStrengthBar = React.memo(function PasswordStrengthBar({
         />
       </div>
       <p
-        className={`mt-0.5 text-xs ${
+        className={`mt-0.5 text-sm ${
           strength === "weak"
             ? "text-destructive"
             : strength === "medium"

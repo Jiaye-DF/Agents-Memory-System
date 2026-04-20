@@ -61,6 +61,7 @@ class VisibilityRequest(BaseModel):
 class SkillResponse(BaseModel):
     skill_uid: str
     owner_uid: str
+    owner_username: str | None
     name: str
     description: str
     original_filename: str
@@ -75,3 +76,11 @@ class FileTreeNode(BaseModel):
     name: str
     type: str
     children: list[FileTreeNode] | None = None
+
+
+class FileContentResponse(BaseModel):
+    path: str
+    size: int
+    encoding: str
+    content: str
+    too_large: bool

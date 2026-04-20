@@ -56,6 +56,13 @@ COMMENT ON COLUMN agent.created_at     IS '建立時間';
 COMMENT ON COLUMN agent.updated_at     IS '更新時間（Trigger 自動維護）';
 ```
 
+### 時區（重要）
+
+- 所有 `TIMESTAMPTZ` 欄位儲存的值**即為 UTC+8 的 wall-clock 時間**，不做時區換算
+- PostgreSQL session 時區設定為 `Asia/Taipei`，`NOW()` 直接寫入 UTC+8 值
+- 後端讀取後序列化為 ISO 字串傳給前端；**前端禁止使用 `new Date()` / `toLocaleString` 做時區轉換**，否則會再被瀏覽器偏移一次
+- 前端顯示統一使用 [`utils/datetime.ts`](../../frontend/src/utils/datetime.ts) 的 `formatDateTime()`，直接由 ISO 字串切出 `Y/M/D h:m:s`
+
 ### `updated_at` Trigger
 
 所有業務表**必須**掛載 `set_updated_at` Trigger，確保 `updated_at` 自動更新：

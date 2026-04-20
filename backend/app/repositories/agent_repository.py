@@ -72,6 +72,7 @@ async def update(agent: Agent, update_data: dict, db: AsyncSession) -> Agent:
     for key, value in update_data.items():
         setattr(agent, key, value)
     await db.flush()
+    await db.refresh(agent)
     return agent
 
 

@@ -15,6 +15,7 @@ def _agent_to_dict(agent: Agent, skill_uids: list[str]) -> dict:
     return {
         "agent_uid": str(agent.agent_uid),
         "owner_uid": str(agent.owner_uid),
+        "owner_username": agent.owner.username if agent.owner else None,
         "name": agent.name,
         "description": agent.description,
         "language": agent.language,

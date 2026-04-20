@@ -9,6 +9,7 @@ import { useDialog } from "@/hooks/useDialog";
 import { useGetAgentQuery } from "@/store/agentsApi";
 import { getAccessToken } from "@/lib/api/client";
 import { useAuth } from "@/hooks/useAuth";
+import { formatDateTime } from "@/utils/datetime";
 
 export default function AgentDetailPage(): React.ReactNode {
   const params = useParams<{ uid: string }>();
@@ -72,7 +73,7 @@ export default function AgentDetailPage(): React.ReactNode {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">{agent.name}</h1>
+        <h1 className="text-3xl font-bold text-foreground">{agent.name}</h1>
         <div className="flex gap-2">
           {isOwner && (
             <Link href={`/agents/${agentUid}/edit`}>
@@ -89,7 +90,7 @@ export default function AgentDetailPage(): React.ReactNode {
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-3">
             <span
-              className={`rounded-xl px-3 py-1 text-sm font-medium ${
+              className={`rounded-xl px-3 py-1 text-base font-medium ${
                 agent.visibility === "public"
                   ? "bg-info-bg text-info"
                   : "bg-muted-bg text-muted"
@@ -97,14 +98,14 @@ export default function AgentDetailPage(): React.ReactNode {
             >
               {agent.visibility === "public" ? "公開" : "私人"}
             </span>
-            <span className="text-sm text-muted">
-              建立於 {new Date(agent.created_at).toLocaleString("zh-TW")}
+            <span className="text-base text-muted">
+              建立於 {formatDateTime(agent.created_at)}
             </span>
           </div>
 
           {agent.description && (
             <div>
-              <h2 className="mb-2 text-sm font-semibold text-muted">描述</h2>
+              <h2 className="mb-2 text-base font-semibold text-muted">描述</h2>
               <p className="whitespace-pre-wrap text-foreground">
                 {agent.description}
               </p>
@@ -113,7 +114,7 @@ export default function AgentDetailPage(): React.ReactNode {
 
           {agent.identity && (
             <div>
-              <h2 className="mb-2 text-sm font-semibold text-muted">身分</h2>
+              <h2 className="mb-2 text-base font-semibold text-muted">身分</h2>
               <p className="whitespace-pre-wrap text-foreground">
                 {agent.identity}
               </p>
@@ -123,7 +124,7 @@ export default function AgentDetailPage(): React.ReactNode {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {agent.language && (
               <div>
-                <h2 className="mb-2 text-sm font-semibold text-muted">
+                <h2 className="mb-2 text-base font-semibold text-muted">
                   語言偏好
                 </h2>
                 <p className="text-foreground">{agent.language}</p>
@@ -131,7 +132,7 @@ export default function AgentDetailPage(): React.ReactNode {
             )}
             {agent.style && (
               <div>
-                <h2 className="mb-2 text-sm font-semibold text-muted">風格</h2>
+                <h2 className="mb-2 text-base font-semibold text-muted">風格</h2>
                 <p className="text-foreground">{agent.style}</p>
               </div>
             )}
@@ -139,17 +140,17 @@ export default function AgentDetailPage(): React.ReactNode {
 
           {agent.role_prompt && (
             <div>
-              <h2 className="mb-2 text-sm font-semibold text-muted">
+              <h2 className="mb-2 text-base font-semibold text-muted">
                 角色設定
               </h2>
-              <div className="whitespace-pre-wrap rounded-xl bg-muted-bg p-4 text-sm text-foreground">
+              <div className="whitespace-pre-wrap rounded-xl bg-muted-bg p-4 text-base text-foreground">
                 {agent.role_prompt}
               </div>
             </div>
           )}
 
           <div>
-            <h2 className="mb-2 text-sm font-semibold text-muted">
+            <h2 className="mb-2 text-base font-semibold text-muted">
               關聯 Skills
             </h2>
             {agent.skill_uids.length > 0 ? (
@@ -157,19 +158,19 @@ export default function AgentDetailPage(): React.ReactNode {
                 {agent.skill_uids.map((uid) => (
                   <span
                     key={uid}
-                    className="rounded-xl bg-muted-bg px-3 py-1 text-sm text-foreground"
+                    className="rounded-xl bg-muted-bg px-3 py-1 text-base text-foreground"
                   >
                     {uid}
                   </span>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted italic">尚無關聯 Skills</p>
+              <p className="text-base text-muted italic">尚無關聯 Skills</p>
             )}
           </div>
 
-          <div className="border-t border-border pt-4 text-sm text-muted">
-            最後更新：{new Date(agent.updated_at).toLocaleString("zh-TW")}
+          <div className="border-t border-border pt-4 text-base text-muted">
+            最後更新：{formatDateTime(agent.updated_at)}
           </div>
         </div>
       </div>

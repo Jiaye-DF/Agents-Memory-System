@@ -13,7 +13,7 @@ export default function ForbiddenPage(): React.ReactNode {
 
   return (
     <div>
-      <h1 className="mb-4 text-2xl font-bold text-foreground">權限不足</h1>
+      <h1 className="mb-4 text-3xl font-bold text-foreground">權限不足</h1>
       <div className="rounded-xl bg-card-bg p-6 shadow-sm">
         <div className="flex flex-col items-center gap-6 py-8">
           <div className="rounded-xl bg-error-bg p-4">
@@ -40,8 +40,8 @@ export default function ForbiddenPage(): React.ReactNode {
             </svg>
           </div>
           <div className="text-center">
-            <h2 className="text-xl font-semibold text-foreground">403 Forbidden</h2>
-            <p className="mt-2 text-sm text-muted">
+            <h2 className="text-2xl font-semibold text-foreground">403 Forbidden</h2>
+            <p className="mt-2 text-base text-muted">
               您沒有權限存取此頁面，請聯繫管理員取得相應權限。
             </p>
           </div>

@@ -30,8 +30,8 @@ export default function Error({
           <path d="M16 16L32 32M32 16L16 32" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </div>
-      <h2 className="text-xl font-semibold text-foreground">發生錯誤</h2>
-      <p className="text-sm text-muted">
+      <h2 className="text-2xl font-semibold text-foreground">發生錯誤</h2>
+      <p className="text-base text-muted">
         {error.digest ? `錯誤代碼：${error.digest}` : "頁面載入時發生未預期的錯誤"}
       </p>
       <Button onClick={unstable_retry}>重試</Button>

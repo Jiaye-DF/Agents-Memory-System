@@ -96,20 +96,20 @@ export function Dialog({
           <div
             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${styles.iconBg}`}
           >
-            <span className={`text-lg font-bold ${styles.iconColor}`}>
+            <span className={`text-xl font-bold ${styles.iconColor}`}>
               {styles.icon}
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-            <p className="mt-1 text-sm text-muted">{message}</p>
+            <h3 className="text-xl font-semibold text-foreground">{title}</h3>
+            <p className="mt-1 text-base text-muted">{message}</p>
           </div>
         </div>
         <div className="flex justify-end gap-3">
           {onCancel && (
             <button
               type="button"
-              className="min-h-[44px] min-w-[44px] rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
+              className="min-h-[44px] min-w-[44px] rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
               onClick={onCancel}
             >
               取消
@@ -117,7 +117,7 @@ export function Dialog({
           )}
           <button
             type="button"
-            className={`min-h-[44px] min-w-[44px] rounded-xl px-4 py-2 text-sm font-medium text-white hover:cursor-pointer ${styles.buttonBg} ${styles.buttonHover}`}
+            className={`min-h-[44px] min-w-[44px] rounded-xl px-4 py-2 text-base font-medium text-white hover:cursor-pointer ${styles.buttonBg} ${styles.buttonHover}`}
             onClick={onConfirm}
           >
             確認

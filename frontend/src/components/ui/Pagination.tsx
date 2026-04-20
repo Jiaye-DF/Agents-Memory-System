@@ -34,7 +34,7 @@ export const Pagination = React.memo(function Pagination({
       <div className="flex items-center gap-2">
         <label
           htmlFor="page-limit"
-          className="text-sm text-muted"
+          className="text-base text-muted"
         >
           每頁顯示
         </label>
@@ -42,7 +42,7 @@ export const Pagination = React.memo(function Pagination({
           id="page-limit"
           value={limit}
           onChange={handleLimitChange}
-          className="min-h-[44px] rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+          className="min-h-[44px] rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
         >
           {LIMIT_OPTIONS.map((option) => (
             <option key={option} value={option}>

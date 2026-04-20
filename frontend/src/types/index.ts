@@ -18,5 +18,6 @@ export type {
   Skill,
   SkillUpdateRequest,
   FileTreeNode,
+  FileContent,
   SkillUploadParams,
 } from "./skills";

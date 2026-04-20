@@ -40,7 +40,7 @@ export const Input = React.memo(
         {label && (
           <label
             htmlFor={inputId}
-            className="mb-1.5 block text-sm font-medium text-foreground"
+            className="mb-1.5 block text-base font-medium text-foreground"
           >
             {label}
             {required && <span className="ml-0.5 text-destructive">*</span>}
@@ -56,12 +56,12 @@ export const Input = React.memo(
           required={required}
           onChange={onChange}
           onBlur={onBlur}
-          className={`min-h-[44px] w-full rounded-xl border bg-input-bg px-3 py-2 text-sm text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50 ${
+          className={`min-h-[44px] w-full rounded-xl border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50 ${
             error ? "border-destructive" : "border-input-border"
           } ${className}`}
         />
         {error && (
-          <p className="mt-1 text-sm text-destructive">{error}</p>
+          <p className="mt-1 text-base text-destructive">{error}</p>
         )}
       </div>
     );

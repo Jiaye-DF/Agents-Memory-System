@@ -4,7 +4,7 @@ import React, { useState, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
-import { PageLoading, CardSkeleton } from "@/components/ui/Loading";
+import { PageLoading } from "@/components/ui/Loading";
 import { useDialog } from "@/hooks/useDialog";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -22,19 +22,19 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-interface SkillCardProps {
+interface SkillRowProps {
   skill: Skill;
   isOwner: boolean;
   onDelete: (skillUid: string) => void;
   onToggleVisibility: (skillUid: string, current: string) => void;
 }
 
-const SkillCard = React.memo(function SkillCard({
+const SkillRow = React.memo(function SkillRow({
   skill,
   isOwner,
   onDelete,
   onToggleVisibility,
-}: SkillCardProps): React.ReactNode {
+}: SkillRowProps): React.ReactNode {
   const handleDelete = useCallback((): void => {
     onDelete(skill.skill_uid);
   }, [skill.skill_uid, onDelete]);
@@ -44,37 +44,43 @@ const SkillCard = React.memo(function SkillCard({
   }, [skill.skill_uid, skill.visibility, onToggleVisibility]);
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-card-bg p-5 shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex items-start justify-between gap-2">
-        <Link
-          href={`/skills/${skill.skill_uid}`}
-          className="min-w-0 flex-1 hover:cursor-pointer"
-        >
-          <h3 className="truncate text-lg font-semibold text-foreground hover:text-primary">
-            {skill.name}
-          </h3>
-        </Link>
-        <span
-          className={`shrink-0 rounded-xl px-2 py-0.5 text-xs font-medium ${
-            skill.visibility === "public"
-              ? "bg-success/10 text-success"
-              : "bg-muted-bg text-muted"
-          }`}
-        >
-          {skill.visibility === "public" ? "公開" : "私人"}
-        </span>
-      </div>
+    <div className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/skills/${skill.skill_uid}`}
+            className="min-w-0 hover:cursor-pointer"
+          >
+            <h3 className="truncate text-lg font-semibold text-foreground hover:text-primary">
+              {skill.name}
+            </h3>
+          </Link>
+          <span
+            className={`shrink-0 rounded-xl px-2 py-0.5 text-sm font-medium ${
+              skill.visibility === "public"
+                ? "bg-success/10 text-success"
+                : "bg-muted-bg text-muted"
+            }`}
+          >
+            {skill.visibility === "public" ? "公開" : "私人"}
+          </span>
+        </div>
 
-      <p className="line-clamp-2 text-sm text-muted">{skill.description}</p>
+        {skill.description && (
+          <p className="mt-1 line-clamp-1 text-base text-muted">
+            {skill.description}
+          </p>
+        )}
 
-      <div className="flex items-center gap-3 text-xs text-muted">
-        <span>{formatFileSize(skill.file_size)}</span>
-        <span>{skill.original_filename}</span>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+          <span>{formatFileSize(skill.file_size)}</span>
+          <span className="truncate">{skill.original_filename}</span>
+        </div>
       </div>
 
       {isOwner && (
-        <div className="flex items-center gap-2 border-t border-border pt-3">
-          <Button size="sm" variant="ghost" onClick={handleToggle}>
+        <div className="flex shrink-0 items-center gap-2 md:ml-auto">
+          <Button size="sm" variant="secondary" onClick={handleToggle}>
             {skill.visibility === "public" ? "設為私人" : "設為公開"}
           </Button>
           <Button size="sm" variant="destructive" onClick={handleDelete}>
@@ -187,28 +193,24 @@ export default function SkillsListPage(): React.ReactNode {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Skills 管理</h1>
+        <h1 className="text-3xl font-bold text-foreground">Skills 管理</h1>
         <Link href="/skills/upload">
           <Button>上傳 Skill</Button>
         </Link>
       </div>
 
-      <div className="rounded-xl bg-card-bg p-6 shadow-sm">
+      <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
         {isLoading || isFetching ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <CardSkeleton key={i} />
-            ))}
-          </div>
+          <PageLoading />
         ) : skills.length === 0 ? (
           <div className="py-12 text-center text-muted">
             尚無 Skills，點擊右上角上傳第一個 Skill。
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="divide-y divide-border">
               {skills.map((skill) => (
-                <SkillCard
+                <SkillRow
                   key={skill.skill_uid}
                   skill={skill}
                   isOwner={skill.owner_uid === userUid}
@@ -217,7 +219,7 @@ export default function SkillsListPage(): React.ReactNode {
                 />
               ))}
             </div>
-            <div className="mt-6">
+            <div className="border-t border-border p-4">
               <Pagination
                 hasNext={data?.has_next ?? false}
                 hasPrev={cursorHistory.length > 0}

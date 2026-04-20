@@ -172,6 +172,24 @@ const filterOptions = agents.filter((a) => a.isActive);
 
 ---
 
+## 日期時間顯示
+
+- 後端回傳的時間欄位（`created_at`、`updated_at`、`locked_until` 等）已是 **UTC+8 的 wall-clock 值**（詳見 [21-database.md § 時區](21-database.md#時區重要)）
+- **禁止**使用 `new Date().toLocaleString(...)` 或帶 `timeZone` 選項的 API 做轉換，瀏覽器會再偏移一次導致顯示錯誤
+- 一律使用 `utils/datetime.ts` 的 `formatDateTime()`，該函式直接從 ISO 字串正規地抽出 `YYYY/MM/DD HH:mm:ss`，不經過 `Date` 物件
+
+```typescript
+// 正確
+import { formatDateTime } from "@/utils/datetime";
+<span>{formatDateTime(user.created_at)}</span>
+
+// 錯誤 — 會觸發瀏覽器時區偏移
+<span>{new Date(user.created_at).toLocaleString("zh-TW")}</span>
+<span>{new Date(user.created_at).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}</span>
+```
+
+---
+
 ## 其他注意事項
 
 - 圖片、靜態資源放置於 `public/`，引用時使用絕對路徑（`/images/logo.png`）

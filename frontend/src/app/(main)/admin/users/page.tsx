@@ -15,6 +15,7 @@ import {
   useListRolesQuery,
 } from "@/store/adminApi";
 import type { User, Role } from "@/types";
+import { formatDateTime } from "@/utils/datetime";
 
 interface UserCardProps {
   user: User;
@@ -45,7 +46,7 @@ const UserCard = React.memo(function UserCard({
       <div className="flex items-center justify-between">
         <span className="font-medium text-foreground">{user.username}</span>
         <span
-          className={`rounded-xl px-2 py-0.5 text-xs font-medium ${
+          className={`rounded-xl px-2 py-0.5 text-sm font-medium ${
             user.is_active
               ? "bg-success/10 text-success"
               : "bg-destructive/10 text-destructive"
@@ -54,13 +55,13 @@ const UserCard = React.memo(function UserCard({
           {user.is_active ? "啟用" : "停用"}
         </span>
       </div>
-      <div className="text-sm text-muted">帳號：{user.account}</div>
+      <div className="text-base text-muted">帳號：{user.account}</div>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-muted">角色：</span>
+        <span className="text-base text-muted">角色：</span>
         <select
           value={roles.find((r) => r.name === user.role_name)?.user_role_uid ?? ""}
           onChange={handleRoleChange}
-          className="min-h-[36px] rounded-xl border border-input-border bg-input-bg px-2 py-1 text-sm text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+          className="min-h-[36px] rounded-xl border border-input-border bg-input-bg px-2 py-1 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
         >
           {roles.map((role) => (
             <option key={role.user_role_uid} value={role.user_role_uid}>
@@ -71,8 +72,8 @@ const UserCard = React.memo(function UserCard({
       </div>
       {user.locked_until && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-warning">
-            鎖定至：{new Date(user.locked_until).toLocaleString("zh-TW")}
+          <span className="text-base text-warning">
+            鎖定至：{formatDateTime(user.locked_until)}
           </span>
           <Button size="sm" variant="secondary" onClick={handleUnlock}>
             解除鎖定
@@ -81,14 +82,14 @@ const UserCard = React.memo(function UserCard({
       )}
       {!user.is_active && !user.locked_until && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-destructive">帳號已被永久鎖定</span>
+          <span className="text-base text-destructive">帳號已被永久鎖定</span>
           <Button size="sm" variant="secondary" onClick={handleUnlock}>
             解除鎖定
           </Button>
         </div>
       )}
-      <div className="text-xs text-muted">
-        建立時間：{new Date(user.created_at).toLocaleString("zh-TW")}
+      <div className="text-sm text-muted">
+        建立時間：{formatDateTime(user.created_at)}
       </div>
     </div>
   );
@@ -234,7 +235,7 @@ export default function AdminUsersPage(): React.ReactNode {
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
               handleRoleChange(user.user_uid, e.target.value)
             }
-            className="min-h-[36px] rounded-xl border border-input-border bg-input-bg px-2 py-1 text-sm text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+            className="min-h-[36px] rounded-xl border border-input-border bg-input-bg px-2 py-1 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
           >
             {roles.map((role) => (
               <option key={role.user_role_uid} value={role.user_role_uid}>
@@ -249,7 +250,7 @@ export default function AdminUsersPage(): React.ReactNode {
         header: "狀態",
         render: (user: User): React.ReactNode => (
           <span
-            className={`rounded-xl px-2 py-0.5 text-xs font-medium ${
+            className={`rounded-xl px-2 py-0.5 text-sm font-medium ${
               user.is_active
                 ? "bg-success/10 text-success"
                 : "bg-destructive/10 text-destructive"
@@ -261,13 +262,13 @@ export default function AdminUsersPage(): React.ReactNode {
       },
       {
         key: "locked_until",
-        header: "鎖定狀態",
+        header: "登入鎖定",
         render: (user: User): React.ReactNode => {
           if (user.locked_until) {
             return (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-warning">
-                  {new Date(user.locked_until).toLocaleString("zh-TW")}
+                <span className="text-base text-warning">
+                  {formatDateTime(user.locked_until)}
                 </span>
                 <Button
                   size="sm"
@@ -290,15 +291,15 @@ export default function AdminUsersPage(): React.ReactNode {
               </Button>
             );
           }
-          return <span className="text-sm text-muted">-</span>;
+          return <span className="text-base text-muted">-</span>;
         },
       },
       {
         key: "created_at",
         header: "建立時間",
         render: (user: User): React.ReactNode => (
-          <span className="text-sm">
-            {new Date(user.created_at).toLocaleString("zh-TW")}
+          <span className="text-base">
+            {formatDateTime(user.created_at)}
           </span>
         ),
       },
@@ -326,7 +327,7 @@ export default function AdminUsersPage(): React.ReactNode {
 
   return (
     <div>
-      <h1 className="mb-4 text-2xl font-bold text-foreground">使用者管理</h1>
+      <h1 className="mb-4 text-3xl font-bold text-foreground">使用者管理</h1>
       <div className="rounded-xl bg-card-bg p-6 shadow-sm">
         <div className="mb-4">
           <Input

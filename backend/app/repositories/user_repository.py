@@ -39,6 +39,7 @@ async def update(user: User, update_data: dict, db: AsyncSession) -> User:
     for key, value in update_data.items():
         setattr(user, key, value)
     await db.flush()
+    await db.refresh(user)
     return user
 
 

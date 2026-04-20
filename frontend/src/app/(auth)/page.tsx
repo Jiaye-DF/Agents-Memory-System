@@ -89,8 +89,8 @@ export default function LoginPage(): React.ReactNode {
     <div className="w-full max-w-md rounded-xl bg-card-bg p-8 shadow-lg">
       <div className="mb-6 flex flex-col items-center gap-2">
         <Logo className="h-12 w-12" />
-        <h1 className="text-2xl font-bold text-foreground">Agents Platform</h1>
-        <p className="text-sm text-muted">請登入以繼續</p>
+        <h1 className="text-3xl font-bold text-foreground">Agents Platform</h1>
+        <p className="text-base text-muted">請登入以繼續</p>
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
@@ -116,7 +116,7 @@ export default function LoginPage(): React.ReactNode {
           登入
         </Button>
       </form>
-      <div className="mt-4 flex items-center justify-between text-sm">
+      <div className="mt-4 flex items-center justify-between text-base">
         <Link
           href="/register"
           className="text-primary transition-colors hover:cursor-pointer hover:text-primary-hover"

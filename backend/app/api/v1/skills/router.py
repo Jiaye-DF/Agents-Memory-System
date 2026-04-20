@@ -114,3 +114,16 @@ async def get_file_tree(
         skill_uid, current_user.user_uid, current_user.role, db
     )
     return success(data={"tree": [node.model_dump() for node in tree]})
+
+
+@router.get("/{skill_uid}/file")
+async def get_file_content(
+    skill_uid: str,
+    path: str = Query(..., min_length=1),
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await skill_service.get_file_content(
+        skill_uid, current_user.user_uid, current_user.role, path, db
+    )
+    return success(data=result)

@@ -41,12 +41,12 @@ const AgentCard = React.memo(function AgentCard({
           href={`/agents/${agent.agent_uid}`}
           className="min-w-0 flex-1 hover:cursor-pointer"
         >
-          <h3 className="truncate text-lg font-semibold text-foreground">
+          <h3 className="truncate text-xl font-semibold text-foreground">
             {agent.name}
           </h3>
         </Link>
         <span
-          className={`shrink-0 rounded-xl px-2 py-0.5 text-xs font-medium ${
+          className={`shrink-0 rounded-xl px-2 py-0.5 text-sm font-medium ${
             agent.visibility === "public"
               ? "bg-info-bg text-info"
               : "bg-muted-bg text-muted"
@@ -57,14 +57,14 @@ const AgentCard = React.memo(function AgentCard({
       </div>
 
       {agent.description && (
-        <p className="line-clamp-2 text-sm text-muted">{agent.description}</p>
+        <p className="line-clamp-2 text-base text-muted">{agent.description}</p>
       )}
 
       {!agent.description && (
-        <p className="text-sm text-muted italic">尚無描述</p>
+        <p className="text-base text-muted italic">尚無描述</p>
       )}
 
-      <div className="flex flex-wrap gap-2 text-xs text-muted">
+      <div className="flex flex-wrap gap-2 text-sm text-muted">
         {agent.language && <span>語言：{agent.language}</span>}
         {agent.style && <span>風格：{agent.style}</span>}
       </div>
@@ -82,7 +82,7 @@ const AgentCard = React.memo(function AgentCard({
                 編輯
               </Button>
             </Link>
-            <Button variant="ghost" size="sm" onClick={handleToggle}>
+            <Button variant="secondary" size="sm" onClick={handleToggle}>
               {agent.visibility === "public" ? "設為私人" : "設為公開"}
             </Button>
             <Button
@@ -192,7 +192,7 @@ export default function AgentsPage(): React.ReactNode {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Agent 管理</h1>
+        <h1 className="text-3xl font-bold text-foreground">Agent 管理</h1>
         <Link href="/agents/new">
           <Button>新增 Agent</Button>
         </Link>

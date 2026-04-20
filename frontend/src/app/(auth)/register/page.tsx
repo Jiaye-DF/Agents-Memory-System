@@ -150,8 +150,8 @@ export default function RegisterPage(): React.ReactNode {
     <div className="w-full max-w-md rounded-xl bg-card-bg p-8 shadow-lg">
       <div className="mb-6 flex flex-col items-center gap-2">
         <Logo className="h-12 w-12" />
-        <h1 className="text-2xl font-bold text-foreground">建立帳號</h1>
-        <p className="text-sm text-muted">填寫以下資訊註冊新帳號</p>
+        <h1 className="text-3xl font-bold text-foreground">建立帳號</h1>
+        <p className="text-base text-muted">填寫以下資訊註冊新帳號</p>
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
@@ -199,7 +199,7 @@ export default function RegisterPage(): React.ReactNode {
           註冊
         </Button>
       </form>
-      <div className="mt-4 text-center text-sm">
+      <div className="mt-4 text-center text-base">
         <span className="text-muted">已有帳號？</span>{" "}
         <Link
           href="/"

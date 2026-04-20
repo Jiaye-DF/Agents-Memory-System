@@ -136,7 +136,7 @@ export default function AgentNewPage(): React.ReactNode {
 
   return (
     <div>
-      <h1 className="mb-4 text-2xl font-bold text-foreground">新增 Agent</h1>
+      <h1 className="mb-4 text-3xl font-bold text-foreground">新增 Agent</h1>
       <div className="rounded-xl bg-card-bg p-6 shadow-sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
@@ -151,7 +151,7 @@ export default function AgentNewPage(): React.ReactNode {
           <div className="w-full">
             <label
               htmlFor="description"
-              className="mb-1.5 block text-sm font-medium text-foreground"
+              className="mb-1.5 block text-base font-medium text-foreground"
             >
               描述
             </label>
@@ -161,7 +161,7 @@ export default function AgentNewPage(): React.ReactNode {
               onChange={handleChange("description")}
               placeholder="輸入 Agent 描述"
               rows={3}
-              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
             />
           </div>
 
@@ -190,7 +190,7 @@ export default function AgentNewPage(): React.ReactNode {
           <div className="w-full">
             <label
               htmlFor="role_prompt"
-              className="mb-1.5 block text-sm font-medium text-foreground"
+              className="mb-1.5 block text-base font-medium text-foreground"
             >
               角色設定
             </label>
@@ -200,7 +200,7 @@ export default function AgentNewPage(): React.ReactNode {
               onChange={handleChange("role_prompt")}
               placeholder="輸入角色設定提示詞"
               rows={5}
-              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
             />
           </div>
 
@@ -208,7 +208,7 @@ export default function AgentNewPage(): React.ReactNode {
             <div className="w-full">
               <label
                 htmlFor="model"
-                className="mb-1.5 block text-sm font-medium text-foreground"
+                className="mb-1.5 block text-base font-medium text-foreground"
               >
                 模型
               </label>
@@ -216,7 +216,7 @@ export default function AgentNewPage(): React.ReactNode {
                 id="model"
                 value={form.model}
                 onChange={handleChange("model")}
-                className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+                className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
               >
                 <option value="">預設</option>
                 {modelsData?.items?.map((m) => (
@@ -245,7 +245,7 @@ export default function AgentNewPage(): React.ReactNode {
           <div className="w-full">
             <label
               htmlFor="greeting"
-              className="mb-1.5 block text-sm font-medium text-foreground"
+              className="mb-1.5 block text-base font-medium text-foreground"
             >
               開場白
             </label>
@@ -255,14 +255,14 @@ export default function AgentNewPage(): React.ReactNode {
               onChange={handleChange("greeting")}
               placeholder="Agent 對話開始時的第一句話"
               rows={2}
-              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
             />
           </div>
 
           <div className="w-full">
             <label
               htmlFor="response_format"
-              className="mb-1.5 block text-sm font-medium text-foreground"
+              className="mb-1.5 block text-base font-medium text-foreground"
             >
               回覆格式
             </label>
@@ -270,7 +270,7 @@ export default function AgentNewPage(): React.ReactNode {
               id="response_format"
               value={form.response_format}
               onChange={handleChange("response_format")}
-              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
             >
               <option value="markdown">Markdown</option>
               <option value="plain_text">純文字</option>
@@ -281,7 +281,7 @@ export default function AgentNewPage(): React.ReactNode {
           <div className="w-full">
             <label
               htmlFor="visibility"
-              className="mb-1.5 block text-sm font-medium text-foreground"
+              className="mb-1.5 block text-base font-medium text-foreground"
             >
               可見性
             </label>
@@ -289,7 +289,7 @@ export default function AgentNewPage(): React.ReactNode {
               id="visibility"
               value={form.visibility}
               onChange={handleChange("visibility")}
-              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
             >
               <option value="private">私人</option>
               <option value="public">公開</option>
@@ -297,10 +297,10 @@ export default function AgentNewPage(): React.ReactNode {
           </div>
 
           <div className="w-full">
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label className="mb-1.5 block text-base font-medium text-foreground">
               Skills（尚未開放）
             </label>
-            <div className="rounded-xl border border-dashed border-input-border bg-muted-bg p-4 text-center text-sm text-muted">
+            <div className="rounded-xl border border-dashed border-input-border bg-muted-bg p-4 text-center text-base text-muted">
               Skills 選擇器將於 Skills 功能完成後啟用
             </div>
           </div>

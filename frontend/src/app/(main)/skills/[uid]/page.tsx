@@ -6,9 +6,14 @@ import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
 import { useDialog } from "@/hooks/useDialog";
 import { useAuth } from "@/hooks/useAuth";
-import { useGetSkillQuery, useGetFileTreeQuery } from "@/store/skillsApi";
+import {
+  useGetSkillQuery,
+  useGetFileTreeQuery,
+  useGetFileContentQuery,
+} from "@/store/skillsApi";
 import { getAccessToken } from "@/lib/api/client";
 import type { FileTreeNode } from "@/types";
+import { formatDateTime } from "@/utils/datetime";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -21,17 +26,32 @@ function formatFileSize(bytes: number): string {
 interface TreeNodeProps {
   node: FileTreeNode;
   depth: number;
+  parentPath: string;
+  selectedPath: string | null;
+  onSelect: (path: string) => void;
 }
 
 const TreeNode = React.memo(function TreeNode({
   node,
   depth,
+  parentPath,
+  selectedPath,
+  onSelect,
 }: TreeNodeProps): React.ReactNode {
   const [isExpanded, setIsExpanded] = useState<boolean>(depth < 2);
+
+  const fullPath = useMemo(
+    (): string => (parentPath ? `${parentPath}/${node.name}` : node.name),
+    [parentPath, node.name]
+  );
 
   const handleToggle = useCallback((): void => {
     setIsExpanded((prev) => !prev);
   }, []);
+
+  const handleSelect = useCallback((): void => {
+    onSelect(fullPath);
+  }, [onSelect, fullPath]);
 
   const paddingLeft = useMemo((): string => `${depth * 20 + 8}px`, [depth]);
 
@@ -41,10 +61,10 @@ const TreeNode = React.memo(function TreeNode({
         <button
           type="button"
           onClick={handleToggle}
-          className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-sm text-foreground transition-colors hover:cursor-pointer hover:bg-muted-bg"
+          className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-base text-foreground transition-colors hover:cursor-pointer hover:bg-muted-bg"
           style={{ paddingLeft }}
         >
-          <span className="shrink-0 text-xs text-muted">
+          <span className="shrink-0 text-sm text-muted">
             {isExpanded ? "\u25BC" : "\u25B6"}
           </span>
           <span className="shrink-0">
@@ -71,6 +91,9 @@ const TreeNode = React.memo(function TreeNode({
                 key={`${node.name}-${child.name}`}
                 node={child}
                 depth={depth + 1}
+                parentPath={fullPath}
+                selectedPath={selectedPath}
+                onSelect={onSelect}
               />
             ))}
           </div>
@@ -79,19 +102,25 @@ const TreeNode = React.memo(function TreeNode({
     );
   }
 
+  const isSelected = selectedPath === fullPath;
+
   return (
-    <div
-      className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-sm text-foreground"
+    <button
+      type="button"
+      onClick={handleSelect}
+      className={`flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-base text-foreground transition-colors hover:cursor-pointer hover:bg-muted-bg ${
+        isSelected ? "bg-primary/10 text-primary" : ""
+      }`}
       style={{ paddingLeft }}
     >
-      <span className="shrink-0 text-xs text-transparent">{"\u25B6"}</span>
+      <span className="shrink-0 text-sm text-transparent">{"\u25B6"}</span>
       <span className="shrink-0">
         <svg
           width="16"
           height="16"
           viewBox="0 0 16 16"
           fill="none"
-          className="text-muted"
+          className={isSelected ? "text-primary" : "text-muted"}
         >
           <rect
             x="2"
@@ -129,9 +158,69 @@ const TreeNode = React.memo(function TreeNode({
         </svg>
       </span>
       <span className="truncate">{node.name}</span>
-    </div>
+    </button>
   );
 });
+
+interface CodeViewerProps {
+  skillUid: string;
+  path: string;
+}
+
+function CodeViewer({ skillUid, path }: CodeViewerProps): React.ReactNode {
+  const { data, isFetching, error } = useGetFileContentQuery({
+    skillUid,
+    path,
+  });
+
+  const lines = useMemo((): string[] => {
+    if (!data || data.encoding !== "text" || data.too_large) return [];
+    return data.content.split("\n");
+  }, [data]);
+
+  if (isFetching) {
+    return <div className="p-6 text-center text-muted">載入中...</div>;
+  }
+
+  if (error || !data) {
+    return (
+      <div className="p-6 text-center text-danger">
+        無法載入檔案內容。
+      </div>
+    );
+  }
+
+  if (data.too_large) {
+    return (
+      <div className="p-6 text-center text-muted">
+        檔案過大（{formatFileSize(data.size)}），無法預覽。請下載後檢視。
+      </div>
+    );
+  }
+
+  if (data.encoding === "binary") {
+    return (
+      <div className="p-6 text-center text-muted">
+        二進位檔案（{formatFileSize(data.size)}），無法顯示內容。
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex max-h-[70vh] overflow-auto font-mono text-sm">
+      <div className="sticky left-0 select-none border-r border-border bg-muted-bg px-3 py-3 text-right text-muted">
+        {lines.map((_, i) => (
+          <div key={i} className="leading-6">
+            {i + 1}
+          </div>
+        ))}
+      </div>
+      <pre className="flex-1 px-4 py-3 leading-6 text-foreground">
+        <code>{data.content}</code>
+      </pre>
+    </div>
+  );
+}
 
 export default function SkillDetailPage(): React.ReactNode {
   const params = useParams();
@@ -139,6 +228,8 @@ export default function SkillDetailPage(): React.ReactNode {
   const { showDialog } = useDialog();
   const { isLoading: authLoading } = useAuth();
   const uid = params.uid as string;
+
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
 
   const {
     data: skill,
@@ -149,6 +240,10 @@ export default function SkillDetailPage(): React.ReactNode {
   const { data: treeData, isLoading: treeLoading } = useGetFileTreeQuery(uid, {
     skip: authLoading || !skill,
   });
+
+  const handleSelect = useCallback((path: string): void => {
+    setSelectedPath(path);
+  }, []);
 
   const handleDownload = useCallback((): void => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -213,7 +308,7 @@ export default function SkillDetailPage(): React.ReactNode {
   if (skillError || !skill) {
     return (
       <div>
-        <h1 className="mb-4 text-2xl font-bold text-foreground">
+        <h1 className="mb-4 text-3xl font-bold text-foreground">
           Skill 詳情
         </h1>
         <div className="rounded-xl bg-card-bg p-6 text-center shadow-sm">
@@ -229,7 +324,7 @@ export default function SkillDetailPage(): React.ReactNode {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Skill 詳情</h1>
+        <h1 className="text-3xl font-bold text-foreground">Skill 詳情</h1>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={handleBack}>
             返回列表
@@ -240,19 +335,19 @@ export default function SkillDetailPage(): React.ReactNode {
 
       <div className="flex flex-col gap-4">
         <div className="rounded-xl bg-card-bg p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">
+          <h2 className="mb-4 text-xl font-semibold text-foreground">
             基本資訊
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <span className="text-sm text-muted">名稱</span>
+              <span className="text-base text-muted">名稱</span>
               <p className="font-medium text-foreground">{skill.name}</p>
             </div>
             <div>
-              <span className="text-sm text-muted">可見性</span>
+              <span className="text-base text-muted">可見性</span>
               <p>
                 <span
-                  className={`rounded-xl px-2 py-0.5 text-xs font-medium ${
+                  className={`rounded-xl px-2 py-0.5 text-sm font-medium ${
                     skill.visibility === "public"
                       ? "bg-success/10 text-success"
                       : "bg-muted-bg text-muted"
@@ -263,31 +358,31 @@ export default function SkillDetailPage(): React.ReactNode {
               </p>
             </div>
             <div>
-              <span className="text-sm text-muted">檔案名稱</span>
+              <span className="text-base text-muted">檔案名稱</span>
               <p className="font-medium text-foreground">
                 {skill.original_filename}
               </p>
             </div>
             <div>
-              <span className="text-sm text-muted">檔案大小</span>
+              <span className="text-base text-muted">檔案大小</span>
               <p className="font-medium text-foreground">
                 {formatFileSize(skill.file_size)}
               </p>
             </div>
             <div>
-              <span className="text-sm text-muted">上傳時間</span>
+              <span className="text-base text-muted">上傳時間</span>
               <p className="font-medium text-foreground">
-                {new Date(skill.created_at).toLocaleString("zh-TW")}
+                {formatDateTime(skill.created_at)}
               </p>
             </div>
             <div>
-              <span className="text-sm text-muted">更新時間</span>
+              <span className="text-base text-muted">更新時間</span>
               <p className="font-medium text-foreground">
-                {new Date(skill.updated_at).toLocaleString("zh-TW")}
+                {formatDateTime(skill.updated_at)}
               </p>
             </div>
             <div className="sm:col-span-2">
-              <span className="text-sm text-muted">描述</span>
+              <span className="text-base text-muted">描述</span>
               <p className="whitespace-pre-wrap text-foreground">
                 {skill.description}
               </p>
@@ -296,16 +391,41 @@ export default function SkillDetailPage(): React.ReactNode {
         </div>
 
         <div className="rounded-xl bg-card-bg p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">
-            檔案目錄
+          <h2 className="mb-4 text-xl font-semibold text-foreground">
+            檔案內容
           </h2>
           {treeLoading ? (
             <div className="py-8 text-center text-muted">載入中...</div>
           ) : treeData?.tree && treeData.tree.length > 0 ? (
-            <div className="rounded-xl border border-border">
-              {treeData.tree.map((node) => (
-                <TreeNode key={node.name} node={node} depth={0} />
-              ))}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(240px,300px)_1fr]">
+              <div className="rounded-xl border border-border p-1 lg:max-h-[70vh] lg:overflow-auto">
+                {treeData.tree.map((node) => (
+                  <TreeNode
+                    key={node.name}
+                    node={node}
+                    depth={0}
+                    parentPath=""
+                    selectedPath={selectedPath}
+                    onSelect={handleSelect}
+                  />
+                ))}
+              </div>
+              <div className="overflow-hidden rounded-xl border border-border">
+                {selectedPath ? (
+                  <>
+                    <div className="flex items-center justify-between border-b border-border bg-muted-bg px-4 py-2">
+                      <span className="truncate font-mono text-sm text-foreground">
+                        {selectedPath}
+                      </span>
+                    </div>
+                    <CodeViewer skillUid={uid} path={selectedPath} />
+                  </>
+                ) : (
+                  <div className="p-8 text-center text-muted">
+                    請從左側點選檔案以查看內容。
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="py-8 text-center text-muted">

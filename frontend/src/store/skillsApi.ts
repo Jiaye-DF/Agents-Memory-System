@@ -5,6 +5,7 @@ import type {
   SkillUpdateRequest,
   VisibilityRequest,
   FileTreeNode,
+  FileContent,
   SkillUploadParams,
 } from "@/types";
 
@@ -97,6 +98,17 @@ export const skillsApi = baseApi.injectEndpoints({
         path: `/skills/${skillUid}/tree`,
       }),
     }),
+
+    getFileContent: builder.query<
+      FileContent,
+      { skillUid: string; path: string }
+    >({
+      query: ({ skillUid, path }) => ({
+        method: "get",
+        path: `/skills/${skillUid}/file`,
+        params: { path },
+      }),
+    }),
   }),
 });
 
@@ -108,4 +120,5 @@ export const {
   useDeleteSkillMutation,
   useToggleSkillVisibilityMutation,
   useGetFileTreeQuery,
+  useGetFileContentQuery,
 } = skillsApi;

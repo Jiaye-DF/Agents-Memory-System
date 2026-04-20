@@ -130,7 +130,7 @@ export default function AgentEditPage(): React.ReactNode {
 
   return (
     <div>
-      <h1 className="mb-4 text-2xl font-bold text-foreground">編輯 Agent</h1>
+      <h1 className="mb-4 text-3xl font-bold text-foreground">編輯 Agent</h1>
       <div className="rounded-xl bg-card-bg p-6 shadow-sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
@@ -145,7 +145,7 @@ export default function AgentEditPage(): React.ReactNode {
           <div className="w-full">
             <label
               htmlFor="description"
-              className="mb-1.5 block text-sm font-medium text-foreground"
+              className="mb-1.5 block text-base font-medium text-foreground"
             >
               描述
             </label>
@@ -155,7 +155,7 @@ export default function AgentEditPage(): React.ReactNode {
               onChange={handleChange("description")}
               placeholder="輸入 Agent 描述"
               rows={3}
-              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
             />
           </div>
 
@@ -184,7 +184,7 @@ export default function AgentEditPage(): React.ReactNode {
           <div className="w-full">
             <label
               htmlFor="role_prompt"
-              className="mb-1.5 block text-sm font-medium text-foreground"
+              className="mb-1.5 block text-base font-medium text-foreground"
             >
               角色設定
             </label>
@@ -194,15 +194,15 @@ export default function AgentEditPage(): React.ReactNode {
               onChange={handleChange("role_prompt")}
               placeholder="輸入角色設定提示詞"
               rows={5}
-              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
             />
           </div>
 
           <div className="w-full">
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label className="mb-1.5 block text-base font-medium text-foreground">
               Skills（尚未開放）
             </label>
-            <div className="rounded-xl border border-dashed border-input-border bg-muted-bg p-4 text-center text-sm text-muted">
+            <div className="rounded-xl border border-dashed border-input-border bg-muted-bg p-4 text-center text-base text-muted">
               Skills 選擇器將於 Skills 功能完成後啟用
             </div>
           </div>

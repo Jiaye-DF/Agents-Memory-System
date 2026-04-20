@@ -1,6 +1,7 @@
 export interface Agent {
   agent_uid: string;
   owner_uid: string;
+  owner_username: string | null;
   name: string;
   description: string | null;
   language: string | null;

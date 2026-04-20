@@ -24,11 +24,14 @@ BLOCKED_MIME_TYPES = {
     "application/x-executable",
 }
 
+FILE_PREVIEW_MAX_BYTES = 512 * 1024
+
 
 def _skill_to_dict(skill: Skill) -> dict:
     return {
         "skill_uid": str(skill.skill_uid),
         "owner_uid": str(skill.owner_uid),
+        "owner_username": skill.owner.username if skill.owner else None,
         "name": skill.name,
         "description": skill.description,
         "original_filename": skill.original_filename,
@@ -329,6 +332,96 @@ async def get_file_tree(
         )
 
     return _tree_dict_to_list(tree)
+
+
+async def get_file_content(
+    skill_uid: str,
+    user_uid: str,
+    role: str,
+    path: str,
+    db: AsyncSession,
+) -> dict:
+    skill = await skill_repository.get_by_uid(skill_uid, db)
+    if skill is None:
+        raise AppError(
+            detail="找不到指定的 Skill",
+            response_code=404,
+            status_code=404,
+        )
+
+    if role != "admin":
+        if str(skill.owner_uid) != user_uid and skill.visibility != "public":
+            raise AppError(
+                detail="找不到指定的 Skill",
+                response_code=404,
+                status_code=404,
+            )
+
+    zip_path = skill.file_path
+    if not Path(zip_path).exists():
+        raise AppError(
+            detail="檔案不存在，請聯繫管理員",
+            response_code=404,
+            status_code=404,
+        )
+
+    normalized = path.lstrip("/").replace("\\", "/")
+
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            try:
+                info = zf.getinfo(normalized)
+            except KeyError:
+                raise AppError(
+                    detail="找不到指定的檔案",
+                    response_code=404,
+                    status_code=404,
+                )
+
+            if info.is_dir():
+                raise AppError(
+                    detail="指定的路徑為目錄，無法顯示內容",
+                    response_code=400,
+                    status_code=400,
+                )
+
+            size = info.file_size
+            if size > FILE_PREVIEW_MAX_BYTES:
+                return {
+                    "path": normalized,
+                    "size": size,
+                    "encoding": "text",
+                    "content": "",
+                    "too_large": True,
+                }
+
+            with zf.open(info, "r") as f:
+                data = f.read()
+    except zipfile.BadZipFile:
+        raise AppError(
+            detail="檔案格式損毀，無法讀取",
+            response_code=500,
+            status_code=500,
+        )
+
+    try:
+        content = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return {
+            "path": normalized,
+            "size": size,
+            "encoding": "binary",
+            "content": "",
+            "too_large": False,
+        }
+
+    return {
+        "path": normalized,
+        "size": size,
+        "encoding": "text",
+        "content": content,
+        "too_large": False,
+    }
 
 
 def _build_tree(

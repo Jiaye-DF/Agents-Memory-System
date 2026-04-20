@@ -64,6 +64,7 @@ class AgentUpdateRequest(BaseModel):
 class AgentResponse(BaseModel):
     agent_uid: str
     owner_uid: str
+    owner_username: str | None
     name: str
     description: str | None
     language: str | None
