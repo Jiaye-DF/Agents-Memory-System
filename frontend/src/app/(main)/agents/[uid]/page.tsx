@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
 import { useDialog } from "@/hooks/useDialog";
 import { useGetAgentQuery } from "@/store/agentsApi";
+import { useListAgentLanguagesQuery } from "@/store/agentLanguagesApi";
 import { getAccessToken } from "@/lib/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDateTime } from "@/utils/datetime";
@@ -18,6 +19,7 @@ export default function AgentDetailPage(): React.ReactNode {
   const { showDialog } = useDialog();
 
   const { data: agent, isLoading } = useGetAgentQuery(agentUid);
+  const { data: languagesData } = useListAgentLanguagesQuery();
 
   const handleDownload = useCallback(async (): Promise<void> => {
     try {
@@ -69,6 +71,11 @@ export default function AgentDetailPage(): React.ReactNode {
   }
 
   const isOwner = agent.owner_uid === userUid;
+  const languageLabel = (() => {
+    if (!agent.language) return null;
+    const match = languagesData?.items.find((l) => l.code === agent.language);
+    return match?.name ?? agent.language;
+  })();
 
   return (
     <div>
@@ -122,12 +129,12 @@ export default function AgentDetailPage(): React.ReactNode {
           )}
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {agent.language && (
+            {languageLabel && (
               <div>
                 <h2 className="mb-2 text-base font-semibold text-muted">
                   語言偏好
                 </h2>
-                <p className="text-foreground">{agent.language}</p>
+                <p className="text-foreground">{languageLabel}</p>
               </div>
             )}
             {agent.style && (

@@ -76,6 +76,29 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
       </svg>
     ),
   },
+  {
+    label: "語言管理",
+    href: "/admin/agent-languages",
+    adminOnly: true,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M3 10H17" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M10 3C12 5.5 13 7.5 13 10C13 12.5 12 14.5 10 17C8 14.5 7 12.5 7 10C7 7.5 8 5.5 10 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    label: "系統設定",
+    href: "/admin/settings",
+    adminOnly: true,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M10 2V4M10 16V18M2 10H4M16 10H18M4.2 4.2L5.6 5.6M14.4 14.4L15.8 15.8M4.2 15.8L5.6 14.4M14.4 5.6L15.8 4.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
 ];
 
 const WIDTH_CLASSES: Record<SidebarState, string> = {

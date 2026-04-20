@@ -42,6 +42,8 @@ interface FormDialogProps {
     model_id: string;
     display_name: string;
     is_active?: boolean;
+    is_default: boolean;
+    max_output_tokens: number | null;
   }) => Promise<void>;
   onClose: () => void;
 }
@@ -59,8 +61,17 @@ const FormDialog = React.memo(function FormDialog({
     initial?.display_name ?? ""
   );
   const [isActive, setIsActive] = useState<boolean>(initial?.is_active ?? true);
+  const [isDefault, setIsDefault] = useState<boolean>(
+    initial?.is_default ?? false
+  );
+  const [maxOutputTokens, setMaxOutputTokens] = useState<string>(
+    initial?.max_output_tokens != null
+      ? String(initial.max_output_tokens)
+      : ""
+  );
   const [modelIdError, setModelIdError] = useState<string>("");
   const [displayNameError, setDisplayNameError] = useState<string>("");
+  const [maxOutputTokensError, setMaxOutputTokensError] = useState<string>("");
 
   const title = mode === "create" ? "新增 LLM 模型" : "編輯 LLM 模型";
 
@@ -111,6 +122,18 @@ const FormDialog = React.memo(function FormDialog({
     setIsActive((prev) => !prev);
   }, []);
 
+  const handleToggleDefault = useCallback((): void => {
+    setIsDefault((prev) => !prev);
+  }, []);
+
+  const handleMaxOutputTokensChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>): void => {
+      setMaxOutputTokens(e.target.value);
+      setMaxOutputTokensError("");
+    },
+    []
+  );
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
       e.preventDefault();
@@ -138,22 +161,46 @@ const FormDialog = React.memo(function FormDialog({
         }
       }
 
+      let parsedMaxTokens: number | null = null;
+      const trimmedMaxTokens = maxOutputTokens.trim();
+      if (trimmedMaxTokens !== "") {
+        const num = parseInt(trimmedMaxTokens, 10);
+        if (Number.isNaN(num) || num < 1) {
+          setMaxOutputTokensError("需為大於 0 的整數，留空表示未設定");
+          hasError = true;
+        } else {
+          parsedMaxTokens = num;
+        }
+      }
+
       if (hasError) return;
 
       if (mode === "create") {
         await onSubmit({
           model_id: modelId.trim(),
           display_name: trimmedName,
+          is_default: isDefault,
+          max_output_tokens: parsedMaxTokens,
         });
       } else {
         await onSubmit({
           model_id: modelId,
           display_name: trimmedName,
           is_active: isActive,
+          is_default: isDefault,
+          max_output_tokens: parsedMaxTokens,
         });
       }
     },
-    [mode, modelId, displayName, isActive, onSubmit]
+    [
+      mode,
+      modelId,
+      displayName,
+      isActive,
+      isDefault,
+      maxOutputTokens,
+      onSubmit,
+    ]
   );
 
   const content = (
@@ -210,10 +257,10 @@ const FormDialog = React.memo(function FormDialog({
                 type="button"
                 onClick={handleToggleActive}
                 disabled={submitting}
+                aria-label="啟用狀態切換"
                 className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
                   isActive ? "bg-primary" : "bg-muted-bg"
                 }`}
-                aria-pressed={isActive}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -223,6 +270,50 @@ const FormDialog = React.memo(function FormDialog({
               </button>
             </div>
           )}
+
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="block text-base font-medium text-foreground">
+                預設模型
+              </span>
+              <span className="block text-sm text-muted">
+                全系統僅能有一個預設模型
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleToggleDefault}
+              disabled={submitting}
+              aria-label="預設模型切換"
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
+                isDefault ? "bg-primary" : "bg-muted-bg"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  isDefault ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          <div>
+            <label
+              htmlFor="max-output-tokens"
+              className="mb-1.5 block text-base font-medium text-foreground"
+            >
+              單次回覆最大 Token 數
+            </label>
+            <Input
+              id="max-output-tokens"
+              type="number"
+              placeholder="留空表示未設定"
+              value={maxOutputTokens}
+              onChange={handleMaxOutputTokensChange}
+              error={maxOutputTokensError}
+              disabled={submitting}
+            />
+          </div>
 
           <div className="mt-2 flex justify-end gap-3">
             <button
@@ -306,15 +397,22 @@ const ModelCard = React.memo(function ModelCard({
         <span className="truncate font-medium text-foreground">
           {model.display_name}
         </span>
-        <span
-          className={`shrink-0 rounded-xl px-2 py-0.5 text-sm font-medium ${
-            model.is_active
-              ? "bg-success/10 text-success"
-              : "bg-muted-bg text-muted"
-          }`}
-        >
-          {model.is_active ? "啟用" : "停用"}
-        </span>
+        <div className="flex shrink-0 items-center gap-1">
+          {model.is_default && (
+            <span className="rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+              預設
+            </span>
+          )}
+          <span
+            className={`rounded-xl px-2 py-0.5 text-sm font-medium ${
+              model.is_active
+                ? "bg-success/10 text-success"
+                : "bg-muted-bg text-muted"
+            }`}
+          >
+            {model.is_active ? "啟用" : "停用"}
+          </span>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
@@ -323,6 +421,10 @@ const ModelCard = React.memo(function ModelCard({
         <span className="truncate font-mono text-sm text-muted">
           {model.model_id}
         </span>
+      </div>
+      <div className="text-sm text-muted">
+        最大 Token 數：
+        {model.max_output_tokens != null ? model.max_output_tokens : "未設定"}
       </div>
       <div className="text-sm text-muted">
         建立時間：{formatDateTime(model.created_at)}
@@ -454,6 +556,8 @@ export default function AdminModelsPage(): React.ReactNode {
       model_id: string;
       display_name: string;
       is_active?: boolean;
+      is_default: boolean;
+      max_output_tokens: number | null;
     }): Promise<void> => {
       if (!formState) return;
       try {
@@ -461,6 +565,8 @@ export default function AdminModelsPage(): React.ReactNode {
           await createModel({
             model_id: payload.model_id,
             display_name: payload.display_name,
+            is_default: payload.is_default,
+            max_output_tokens: payload.max_output_tokens,
           }).unwrap();
           setFormState(null);
           showDialog({
@@ -474,6 +580,8 @@ export default function AdminModelsPage(): React.ReactNode {
             body: {
               display_name: payload.display_name,
               is_active: payload.is_active,
+              is_default: payload.is_default,
+              max_output_tokens: payload.max_output_tokens,
             },
           }).unwrap();
           setFormState(null);
@@ -577,6 +685,27 @@ export default function AdminModelsPage(): React.ReactNode {
       {
         key: "display_name",
         header: "顯示名稱",
+      },
+      {
+        key: "is_default",
+        header: "預設",
+        render: (model: LlmModelAdmin): React.ReactNode =>
+          model.is_default ? (
+            <span className="rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+              預設
+            </span>
+          ) : (
+            <span className="text-sm text-muted">-</span>
+          ),
+      },
+      {
+        key: "max_output_tokens",
+        header: "最大 Token",
+        render: (model: LlmModelAdmin): React.ReactNode => (
+          <span className="text-base">
+            {model.max_output_tokens != null ? model.max_output_tokens : "-"}
+          </span>
+        ),
       },
       {
         key: "is_active",

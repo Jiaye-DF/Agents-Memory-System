@@ -22,6 +22,8 @@ async def list_models(
             provider=m.provider,
             model_id=m.model_id,
             display_name=m.display_name,
+            is_default=m.is_default,
+            max_output_tokens=m.max_output_tokens,
         ).model_dump()
         for m in models
     ]

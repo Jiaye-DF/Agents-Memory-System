@@ -10,11 +10,15 @@ class LlmModelResponse(BaseModel):
     provider: str
     model_id: str
     display_name: str
+    is_default: bool = False
+    max_output_tokens: int | None = None
 
 
 class LlmModelCreateRequest(BaseModel):
     model_id: str
     display_name: str
+    is_default: bool | None = False
+    max_output_tokens: int | None = None
 
     @field_validator("model_id")
     @classmethod
@@ -34,10 +38,19 @@ class LlmModelCreateRequest(BaseModel):
             raise ValueError("顯示名稱為必填，且不可超過 100 字元")
         return value
 
+    @field_validator("max_output_tokens")
+    @classmethod
+    def validate_max_output_tokens(cls, value: int | None) -> int | None:
+        if value is not None and value <= 0:
+            raise ValueError("max_output_tokens 必須為正整數")
+        return value
+
 
 class LlmModelUpdateRequest(BaseModel):
     display_name: str | None = None
     is_active: bool | None = None
+    is_default: bool | None = None
+    max_output_tokens: int | None = None
 
     @field_validator("display_name")
     @classmethod
@@ -46,6 +59,13 @@ class LlmModelUpdateRequest(BaseModel):
             value = value.strip()
             if not value or len(value) > 100:
                 raise ValueError("顯示名稱為必填，且不可超過 100 字元")
+        return value
+
+    @field_validator("max_output_tokens")
+    @classmethod
+    def validate_max_output_tokens(cls, value: int | None) -> int | None:
+        if value is not None and value <= 0:
+            raise ValueError("max_output_tokens 必須為正整數")
         return value
 
 
@@ -58,5 +78,7 @@ class LlmModelAdminResponse(BaseModel):
     display_name: str
     is_active: bool
     is_deleted: bool
+    is_default: bool
+    max_output_tokens: int | None
     created_at: str
     updated_at: str

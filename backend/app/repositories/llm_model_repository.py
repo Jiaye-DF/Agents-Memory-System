@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.llm_model import LlmModel
@@ -63,4 +63,27 @@ async def update(
 
 async def soft_delete(model: LlmModel, db: AsyncSession) -> None:
     model.is_deleted = True
+    await db.flush()
+
+
+async def get_default(db: AsyncSession) -> LlmModel | None:
+    stmt = select(LlmModel).where(
+        LlmModel.is_default == True,
+        LlmModel.is_active == True,
+        LlmModel.is_deleted == False,
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def clear_default(db: AsyncSession, except_pid: int | None = None) -> None:
+    """將所有其他模型的 is_default 設為 FALSE（在同一 transaction 切換預設時使用）"""
+    stmt = update(LlmModel).where(
+        LlmModel.is_default == True,
+        LlmModel.is_deleted == False,
+    )
+    if except_pid is not None:
+        stmt = stmt.where(LlmModel.pid != except_pid)
+    stmt = stmt.values(is_default=False)
+    await db.execute(stmt)
     await db.flush()

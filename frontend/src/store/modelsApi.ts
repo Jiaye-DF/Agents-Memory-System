@@ -1,17 +1,11 @@
 import { baseApi } from "./api";
 import type { PaginatedData } from "@/types";
 import type {
+  LlmModel,
   LlmModelAdmin,
   LlmModelCreateRequest,
   LlmModelUpdateRequest,
 } from "@/types";
-
-export interface LlmModel {
-  llm_model_uid: string;
-  provider: string;
-  model_id: string;
-  display_name: string;
-}
 
 interface ListModelsResponse {
   items: LlmModel[];

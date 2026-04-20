@@ -4,12 +4,15 @@ from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.core.pagination import decode_cursor, encode_cursor
 from app.models.agent import Agent
-from app.repositories import agent_repository
+from app.repositories import agent_language_repository, agent_repository
 from app.schemas.agents.schemas import (
     AgentCreateRequest,
     AgentUpdateRequest,
     VisibilityRequest,
 )
+from app.services import system_setting_service
+
+DEFAULT_MAX_SKILLS = 10
 
 
 def _agent_to_dict(agent: Agent, skill_uids: list[str]) -> dict:
@@ -23,6 +26,11 @@ def _agent_to_dict(agent: Agent, skill_uids: list[str]) -> dict:
         "style": agent.style,
         "identity": agent.identity,
         "role_prompt": agent.role_prompt,
+        "model": agent.model,
+        "temperature": agent.temperature,
+        "max_tokens": agent.max_tokens,
+        "greeting": agent.greeting,
+        "response_format": agent.response_format,
         "visibility": agent.visibility,
         "is_active": agent.is_active,
         "skill_uids": skill_uids,
@@ -31,9 +39,40 @@ def _agent_to_dict(agent: Agent, skill_uids: list[str]) -> dict:
     }
 
 
+async def _validate_language(language: str | None, db: AsyncSession) -> None:
+    if language is None or language == "":
+        return
+    lang = await agent_language_repository.get_active_by_code(language, db)
+    if lang is None:
+        raise AppError(
+            detail=f"指定的語言不存在或已停用：{language}",
+            response_code=400,
+            status_code=400,
+        )
+
+
+async def _validate_skill_count(
+    skill_uids: list[str] | None, db: AsyncSession
+) -> None:
+    if not skill_uids:
+        return
+    max_skills = await system_setting_service.get_int(
+        "agent.max_skills", DEFAULT_MAX_SKILLS, db
+    )
+    if len(skill_uids) > max_skills:
+        raise AppError(
+            detail=f"關聯的 Skills 數量超過上限（目前上限為 {max_skills}）",
+            response_code=400,
+            status_code=400,
+        )
+
+
 async def create_agent(
     user_uid: str, data: AgentCreateRequest, db: AsyncSession
 ) -> dict:
+    await _validate_language(data.language, db)
+    await _validate_skill_count(data.skill_uids, db)
+
     agent = await agent_repository.create(
         {
             "owner_uid": user_uid,
@@ -43,6 +82,11 @@ async def create_agent(
             "style": data.style,
             "identity": data.identity,
             "role_prompt": data.role_prompt,
+            "model": data.model,
+            "temperature": data.temperature,
+            "max_tokens": data.max_tokens,
+            "greeting": data.greeting,
+            "response_format": data.response_format,
             "visibility": data.visibility,
         },
         db,
@@ -125,6 +169,11 @@ async def update_agent(
     if role != "admin" and str(agent.owner_uid) != user_uid:
         raise AppError(detail="權限不足", response_code=403, status_code=403)
 
+    if data.language is not None:
+        await _validate_language(data.language, db)
+    if data.skill_uids is not None:
+        await _validate_skill_count(data.skill_uids, db)
+
     update_data: dict = {}
     if data.name is not None:
         update_data["name"] = data.name
@@ -138,6 +187,16 @@ async def update_agent(
         update_data["identity"] = data.identity
     if data.role_prompt is not None:
         update_data["role_prompt"] = data.role_prompt
+    if data.model is not None:
+        update_data["model"] = data.model
+    if data.temperature is not None:
+        update_data["temperature"] = data.temperature
+    if data.max_tokens is not None:
+        update_data["max_tokens"] = data.max_tokens
+    if data.greeting is not None:
+        update_data["greeting"] = data.greeting
+    if data.response_format is not None:
+        update_data["response_format"] = data.response_format
 
     if update_data:
         await agent_repository.update(agent, update_data, db)

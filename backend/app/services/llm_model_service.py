@@ -22,6 +22,8 @@ def _to_dict(model: LlmModel) -> dict:
         "display_name": model.display_name,
         "is_active": model.is_active,
         "is_deleted": model.is_deleted,
+        "is_default": model.is_default,
+        "max_output_tokens": model.max_output_tokens,
         "created_at": to_taipei_iso(model.created_at),
         "updated_at": to_taipei_iso(model.updated_at),
     }
@@ -59,11 +61,17 @@ async def create_model(data: LlmModelCreateRequest, db: AsyncSession) -> dict:
 
     await openrouter_service.verify_model_id(data.model_id)
 
+    is_default = bool(data.is_default)
+    if is_default:
+        await llm_model_repository.clear_default(db)
+
     model = await llm_model_repository.create(
         {
             "provider": DEFAULT_PROVIDER,
             "model_id": data.model_id,
             "display_name": data.display_name,
+            "is_default": is_default,
+            "max_output_tokens": data.max_output_tokens,
         },
         db,
     )
@@ -93,6 +101,18 @@ async def update_model(
         update_data["display_name"] = data.display_name
     if data.is_active is not None:
         update_data["is_active"] = data.is_active
+    if data.max_output_tokens is not None:
+        update_data["max_output_tokens"] = data.max_output_tokens
+
+    if data.is_default is True and not model.is_default:
+        await llm_model_repository.clear_default(db, except_pid=model.pid)
+        update_data["is_default"] = True
+    elif data.is_default is False and model.is_default:
+        raise AppError(
+            detail="系統至少需要一個預設模型，無法取消此模型的預設狀態",
+            response_code=400,
+            status_code=400,
+        )
 
     if not update_data:
         raise AppError(
@@ -109,4 +129,12 @@ async def delete_model(llm_model_uid: str, db: AsyncSession) -> None:
         raise AppError(
             detail="找不到指定的模型", response_code=404, status_code=404
         )
+
+    if model.is_default:
+        raise AppError(
+            detail="無法刪除預設模型，請先將其他模型設為預設",
+            response_code=400,
+            status_code=400,
+        )
+
     await llm_model_repository.soft_delete(model, db)

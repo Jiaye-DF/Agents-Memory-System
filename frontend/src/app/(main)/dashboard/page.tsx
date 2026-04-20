@@ -4,6 +4,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useListAgentsQuery } from "@/store/agentsApi";
 import { useListSkillsQuery } from "@/store/skillsApi";
+import { useListAgentLanguagesQuery } from "@/store/agentLanguagesApi";
 import { PageLoading } from "@/components/ui/Loading";
 import { Input } from "@/components/ui/Input";
 import type { Agent, Skill } from "@/types";
@@ -75,8 +76,10 @@ const TabButton = React.memo(function TabButton({
 
 const AgentRow = React.memo(function AgentRow({
   agent,
+  languageLabel,
 }: {
   agent: Agent;
+  languageLabel: string | null;
 }): React.ReactNode {
   return (
     <Link
@@ -99,7 +102,7 @@ const AgentRow = React.memo(function AgentRow({
         )}
       </div>
       <div className="flex shrink-0 flex-wrap gap-2 text-sm text-muted md:ml-auto">
-        {agent.language && <span>語言：{agent.language}</span>}
+        {languageLabel && <span>語言：{languageLabel}</span>}
         {agent.model && <span>模型：{agent.model}</span>}
       </div>
     </Link>
@@ -143,6 +146,23 @@ export default function DashboardPage(): React.ReactNode {
   const { data: skillsData, isLoading: skillsLoading } = useListSkillsQuery({
     limit: 50,
   });
+  const { data: languagesData } = useListAgentLanguagesQuery();
+
+  const languageNameMap = useMemo((): Map<string, string> => {
+    const map = new Map<string, string>();
+    for (const l of languagesData?.items ?? []) {
+      map.set(l.code, l.name);
+    }
+    return map;
+  }, [languagesData]);
+
+  const resolveLanguage = useCallback(
+    (code: string | null): string | null => {
+      if (!code) return null;
+      return languageNameMap.get(code) ?? code;
+    },
+    [languageNameMap]
+  );
 
   const publicAgents = useMemo(
     (): Agent[] =>
@@ -287,7 +307,11 @@ export default function DashboardPage(): React.ReactNode {
           <div className="divide-y divide-border">
             {showAgents
               ? filteredAgents.map((agent) => (
-                  <AgentRow key={agent.agent_uid} agent={agent} />
+                  <AgentRow
+                    key={agent.agent_uid}
+                    agent={agent}
+                    languageLabel={resolveLanguage(agent.language)}
+                  />
                 ))
               : filteredSkills.map((skill) => (
                   <SkillRow key={skill.skill_uid} skill={skill} />

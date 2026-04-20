@@ -12,6 +12,7 @@ import {
   useDeleteAgentMutation,
   useToggleAgentVisibilityMutation,
 } from "@/store/agentsApi";
+import { useListAgentLanguagesQuery } from "@/store/agentLanguagesApi";
 import type { Agent } from "@/types";
 import {
   parseSearch,
@@ -26,6 +27,7 @@ type SortOrder = "newest" | "oldest";
 interface AgentCardProps {
   agent: Agent;
   isOwner: boolean;
+  languageLabel: string | null;
   onDelete: (agentUid: string) => void;
   onToggleVisibility: (agentUid: string, current: string) => void;
 }
@@ -33,6 +35,7 @@ interface AgentCardProps {
 const AgentCard = React.memo(function AgentCard({
   agent,
   isOwner,
+  languageLabel,
   onDelete,
   onToggleVisibility,
 }: AgentCardProps): React.ReactNode {
@@ -79,7 +82,7 @@ const AgentCard = React.memo(function AgentCard({
       )}
 
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
-        {agent.language && <span>語言：{agent.language}</span>}
+        {languageLabel && <span>語言：{languageLabel}</span>}
         {agent.style && <span>風格：{agent.style}</span>}
         <span>建立於 {formatDateTime(agent.created_at)}</span>
       </div>
@@ -149,8 +152,25 @@ export default function AgentsPage(): React.ReactNode {
     limit: 50,
     cursor: null,
   });
+  const { data: languagesData } = useListAgentLanguagesQuery();
   const [deleteAgent] = useDeleteAgentMutation();
   const [toggleVisibility] = useToggleAgentVisibilityMutation();
+
+  const languageNameMap = useMemo((): Map<string, string> => {
+    const map = new Map<string, string>();
+    for (const l of languagesData?.items ?? []) {
+      map.set(l.code, l.name);
+    }
+    return map;
+  }, [languagesData]);
+
+  const resolveLanguage = useCallback(
+    (code: string | null): string | null => {
+      if (!code) return null;
+      return languageNameMap.get(code) ?? code;
+    },
+    [languageNameMap]
+  );
 
   const agents = useMemo((): Agent[] => data?.items ?? [], [data]);
 
@@ -339,6 +359,7 @@ export default function AgentsPage(): React.ReactNode {
                 key={agent.agent_uid}
                 agent={agent}
                 isOwner={agent.owner_uid === userUid}
+                languageLabel={resolveLanguage(agent.language)}
                 onDelete={handleDelete}
                 onToggleVisibility={handleToggleVisibility}
               />

@@ -3,6 +3,8 @@ export interface LlmModel {
   provider: string;
   model_id: string;
   display_name: string;
+  is_default: boolean;
+  max_output_tokens: number | null;
 }
 
 export interface LlmModelAdmin extends LlmModel {
@@ -15,9 +17,13 @@ export interface LlmModelAdmin extends LlmModel {
 export interface LlmModelCreateRequest {
   model_id: string;
   display_name: string;
+  is_default?: boolean;
+  max_output_tokens?: number | null;
 }
 
 export interface LlmModelUpdateRequest {
   display_name?: string;
   is_active?: boolean;
+  is_default?: boolean;
+  max_output_tokens?: number | null;
 }

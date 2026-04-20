@@ -5,12 +5,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db, require_role
 from app.core.response import success
 from app.schemas.admin.schemas import UserUpdateRequest
+from app.schemas.agent_languages.schemas import (
+    AgentLanguageCreateRequest,
+    AgentLanguageUpdateRequest,
+)
 from app.schemas.auth.schemas import TokenPayload
 from app.schemas.models.schemas import (
     LlmModelCreateRequest,
     LlmModelUpdateRequest,
 )
-from app.services import admin_service, llm_model_service
+from app.schemas.system_settings.schemas import SystemSettingUpdateRequest
+from app.services import (
+    admin_service,
+    agent_language_service,
+    llm_model_service,
+    system_setting_service,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -106,3 +116,99 @@ async def delete_llm_model(
 ) -> JSONResponse:
     await llm_model_service.delete_model(llm_model_uid, db)
     return success(data={"message": "模型已刪除"})
+
+
+# ============================================================
+# Agent 語言管理
+# ============================================================
+
+
+@router.get("/agent-languages")
+async def list_agent_languages_admin(
+    _current_user: TokenPayload = require_role("admin"),
+    cursor: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await agent_language_service.list_languages_admin(
+        cursor, limit, db
+    )
+    return success(data=result)
+
+
+@router.post("/agent-languages")
+async def create_agent_language(
+    data: AgentLanguageCreateRequest,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await agent_language_service.create_language(data, db)
+    return success(data=result, response_code=201)
+
+
+@router.get("/agent-languages/{agent_language_uid}")
+async def get_agent_language(
+    agent_language_uid: str,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await agent_language_service.get_language(agent_language_uid, db)
+    return success(data=result)
+
+
+@router.put("/agent-languages/{agent_language_uid}")
+async def update_agent_language(
+    agent_language_uid: str,
+    data: AgentLanguageUpdateRequest,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await agent_language_service.update_language(
+        agent_language_uid, data, db
+    )
+    return success(data=result)
+
+
+@router.delete("/agent-languages/{agent_language_uid}")
+async def delete_agent_language(
+    agent_language_uid: str,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    await agent_language_service.delete_language(agent_language_uid, db)
+    return success(data={"message": "語言已刪除"})
+
+
+# ============================================================
+# 系統設定管理
+# ============================================================
+
+
+@router.get("/settings")
+async def list_settings_admin(
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await system_setting_service.list_admin(db)
+    return success(data=result)
+
+
+@router.get("/settings/{key}")
+async def get_setting_admin(
+    key: str,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await system_setting_service.get_setting(key, db)
+    return success(data=result)
+
+
+@router.put("/settings/{key}")
+async def update_setting_admin(
+    key: str,
+    data: SystemSettingUpdateRequest,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await system_setting_service.update_setting(key, data, db)
+    return success(data=result)
