@@ -2,21 +2,20 @@
 
 import React, {
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import { Table } from "@/components/ui/Table";
 import { Pagination } from "@/components/ui/Pagination";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
 import { Toggle } from "@/components/ui/Toggle";
-import { useDialog } from "@/hooks/useDialog";
-import { useAuth } from "@/hooks/useAuth";
+import { ModalDialog } from "@/components/ui/ModalDialog";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { useCursorPagination } from "@/hooks/useCursorPagination";
+import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
+import { useConfirmMutation } from "@/hooks/useConfirmMutation";
 import {
   useListAdminAgentLanguagesQuery,
   useCreateAgentLanguageMutation,
@@ -54,7 +53,6 @@ const LanguageFormDialog = React.memo(function LanguageFormDialog({
   onSubmit,
   onClose,
 }: LanguageFormDialogProps): React.ReactNode {
-  const overlayRef = useRef<HTMLDivElement>(null);
   const [code, setCode] = useState<string>(initial?.code ?? "");
   const [name, setName] = useState<string>(initial?.name ?? "");
   const [sortOrder, setSortOrder] = useState<string>(
@@ -70,29 +68,6 @@ const LanguageFormDialog = React.memo(function LanguageFormDialog({
   const [sortOrderError, setSortOrderError] = useState<string>("");
 
   const title = mode === "create" ? "新增語言" : "編輯語言";
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent): void => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose]
-  );
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
-    return (): void => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [handleKeyDown]);
-
-  const handleOverlayClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>): void => {
-      if (e.target === overlayRef.current) onClose();
-    },
-    [onClose]
-  );
 
   const handleCodeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -178,115 +153,105 @@ const LanguageFormDialog = React.memo(function LanguageFormDialog({
     [mode, code, name, sortOrder, isDefault, isActive, onSubmit]
   );
 
-  const content = (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
-      onClick={handleOverlayClick}
-    >
-      <div className="w-full max-w-md rounded-xl bg-card-bg p-6 shadow-lg">
-        <h3 className="mb-4 text-xl font-semibold text-foreground">{title}</h3>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label
-              htmlFor="lang-code"
-              className="mb-1.5 block text-base font-medium text-foreground"
-            >
-              語系碼
-              {mode === "create" && (
-                <span className="ml-0.5 text-destructive">*</span>
-              )}
-            </label>
-            {mode === "create" ? (
-              <Input
-                id="lang-code"
-                placeholder="例如：zh-TW"
-                value={code}
-                onChange={handleCodeChange}
-                error={codeError}
-                disabled={submitting}
-              />
-            ) : (
-              <div className="min-h-11 w-full rounded-xl border border-input-border bg-muted-bg px-3 py-2 font-mono text-base text-muted">
-                {code}
-              </div>
+  return (
+    <ModalDialog title={title} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div>
+          <label
+            htmlFor="lang-code"
+            className="mb-1.5 block text-base font-medium text-foreground"
+          >
+            語系碼
+            {mode === "create" && (
+              <span className="ml-0.5 text-destructive">*</span>
             )}
-          </div>
-
-          <Input
-            label="顯示名稱"
-            required
-            value={name}
-            onChange={handleNameChange}
-            error={nameError}
-            disabled={submitting}
-            placeholder="例如：繁體中文"
-          />
-
-          <div>
-            <label
-              htmlFor="lang-sort"
-              className="mb-1.5 block text-base font-medium text-foreground"
-            >
-              排序
-            </label>
+          </label>
+          {mode === "create" ? (
             <Input
-              id="lang-sort"
-              type="number"
-              value={sortOrder}
-              onChange={handleSortOrderChange}
-              error={sortOrderError}
+              id="lang-code"
+              placeholder="例如：zh-TW"
+              value={code}
+              onChange={handleCodeChange}
+              error={codeError}
               disabled={submitting}
-              placeholder="數值越小越前面"
             />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-base font-medium text-foreground">
-              設為預設語言
-            </span>
-            <Toggle
-              checked={isDefault}
-              onChange={handleToggleDefault}
-              disabled={submitting}
-              label="切換預設語言"
-            />
-          </div>
-
-          {mode === "edit" && (
-            <div className="flex items-center justify-between">
-              <span className="text-base font-medium text-foreground">
-                啟用狀態
-              </span>
-              <Toggle
-                checked={isActive}
-                onChange={handleToggleActive}
-                disabled={submitting}
-                label="切換啟用狀態"
-              />
+          ) : (
+            <div className="min-h-11 w-full rounded-xl border border-input-border bg-muted-bg px-3 py-2 font-mono text-base text-muted">
+              {code}
             </div>
           )}
+        </div>
 
-          <div className="mt-2 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
+        <Input
+          label="顯示名稱"
+          required
+          value={name}
+          onChange={handleNameChange}
+          error={nameError}
+          disabled={submitting}
+          placeholder="例如：繁體中文"
+        />
+
+        <div>
+          <label
+            htmlFor="lang-sort"
+            className="mb-1.5 block text-base font-medium text-foreground"
+          >
+            排序
+          </label>
+          <Input
+            id="lang-sort"
+            type="number"
+            value={sortOrder}
+            onChange={handleSortOrderChange}
+            error={sortOrderError}
+            disabled={submitting}
+            placeholder="數值越小越前面"
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-base font-medium text-foreground">
+            設為預設語言
+          </span>
+          <Toggle
+            checked={isDefault}
+            onChange={handleToggleDefault}
+            disabled={submitting}
+            label="切換預設語言"
+          />
+        </div>
+
+        {mode === "edit" && (
+          <div className="flex items-center justify-between">
+            <span className="text-base font-medium text-foreground">
+              啟用狀態
+            </span>
+            <Toggle
+              checked={isActive}
+              onChange={handleToggleActive}
               disabled={submitting}
-              className="min-h-11 min-w-11 rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
-            >
-              取消
-            </button>
-            <Button type="submit" loading={submitting}>
-              {mode === "create" ? "建立" : "儲存"}
-            </Button>
+              label="切換啟用狀態"
+            />
           </div>
-        </form>
-      </div>
-    </div>
-  );
+        )}
 
-  if (typeof document === "undefined") return null;
-  return createPortal(content, document.body);
+        <div className="mt-2 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="min-h-11 min-w-11 rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
+          >
+            取消
+          </button>
+          <Button type="submit" loading={submitting}>
+            {mode === "create" ? "建立" : "儲存"}
+          </Button>
+        </div>
+      </form>
+    </ModalDialog>
+  );
 });
 
 interface LanguageCardProps {
@@ -349,24 +314,13 @@ const LanguageCard = React.memo(function LanguageCard({
 });
 
 export default function AdminAgentLanguagesPage(): React.ReactNode {
-  const router = useRouter();
-  const { role, isLoading: authLoading } = useAuth();
-  const { showDialog } = useDialog();
-
-  const [limit, setLimit] = useState<number>(20);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
+  const { authLoading, isAdmin, shouldBlockRender } = useAdminGuard();
+  const pagination = useCursorPagination(20);
   const [formState, setFormState] = useState<FormState | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && role !== "admin") {
-      router.replace("/403");
-    }
-  }, [role, authLoading, router]);
-
   const { data, isLoading, isFetching } = useListAdminAgentLanguagesQuery(
-    { limit, cursor },
-    { skip: authLoading || role !== "admin" }
+    { limit: pagination.limit, cursor: pagination.cursor },
+    { skip: authLoading || !isAdmin }
   );
 
   const [createLanguage, { isLoading: creating }] =
@@ -374,6 +328,9 @@ export default function AdminAgentLanguagesPage(): React.ReactNode {
   const [updateLanguage, { isLoading: updating }] =
     useUpdateAgentLanguageMutation();
   const [deleteLanguage] = useDeleteAgentLanguageMutation();
+
+  const runCreate = useMutationWithDialog(createLanguage);
+  const runUpdate = useMutationWithDialog(updateLanguage);
 
   const submitting = creating || updating;
 
@@ -403,22 +360,26 @@ export default function AdminAgentLanguagesPage(): React.ReactNode {
       is_active?: boolean;
     }): Promise<void> => {
       if (!formState) return;
-      try {
-        if (formState.mode === "create") {
-          await createLanguage({
+      if (formState.mode === "create") {
+        await runCreate(
+          {
             code: payload.code ?? "",
             name: payload.name,
             sort_order: payload.sort_order,
             is_default: payload.is_default,
-          }).unwrap();
-          setFormState(null);
-          showDialog({
-            type: "info",
-            title: "建立成功",
-            message: "語言已新增。",
-          });
-        } else if (formState.language) {
-          await updateLanguage({
+          },
+          {
+            successTitle: "建立成功",
+            successMessage: "語言已新增。",
+            errorMessage: "新增失敗，請稍後再試",
+            onSuccess: () => setFormState(null),
+          }
+        );
+        return;
+      }
+      if (formState.language) {
+        await runUpdate(
+          {
             uid: formState.language.agent_language_uid,
             body: {
               name: payload.name,
@@ -426,82 +387,40 @@ export default function AdminAgentLanguagesPage(): React.ReactNode {
               is_default: payload.is_default,
               is_active: payload.is_active,
             },
-          }).unwrap();
-          setFormState(null);
-          showDialog({
-            type: "info",
-            title: "更新成功",
-            message: "語言已更新。",
-          });
-        }
-      } catch (err: unknown) {
-        const message =
-          typeof err === "string"
-            ? err
-            : formState.mode === "create"
-              ? "新增失敗，請稍後再試"
-              : "更新失敗，請稍後再試";
-        showDialog({
-          type: "error",
-          title: "操作失敗",
-          message,
-        });
+          },
+          {
+            successTitle: "更新成功",
+            successMessage: "語言已更新。",
+            errorMessage: "更新失敗，請稍後再試",
+            onSuccess: () => setFormState(null),
+          }
+        );
       }
     },
-    [formState, createLanguage, updateLanguage, showDialog]
+    [formState, runCreate, runUpdate]
   );
 
+  const deleteOptions = useMemo(
+    () => ({
+      title: "刪除語言",
+      message: "確定要刪除此語言嗎？使用此語言的 Agent 將保留原設定值。",
+      successTitle: "刪除成功",
+      successMessage: "語言已刪除。",
+      errorMessage: "刪除失敗，請稍後再試",
+    }),
+    []
+  );
+  const confirmDelete = useConfirmMutation(deleteLanguage, deleteOptions);
   const handleDelete = useCallback(
     (lang: AgentLanguage): void => {
-      showDialog({
-        type: "warning",
-        title: "刪除語言",
-        message: `確定要刪除「${lang.name}」嗎？使用此語言的 Agent 將保留原設定值。`,
-        onConfirm: async () => {
-          try {
-            await deleteLanguage(lang.agent_language_uid).unwrap();
-            showDialog({
-              type: "info",
-              title: "刪除成功",
-              message: "語言已刪除。",
-            });
-          } catch (err: unknown) {
-            const message =
-              typeof err === "string" ? err : "刪除失敗，請稍後再試";
-            showDialog({
-              type: "error",
-              title: "操作失敗",
-              message,
-            });
-          }
-        },
-        onCancel: () => {},
-      });
+      confirmDelete(lang.agent_language_uid);
     },
-    [deleteLanguage, showDialog]
+    [confirmDelete]
   );
 
   const handleNextPage = useCallback((): void => {
-    if (data?.next_cursor) {
-      setCursorHistory((prev) => [...prev, cursor ?? ""]);
-      setCursor(data.next_cursor);
-    }
-  }, [data, cursor]);
-
-  const handlePrevPage = useCallback((): void => {
-    setCursorHistory((prev) => {
-      const newHistory = [...prev];
-      const prevCursor = newHistory.pop();
-      setCursor(prevCursor || null);
-      return newHistory;
-    });
-  }, []);
-
-  const handleLimitChange = useCallback((newLimit: number): void => {
-    setLimit(newLimit);
-    setCursor(null);
-    setCursorHistory([]);
-  }, []);
+    pagination.handleNextPage(data?.next_cursor);
+  }, [pagination, data]);
 
   const columns = useMemo(
     () => [
@@ -598,7 +517,7 @@ export default function AdminAgentLanguagesPage(): React.ReactNode {
     [handleOpenEdit, handleDelete]
   );
 
-  if (authLoading || role !== "admin") {
+  if (shouldBlockRender) {
     return <PageLoading />;
   }
 
@@ -623,11 +542,11 @@ export default function AdminAgentLanguagesPage(): React.ReactNode {
             <div className="mt-4">
               <Pagination
                 hasNext={data?.has_next ?? false}
-                hasPrev={cursorHistory.length > 0}
-                limit={limit}
+                hasPrev={pagination.hasPrev}
+                limit={pagination.limit}
                 onNextPage={handleNextPage}
-                onPrevPage={handlePrevPage}
-                onLimitChange={handleLimitChange}
+                onPrevPage={pagination.handlePrevPage}
+                onLimitChange={pagination.handleLimitChange}
               />
             </div>
           </>

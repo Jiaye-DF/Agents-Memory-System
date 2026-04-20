@@ -1,4 +1,4 @@
-from sqlalchemy import select, update
+from sqlalchemy import Select, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.llm_model import LlmModel
@@ -14,15 +14,8 @@ async def get_all_active(db: AsyncSession) -> list[LlmModel]:
     return list(result.scalars().all())
 
 
-async def list_all(
-    cursor: int | None, limit: int, db: AsyncSession
-) -> list[LlmModel]:
-    stmt = select(LlmModel).where(LlmModel.is_deleted == False)
-    if cursor is not None:
-        stmt = stmt.where(LlmModel.pid > cursor)
-    stmt = stmt.order_by(LlmModel.pid.asc()).limit(limit + 1)
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
+def stmt_all() -> Select[tuple[LlmModel]]:
+    return select(LlmModel).where(LlmModel.is_deleted == False)
 
 
 async def get_by_uid(llm_model_uid: str, db: AsyncSession) -> LlmModel | None:

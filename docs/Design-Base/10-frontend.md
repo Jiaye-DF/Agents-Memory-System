@@ -75,6 +75,46 @@ frontend/src/
 
 ---
 
+## 共用邏輯（Hooks 與 UI 元件）
+
+跨頁面出現**三次以上**的邏輯**必須**抽成共用方法，不得各頁重複實作。既有共用層請直接使用，不可另起爐灶。
+
+### 必備共用 Hooks（`frontend/src/hooks/`）
+
+| Hook | 用途 | 取代模式 |
+| --- | --- | --- |
+| `useAuth` | 取得登入狀態、`role`、`username`；自動解析 JWT | 手動解析 token |
+| `useDialog` | 觸發全站 Dialog（`info` / `warning` / `error`） | `alert()` / `confirm()` |
+| `useSidebar` | Sidebar 三態切換與 overlay 控制 | 各自管理 state |
+| `useTheme` | 讀寫當前主題、持久化至 `localStorage` | 自行讀 `document` |
+| `useAdminGuard` | admin 路由守衛；非 admin 自動導向 `/403` | `useEffect + router.replace("/403")` |
+| `useCursorPagination` | Cursor-based 分頁 state + 上/下一頁 + 換 limit | 手寫 `cursor` / `cursorHistory` |
+| `useFilteredList` | 列表依 `searchTerm` + `predicates` 過濾 | 各頁自寫 `useMemo` filter |
+| `useMutationWithDialog` | RTK mutation + 成功 info / 失敗 error Dialog | 各頁 try/catch + showDialog |
+| `useConfirmMutation` | Warning Dialog 確認後執行 mutation | 手寫 `showDialog({ type: "warning", onConfirm })` |
+
+### 必備共用 UI 元件（`frontend/src/components/ui/`）
+
+| 元件 | 用途 |
+| --- | --- |
+| `Button` / `Input` / `Toggle` / `Slider` / `MultiSelect` / `PasswordStrengthBar` | 基礎輸入元件 |
+| `Dialog` | 由 `useDialog` 自動渲染；**禁止**直接 import |
+| `ModalDialog` | 所有彈出式表單 / 選擇器的容器（自動處理 portal、overlay click 關閉、ESC 關閉、`body` scroll 鎖） |
+| `Table` / `Pagination` / `Loading` | 列表頁標配元件 |
+
+### 新增共用方法的時機
+
+- 同一段邏輯即將被 **第三次** copy 時，**必須**先抽成共用方法再實作；只出現兩次時，可暫緩。
+- 抽象時**必須**：放到對應目錄（hook 進 `hooks/`、純邏輯進 `utils/`、UI 進 `components/ui/`）；**必須**以 TypeScript `interface` 定義參數與回傳；**必須**在該模組開頭以一句 JSDoc 說明用途。
+- **禁止**在頁面檔案內宣告名為 `FormDialog`、`XXXDialog` 等包含 overlay / ESC / portal 的自訂彈窗 — 一律以 `ModalDialog` 為外殼。
+
+### 既有頁面遷移原則
+
+- 新增功能若在列表頁、admin 管理頁、可彈窗的表單場景，**必須**使用上述 hooks 與元件；發現現行頁面未使用，應順手替換（不需獨立 commit）。
+- 修改既有頁面時若撞見重複模式超過一頁，應一次改齊，避免半遷移狀態。
+
+---
+
 ## 環境變數
 
 - 客戶端可存取的環境變數**必須**使用 `NEXT_PUBLIC_` 前綴

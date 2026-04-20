@@ -1,18 +1,17 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.access import ensure_modifiable, ensure_owner, ensure_readable
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
-from app.core.pagination import decode_cursor, encode_cursor
+from app.core.pagination import paginate
 from app.models.agent import Agent
 from app.repositories import agent_language_repository, agent_repository
-from app.schemas.agents.schemas import (
-    AgentCreateRequest,
-    AgentUpdateRequest,
-    VisibilityRequest,
-)
+from app.schemas.agents.schemas import AgentCreateRequest, AgentUpdateRequest
+from app.schemas.common import VisibilityRequest
 from app.services import system_setting_service
 
 DEFAULT_MAX_SKILLS = 10
+NOT_FOUND_DETAIL = "找不到指定的 Agent"
 
 
 def _agent_to_dict(agent: Agent, skill_uids: list[str]) -> dict:
@@ -106,16 +105,8 @@ async def get_agent(
     agent_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> dict:
     agent = await agent_repository.get_by_uid(agent_uid, db)
-    if agent is None:
-        raise AppError(
-            detail="找不到指定的 Agent", response_code=404, status_code=404
-        )
-
-    if role != "admin":
-        if str(agent.owner_uid) != user_uid and agent.visibility != "public":
-            raise AppError(
-                detail="找不到指定的 Agent", response_code=404, status_code=404
-            )
+    ensure_readable(agent, user_uid, role, NOT_FOUND_DETAIL)
+    assert agent is not None
 
     skill_uids = await agent_repository.get_skill_uids(agent_uid, db)
     return _agent_to_dict(agent, skill_uids)
@@ -124,32 +115,21 @@ async def get_agent(
 async def list_agents(
     user_uid: str, cursor: str | None, limit: int, db: AsyncSession
 ) -> dict:
-    decoded_cursor: int | None = None
-    if cursor is not None:
-        decoded_cursor = decode_cursor(cursor)
-
-    rows = await agent_repository.list_visible_to_user(
-        user_uid, decoded_cursor, limit, db
+    page = await paginate(
+        db, agent_repository.stmt_visible_to_user(user_uid), cursor, limit
     )
 
-    has_next = len(rows) > limit
-    items = rows[:limit]
-
-    next_cursor: str | None = None
-    if has_next and items:
-        next_cursor = encode_cursor(items[-1].pid)
-
-    agents_list = []
-    for agent in items:
-        skill_uids = await agent_repository.get_skill_uids(
-            str(agent.agent_uid), db
-        )
-        agents_list.append(_agent_to_dict(agent, skill_uids))
+    skill_map = await agent_repository.get_skill_uids_map(
+        [str(a.agent_uid) for a in page.items], db
+    )
 
     return {
-        "items": agents_list,
-        "next_cursor": next_cursor,
-        "has_next": has_next,
+        "items": [
+            _agent_to_dict(a, skill_map.get(str(a.agent_uid), []))
+            for a in page.items
+        ],
+        "next_cursor": page.next_cursor,
+        "has_next": page.has_next,
     }
 
 
@@ -161,13 +141,8 @@ async def update_agent(
     db: AsyncSession,
 ) -> dict:
     agent = await agent_repository.get_by_uid(agent_uid, db)
-    if agent is None:
-        raise AppError(
-            detail="找不到指定的 Agent", response_code=404, status_code=404
-        )
-
-    if role != "admin" and str(agent.owner_uid) != user_uid:
-        raise AppError(detail="權限不足", response_code=403, status_code=403)
+    ensure_modifiable(agent, user_uid, role, NOT_FOUND_DETAIL)
+    assert agent is not None
 
     if data.language is not None:
         await _validate_language(data.language, db)
@@ -212,13 +187,10 @@ async def delete_agent(
     agent_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> None:
     agent = await agent_repository.get_by_uid(agent_uid, db)
-    if agent is None:
-        raise AppError(
-            detail="找不到指定的 Agent", response_code=404, status_code=404
-        )
-
-    if str(agent.owner_uid) != user_uid:
-        raise AppError(detail="只有擁有者可以刪除此 Agent", response_code=403, status_code=403)
+    ensure_owner(
+        agent, user_uid, NOT_FOUND_DETAIL, "只有擁有者可以刪除此 Agent"
+    )
+    assert agent is not None
 
     await agent_repository.soft_delete(agent, db)
 
@@ -230,15 +202,10 @@ async def toggle_visibility(
     db: AsyncSession,
 ) -> dict:
     agent = await agent_repository.get_by_uid(agent_uid, db)
-    if agent is None:
-        raise AppError(
-            detail="找不到指定的 Agent", response_code=404, status_code=404
-        )
-
-    if str(agent.owner_uid) != user_uid:
-        raise AppError(
-            detail="只有擁有者可以切換可見性", response_code=403, status_code=403
-        )
+    ensure_owner(
+        agent, user_uid, NOT_FOUND_DETAIL, "只有擁有者可以切換可見性"
+    )
+    assert agent is not None
 
     await agent_repository.update(agent, {"visibility": data.visibility}, db)
     skill_uids = await agent_repository.get_skill_uids(agent_uid, db)
@@ -249,16 +216,8 @@ async def download_agent(
     agent_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> str:
     agent = await agent_repository.get_by_uid(agent_uid, db)
-    if agent is None:
-        raise AppError(
-            detail="找不到指定的 Agent", response_code=404, status_code=404
-        )
-
-    if role != "admin":
-        if str(agent.owner_uid) != user_uid and agent.visibility != "public":
-            raise AppError(
-                detail="找不到指定的 Agent", response_code=404, status_code=404
-            )
+    ensure_readable(agent, user_uid, role, NOT_FOUND_DETAIL)
+    assert agent is not None
 
     lines = [
         f"# {agent.name}",

@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
-from app.core.pagination import decode_cursor, encode_cursor
+from app.core.pagination import paginate
 from app.models.agent_language import AgentLanguage
 from app.repositories import agent_language_repository
 from app.schemas.agent_languages.schemas import (
@@ -32,23 +32,13 @@ async def list_languages(db: AsyncSession) -> dict:
 async def list_languages_admin(
     cursor: str | None, limit: int, db: AsyncSession
 ) -> dict:
-    decoded_cursor: int | None = None
-    if cursor is not None:
-        decoded_cursor = decode_cursor(cursor)
-
-    rows = await agent_language_repository.list_all(decoded_cursor, limit, db)
-
-    has_next = len(rows) > limit
-    items = rows[:limit]
-
-    next_cursor: str | None = None
-    if has_next and items:
-        next_cursor = encode_cursor(items[-1].pid)
-
+    page = await paginate(
+        db, agent_language_repository.stmt_all(), cursor, limit
+    )
     return {
-        "items": [_to_dict(r) for r in items],
-        "next_cursor": next_cursor,
-        "has_next": has_next,
+        "items": [_to_dict(r) for r in page.items],
+        "next_cursor": page.next_cursor,
+        "has_next": page.has_next,
     }
 
 

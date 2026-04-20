@@ -9,13 +9,15 @@ from pathlib import Path
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.access import ensure_modifiable, ensure_owner, ensure_readable
 from app.core.config import settings
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
-from app.core.pagination import decode_cursor, encode_cursor
+from app.core.pagination import paginate
 from app.models.skill import Skill
 from app.repositories import skill_repository
-from app.schemas.skills.schemas import FileTreeNode, SkillUpdateRequest, VisibilityRequest
+from app.schemas.common import VisibilityRequest
+from app.schemas.skills.schemas import FileTreeNode, SkillUpdateRequest
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,7 @@ BLOCKED_MIME_TYPES = {
 }
 
 FILE_PREVIEW_MAX_BYTES = 512 * 1024
+NOT_FOUND_DETAIL = "找不到指定的 Skill"
 
 
 def _skill_to_dict(skill: Skill) -> dict:
@@ -197,46 +200,21 @@ async def get_skill(
     skill_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> dict:
     skill = await skill_repository.get_by_uid(skill_uid, db)
-    if skill is None:
-        raise AppError(
-            detail="找不到指定的 Skill",
-            response_code=404,
-            status_code=404,
-        )
-
-    if role != "admin":
-        if str(skill.owner_uid) != user_uid and skill.visibility != "public":
-            raise AppError(
-                detail="找不到指定的 Skill",
-                response_code=404,
-                status_code=404,
-            )
-
+    ensure_readable(skill, user_uid, role, NOT_FOUND_DETAIL)
+    assert skill is not None
     return _skill_to_dict(skill)
 
 
 async def list_skills(
     user_uid: str, cursor: str | None, limit: int, db: AsyncSession
 ) -> dict:
-    decoded_cursor: int | None = None
-    if cursor is not None:
-        decoded_cursor = decode_cursor(cursor)
-
-    rows = await skill_repository.list_own_and_public(
-        user_uid, decoded_cursor, limit, db
+    page = await paginate(
+        db, skill_repository.stmt_visible_to_user(user_uid), cursor, limit
     )
-
-    has_next = len(rows) > limit
-    items = rows[:limit]
-
-    next_cursor: str | None = None
-    if has_next and items:
-        next_cursor = encode_cursor(items[-1].pid)
-
     return {
-        "items": [_skill_to_dict(s) for s in items],
-        "next_cursor": next_cursor,
-        "has_next": has_next,
+        "items": [_skill_to_dict(s) for s in page.items],
+        "next_cursor": page.next_cursor,
+        "has_next": page.has_next,
     }
 
 
@@ -248,19 +226,8 @@ async def update_skill(
     db: AsyncSession,
 ) -> dict:
     skill = await skill_repository.get_by_uid(skill_uid, db)
-    if skill is None:
-        raise AppError(
-            detail="找不到指定的 Skill",
-            response_code=404,
-            status_code=404,
-        )
-
-    if role != "admin" and str(skill.owner_uid) != user_uid:
-        raise AppError(
-            detail="找不到指定的 Skill",
-            response_code=404,
-            status_code=404,
-        )
+    ensure_modifiable(skill, user_uid, role, NOT_FOUND_DETAIL)
+    assert skill is not None
 
     update_data: dict = {}
     if data.name is not None:
@@ -283,20 +250,10 @@ async def delete_skill(
     skill_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> None:
     skill = await skill_repository.get_by_uid(skill_uid, db)
-    if skill is None:
-        raise AppError(
-            detail="找不到指定的 Skill",
-            response_code=404,
-            status_code=404,
-        )
-
-    if str(skill.owner_uid) != user_uid:
-        raise AppError(
-            detail="只有擁有者可以刪除 Skill",
-            response_code=403,
-            status_code=403,
-        )
-
+    ensure_owner(
+        skill, user_uid, NOT_FOUND_DETAIL, "只有擁有者可以刪除 Skill"
+    )
+    assert skill is not None
     await skill_repository.soft_delete(skill, db)
 
 
@@ -307,20 +264,10 @@ async def toggle_visibility(
     db: AsyncSession,
 ) -> dict:
     skill = await skill_repository.get_by_uid(skill_uid, db)
-    if skill is None:
-        raise AppError(
-            detail="找不到指定的 Skill",
-            response_code=404,
-            status_code=404,
-        )
-
-    if str(skill.owner_uid) != user_uid:
-        raise AppError(
-            detail="只有擁有者可以切換可見性",
-            response_code=403,
-            status_code=403,
-        )
-
+    ensure_owner(
+        skill, user_uid, NOT_FOUND_DETAIL, "只有擁有者可以切換可見性"
+    )
+    assert skill is not None
     await skill_repository.update(skill, {"visibility": data.visibility}, db)
     return _skill_to_dict(skill)
 
@@ -329,20 +276,8 @@ async def download_skill(
     skill_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> tuple[str, str]:
     skill = await skill_repository.get_by_uid(skill_uid, db)
-    if skill is None:
-        raise AppError(
-            detail="找不到指定的 Skill",
-            response_code=404,
-            status_code=404,
-        )
-
-    if role != "admin":
-        if str(skill.owner_uid) != user_uid and skill.visibility != "public":
-            raise AppError(
-                detail="找不到指定的 Skill",
-                response_code=404,
-                status_code=404,
-            )
+    ensure_readable(skill, user_uid, role, NOT_FOUND_DETAIL)
+    assert skill is not None
 
     file_path = skill.file_path
     if not Path(file_path).exists():
@@ -360,20 +295,8 @@ async def get_file_tree(
     skill_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> list[FileTreeNode]:
     skill = await skill_repository.get_by_uid(skill_uid, db)
-    if skill is None:
-        raise AppError(
-            detail="找不到指定的 Skill",
-            response_code=404,
-            status_code=404,
-        )
-
-    if role != "admin":
-        if str(skill.owner_uid) != user_uid and skill.visibility != "public":
-            raise AppError(
-                detail="找不到指定的 Skill",
-                response_code=404,
-                status_code=404,
-            )
+    ensure_readable(skill, user_uid, role, NOT_FOUND_DETAIL)
+    assert skill is not None
 
     file_path = skill.file_path
     if not Path(file_path).exists():
@@ -408,20 +331,8 @@ async def get_file_content(
     db: AsyncSession,
 ) -> dict:
     skill = await skill_repository.get_by_uid(skill_uid, db)
-    if skill is None:
-        raise AppError(
-            detail="找不到指定的 Skill",
-            response_code=404,
-            status_code=404,
-        )
-
-    if role != "admin":
-        if str(skill.owner_uid) != user_uid and skill.visibility != "public":
-            raise AppError(
-                detail="找不到指定的 Skill",
-                response_code=404,
-                status_code=404,
-            )
+    ensure_readable(skill, user_uid, role, NOT_FOUND_DETAIL)
+    assert skill is not None
 
     zip_path = skill.file_path
     if not Path(zip_path).exists():

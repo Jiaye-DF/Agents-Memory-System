@@ -8,8 +8,8 @@ from app.schemas.agents.schemas import (
     AgentCreateRequest,
     AgentResponse,
     AgentUpdateRequest,
-    VisibilityRequest,
 )
+from app.schemas.common import VisibilityRequest
 from app.schemas.auth.schemas import TokenPayload
 from app.schemas.response import ApiResponse, MessageData, PaginatedData
 from app.services import agent_service

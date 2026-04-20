@@ -7,12 +7,12 @@ from app.api.deps import get_current_user, get_db
 from app.core.response import success
 from app.schemas.auth.schemas import TokenPayload
 from app.schemas.response import ApiResponse, MessageData, PaginatedData
+from app.schemas.common import VisibilityRequest
 from app.schemas.skills.schemas import (
     FileContentResponse,
     FileTreeNode,
     SkillResponse,
     SkillUpdateRequest,
-    VisibilityRequest,
 )
 from app.services import skill_service
 

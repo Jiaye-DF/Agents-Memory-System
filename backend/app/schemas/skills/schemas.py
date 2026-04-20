@@ -47,17 +47,6 @@ class SkillUpdateRequest(BaseModel):
         return value
 
 
-class VisibilityRequest(BaseModel):
-    visibility: str
-
-    @field_validator("visibility")
-    @classmethod
-    def validate_visibility(cls, value: str) -> str:
-        if value not in ("public", "private"):
-            raise ValueError("visibility 只能為 public 或 private")
-        return value
-
-
 class SkillResponse(BaseModel):
     skill_uid: str
     owner_uid: str

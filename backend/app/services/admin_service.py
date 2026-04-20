@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
-from app.core.pagination import decode_cursor, encode_cursor
+from app.core.pagination import paginate
 from app.models.user import User
 from app.repositories import user_repository
 from app.schemas.admin.schemas import UserUpdateRequest
@@ -24,23 +24,11 @@ def _user_to_dict(user: User) -> dict:
 async def list_users(
     cursor: str | None, limit: int, db: AsyncSession
 ) -> dict:
-    decoded_cursor: int | None = None
-    if cursor is not None:
-        decoded_cursor = decode_cursor(cursor)
-
-    rows = await user_repository.list_users(decoded_cursor, limit, db)
-
-    has_next = len(rows) > limit
-    items = rows[:limit]
-
-    next_cursor: str | None = None
-    if has_next and items:
-        next_cursor = encode_cursor(items[-1].pid)
-
+    page = await paginate(db, user_repository.stmt_all_users(), cursor, limit)
     return {
-        "items": [_user_to_dict(u) for u in items],
-        "next_cursor": next_cursor,
-        "has_next": has_next,
+        "items": [_user_to_dict(u) for u in page.items],
+        "next_cursor": page.next_cursor,
+        "has_next": page.has_next,
     }
 
 

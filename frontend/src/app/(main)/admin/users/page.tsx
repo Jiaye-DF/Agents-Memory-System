@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useCallback, useMemo } from "react";
 import { Table } from "@/components/ui/Table";
 import { Pagination } from "@/components/ui/Pagination";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
-import { useDialog } from "@/hooks/useDialog";
-import { useAuth } from "@/hooks/useAuth";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { useCursorPagination } from "@/hooks/useCursorPagination";
+import { useFilteredList } from "@/hooks/useFilteredList";
+import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
+import { useConfirmMutation } from "@/hooks/useConfirmMutation";
 import {
   useListUsersQuery,
   useUpdateUserMutation,
@@ -126,121 +128,69 @@ const UserCard = React.memo(function UserCard({
 });
 
 export default function AdminUsersPage(): React.ReactNode {
-  const router = useRouter();
-  const { role, isLoading: authLoading } = useAuth();
-  const { showDialog } = useDialog();
-
-  const [limit, setLimit] = useState<number>(20);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
+  const { authLoading, isAdmin, shouldBlockRender } = useAdminGuard();
+  const pagination = useCursorPagination(20);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
 
-  useEffect(() => {
-    if (!authLoading && role !== "admin") {
-      router.replace("/403");
-    }
-  }, [role, authLoading, router]);
-
   const { data, isLoading, isFetching } = useListUsersQuery(
-    { limit, cursor },
-    { skip: authLoading || role !== "admin" }
+    { limit: pagination.limit, cursor: pagination.cursor },
+    { skip: authLoading || !isAdmin }
   );
   const { data: rolesData } = useListRolesQuery(undefined, {
-    skip: authLoading || role !== "admin",
+    skip: authLoading || !isAdmin,
   });
-  const [updateUser] = useUpdateUserMutation();
+  const [updateUserMutation] = useUpdateUserMutation();
+  const runUpdateUser = useMutationWithDialog(updateUserMutation);
 
   const roles = useMemo(
     (): Role[] => rolesData?.roles ?? [],
     [rolesData]
   );
 
-  const filteredUsers = useMemo((): User[] => {
-    if (!data?.items) return [];
-    const term = searchTerm.trim().toLowerCase();
-    return data.items.filter((user) => {
-      if (roleFilter !== "all" && user.role_name !== roleFilter) return false;
-      if (!term) return true;
-      return (
-        user.username.toLowerCase().includes(term) ||
-        user.account.toLowerCase().includes(term) ||
-        user.role_name.toLowerCase().includes(term)
-      );
-    });
-  }, [data, searchTerm, roleFilter]);
+  const items = useMemo((): User[] => data?.items ?? [], [data]);
+  const rolePredicate = useCallback(
+    (user: User): boolean =>
+      roleFilter === "all" ? true : user.role_name === roleFilter,
+    [roleFilter]
+  );
+  const predicates = useMemo(() => [rolePredicate], [rolePredicate]);
+  const searchFields = useMemo(
+    () => ["username" as const, "account" as const, "role_name" as const],
+    []
+  );
+  const filteredUsers = useFilteredList<User>({
+    items,
+    searchTerm,
+    searchFields,
+    predicates,
+  });
 
   const handleRoleChange = useCallback(
     (userUid: string, roleUid: string): void => {
-      showDialog({
-        type: "warning",
-        title: "變更角色",
-        message: "確定要變更此使用者的角色嗎？",
-        onConfirm: async () => {
-          try {
-            await updateUser({ userUid, body: { role_uid: roleUid } }).unwrap();
-          } catch (err: unknown) {
-            const message =
-              typeof err === "string" ? err : "角色變更失敗，請稍後再試";
-            showDialog({
-              type: "error",
-              title: "操作失敗",
-              message,
-            });
-          }
-        },
-        onCancel: () => {},
-      });
+      void runUpdateUser(
+        { userUid, body: { role_uid: roleUid } },
+        { errorMessage: "角色變更失敗，請稍後再試" }
+      );
     },
-    [showDialog, updateUser]
+    [runUpdateUser]
   );
 
+  const unlockOptions = useMemo(
+    () => ({
+      title: "解除鎖定",
+      message: "確定要解除此使用者的登入鎖定嗎？",
+      errorMessage: "解除鎖定失敗，請稍後再試",
+    }),
+    []
+  );
+  const confirmUnlock = useConfirmMutation(updateUserMutation, unlockOptions);
   const handleUnlock = useCallback(
     (userUid: string): void => {
-      showDialog({
-        type: "warning",
-        title: "解除鎖定",
-        message: "確定要解除此使用者的登入鎖定嗎？",
-        onConfirm: async () => {
-          try {
-            await updateUser({ userUid, body: { unlock: true } }).unwrap();
-          } catch (err: unknown) {
-            const message =
-              typeof err === "string" ? err : "解除鎖定失敗，請稍後再試";
-            showDialog({
-              type: "error",
-              title: "操作失敗",
-              message,
-            });
-          }
-        },
-        onCancel: () => {},
-      });
+      confirmUnlock({ userUid, body: { unlock: true } });
     },
-    [showDialog, updateUser]
+    [confirmUnlock]
   );
-
-  const handleNextPage = useCallback((): void => {
-    if (data?.next_cursor) {
-      setCursorHistory((prev) => [...prev, cursor ?? ""]);
-      setCursor(data.next_cursor);
-    }
-  }, [data, cursor]);
-
-  const handlePrevPage = useCallback((): void => {
-    setCursorHistory((prev) => {
-      const newHistory = [...prev];
-      const prevCursor = newHistory.pop();
-      setCursor(prevCursor || null);
-      return newHistory;
-    });
-  }, []);
-
-  const handleLimitChange = useCallback((newLimit: number): void => {
-    setLimit(newLimit);
-    setCursor(null);
-    setCursorHistory([]);
-  }, []);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -356,7 +306,11 @@ export default function AdminUsersPage(): React.ReactNode {
     [roles, handleRoleChange, handleUnlock]
   );
 
-  if (authLoading || role !== "admin") {
+  const handleNextPage = useCallback((): void => {
+    pagination.handleNextPage(data?.next_cursor);
+  }, [pagination, data]);
+
+  if (shouldBlockRender) {
     return <PageLoading />;
   }
 
@@ -407,11 +361,11 @@ export default function AdminUsersPage(): React.ReactNode {
             <div className="mt-4">
               <Pagination
                 hasNext={data?.has_next ?? false}
-                hasPrev={cursorHistory.length > 0}
-                limit={limit}
+                hasPrev={pagination.hasPrev}
+                limit={pagination.limit}
                 onNextPage={handleNextPage}
-                onPrevPage={handlePrevPage}
-                onLimitChange={handleLimitChange}
+                onPrevPage={pagination.handlePrevPage}
+                onLimitChange={pagination.handleLimitChange}
               />
             </div>
           </>

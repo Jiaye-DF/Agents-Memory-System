@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, UserRole
@@ -43,13 +43,8 @@ async def update(user: User, update_data: dict, db: AsyncSession) -> User:
     return user
 
 
-async def list_users(cursor: int | None, limit: int, db: AsyncSession) -> list[User]:
-    stmt = select(User).where(User.is_deleted == False)
-    if cursor is not None:
-        stmt = stmt.where(User.pid > cursor)
-    stmt = stmt.order_by(User.pid.asc()).limit(limit + 1)
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
+def stmt_all_users() -> Select[tuple[User]]:
+    return select(User).where(User.is_deleted == False)
 
 
 async def get_role_by_name(name: str, db: AsyncSession) -> UserRole | None:

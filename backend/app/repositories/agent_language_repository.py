@@ -1,4 +1,4 @@
-from sqlalchemy import select, update
+from sqlalchemy import Select, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent_language import AgentLanguage
@@ -17,17 +17,12 @@ async def list_active(db: AsyncSession) -> list[AgentLanguage]:
     return list(result.scalars().all())
 
 
-async def list_all(
-    cursor: int | None, limit: int, db: AsyncSession
-) -> list[AgentLanguage]:
-    stmt = select(AgentLanguage).where(AgentLanguage.is_deleted == False)
-    if cursor is not None:
-        stmt = stmt.where(AgentLanguage.pid > cursor)
-    stmt = stmt.order_by(
-        AgentLanguage.sort_order.asc(), AgentLanguage.pid.asc()
-    ).limit(limit + 1)
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
+def stmt_all() -> Select[tuple[AgentLanguage]]:
+    return (
+        select(AgentLanguage)
+        .where(AgentLanguage.is_deleted == False)
+        .order_by(AgentLanguage.sort_order.asc())
+    )
 
 
 async def get_by_uid(uid: str, db: AsyncSession) -> AgentLanguage | None:

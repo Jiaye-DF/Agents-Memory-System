@@ -5,8 +5,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PageLoading } from "@/components/ui/Loading";
-import { useDialog } from "@/hooks/useDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
+import { useConfirmMutation } from "@/hooks/useConfirmMutation";
 import {
   useListAgentsQuery,
   useDeleteAgentMutation,
@@ -141,7 +142,6 @@ const FilterChip = React.memo(function FilterChip({
 
 export default function AgentsPage(): React.ReactNode {
   const { userUid } = useAuth();
-  const { showDialog } = useDialog();
 
   const [query, setQuery] = useState<string>("");
   const [visibilityFilter, setVisibilityFilter] =
@@ -155,6 +155,7 @@ export default function AgentsPage(): React.ReactNode {
   const { data: languagesData } = useListAgentLanguagesQuery();
   const [deleteAgent] = useDeleteAgentMutation();
   const [toggleVisibility] = useToggleAgentVisibilityMutation();
+  const runToggleVisibility = useMutationWithDialog(toggleVisibility);
 
   const languageNameMap = useMemo((): Map<string, string> => {
     const map = new Map<string, string>();
@@ -214,58 +215,36 @@ export default function AgentsPage(): React.ReactNode {
     setQuery((prev) => toggleAuthorInQuery(prev, author));
   }, []);
 
+  const deleteOptions = useMemo(
+    () => ({
+      title: "刪除 Agent",
+      message: "確定要刪除此 Agent 嗎？此操作無法復原。",
+      successTitle: "刪除成功",
+      successMessage: "Agent 已成功刪除。",
+      errorMessage: "刪除失敗，請稍後再試",
+    }),
+    []
+  );
+  const confirmDeleteAgent = useConfirmMutation(deleteAgent, deleteOptions);
   const handleDelete = useCallback(
     (agentUid: string): void => {
-      showDialog({
-        type: "warning",
-        title: "刪除 Agent",
-        message: "確定要刪除此 Agent 嗎？此操作無法復原。",
-        onConfirm: async () => {
-          try {
-            await deleteAgent(agentUid).unwrap();
-            showDialog({
-              type: "info",
-              title: "刪除成功",
-              message: "Agent 已成功刪除。",
-            });
-          } catch (err: unknown) {
-            const message =
-              typeof err === "string" ? err : "刪除失敗，請稍後再試";
-            showDialog({
-              type: "error",
-              title: "操作失敗",
-              message,
-            });
-          }
-        },
-        onCancel: () => {},
-      });
+      confirmDeleteAgent(agentUid);
     },
-    [showDialog, deleteAgent]
+    [confirmDeleteAgent]
   );
 
   const handleToggleVisibility = useCallback(
     (agentUid: string, current: string): void => {
       const newVisibility = current === "public" ? "private" : "public";
-      const toggleAsync = async (): Promise<void> => {
-        try {
-          await toggleVisibility({
-            agentUid,
-            body: { visibility: newVisibility as "public" | "private" },
-          }).unwrap();
-        } catch (err: unknown) {
-          const message =
-            typeof err === "string" ? err : "切換可見性失敗，請稍後再試";
-          showDialog({
-            type: "error",
-            title: "操作失敗",
-            message,
-          });
-        }
-      };
-      void toggleAsync();
+      void runToggleVisibility(
+        {
+          agentUid,
+          body: { visibility: newVisibility as "public" | "private" },
+        },
+        { errorMessage: "切換可見性失敗，請稍後再試" }
+      );
     },
-    [showDialog, toggleVisibility]
+    [runToggleVisibility]
   );
 
   return (

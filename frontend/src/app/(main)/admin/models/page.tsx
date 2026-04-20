@@ -4,19 +4,19 @@ import React, {
   useState,
   useCallback,
   useMemo,
-  useEffect,
-  useRef,
 } from "react";
-import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import { Table } from "@/components/ui/Table";
 import { Pagination } from "@/components/ui/Pagination";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
 import { Toggle } from "@/components/ui/Toggle";
-import { useDialog } from "@/hooks/useDialog";
-import { useAuth } from "@/hooks/useAuth";
+import { ModalDialog } from "@/components/ui/ModalDialog";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { useCursorPagination } from "@/hooks/useCursorPagination";
+import { useFilteredList } from "@/hooks/useFilteredList";
+import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
+import { useConfirmMutation } from "@/hooks/useConfirmMutation";
 import {
   useListAdminModelsQuery,
   useCreateModelMutation,
@@ -56,7 +56,6 @@ const FormDialog = React.memo(function FormDialog({
   onSubmit,
   onClose,
 }: FormDialogProps): React.ReactNode {
-  const overlayRef = useRef<HTMLDivElement>(null);
   const [modelId, setModelId] = useState<string>(initial?.model_id ?? "");
   const [displayName, setDisplayName] = useState<string>(
     initial?.display_name ?? ""
@@ -75,33 +74,6 @@ const FormDialog = React.memo(function FormDialog({
   const [maxOutputTokensError, setMaxOutputTokensError] = useState<string>("");
 
   const title = mode === "create" ? "新增 LLM 模型" : "編輯 LLM 模型";
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent): void => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    },
-    [onClose]
-  );
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
-    return (): void => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [handleKeyDown]);
-
-  const handleOverlayClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>): void => {
-      if (e.target === overlayRef.current) {
-        onClose();
-      }
-    },
-    [onClose]
-  );
 
   const handleModelIdChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -204,120 +176,110 @@ const FormDialog = React.memo(function FormDialog({
     ]
   );
 
-  const content = (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
-      onClick={handleOverlayClick}
-    >
-      <div className="w-full max-w-md rounded-xl bg-card-bg p-6 shadow-lg">
-        <h3 className="mb-4 text-xl font-semibold text-foreground">{title}</h3>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label
-              htmlFor="model-id-input"
-              className="mb-1.5 block text-base font-medium text-foreground"
-            >
-              Model ID
-              {mode === "create" && (
-                <span className="ml-0.5 text-destructive">*</span>
-              )}
-            </label>
-            {mode === "create" ? (
-              <Input
-                id="model-id-input"
-                placeholder="anthropic/claude-sonnet-4"
-                value={modelId}
-                onChange={handleModelIdChange}
-                error={modelIdError}
-                disabled={submitting}
-              />
-            ) : (
-              <div className="min-h-11 w-full rounded-xl border border-input-border bg-muted-bg px-3 py-2 font-mono text-base text-muted">
-                {modelId}
-              </div>
+  return (
+    <ModalDialog title={title} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div>
+          <label
+            htmlFor="model-id-input"
+            className="mb-1.5 block text-base font-medium text-foreground"
+          >
+            Model ID
+            {mode === "create" && (
+              <span className="ml-0.5 text-destructive">*</span>
             )}
-          </div>
-
-          <Input
-            label="顯示名稱"
-            required
-            value={displayName}
-            onChange={handleDisplayNameChange}
-            error={displayNameError}
-            disabled={submitting}
-            placeholder="Claude Sonnet 4"
-          />
-
-          {mode === "edit" && (
-            <div className="flex items-center justify-between">
-              <span className="text-base font-medium text-foreground">
-                啟用狀態
-              </span>
-              <Toggle
-                checked={isActive}
-                onChange={handleToggleActive}
-                disabled={submitting}
-                label="啟用狀態切換"
-              />
+          </label>
+          {mode === "create" ? (
+            <Input
+              id="model-id-input"
+              placeholder="anthropic/claude-sonnet-4"
+              value={modelId}
+              onChange={handleModelIdChange}
+              error={modelIdError}
+              disabled={submitting}
+            />
+          ) : (
+            <div className="min-h-11 w-full rounded-xl border border-input-border bg-muted-bg px-3 py-2 font-mono text-base text-muted">
+              {modelId}
             </div>
           )}
+        </div>
 
+        <Input
+          label="顯示名稱"
+          required
+          value={displayName}
+          onChange={handleDisplayNameChange}
+          error={displayNameError}
+          disabled={submitting}
+          placeholder="Claude Sonnet 4"
+        />
+
+        {mode === "edit" && (
           <div className="flex items-center justify-between">
-            <div>
-              <span className="block text-base font-medium text-foreground">
-                預設模型
-              </span>
-              <span className="block text-sm text-muted">
-                全系統僅能有一個預設模型
-              </span>
-            </div>
+            <span className="text-base font-medium text-foreground">
+              啟用狀態
+            </span>
             <Toggle
-              checked={isDefault}
-              onChange={handleToggleDefault}
+              checked={isActive}
+              onChange={handleToggleActive}
               disabled={submitting}
-              label="預設模型切換"
+              label="啟用狀態切換"
             />
           </div>
+        )}
 
+        <div className="flex items-center justify-between">
           <div>
-            <label
-              htmlFor="max-output-tokens"
-              className="mb-1.5 block text-base font-medium text-foreground"
-            >
-              單次回覆最大 Token 數
-            </label>
-            <Input
-              id="max-output-tokens"
-              type="number"
-              placeholder="留空表示未設定"
-              value={maxOutputTokens}
-              onChange={handleMaxOutputTokensChange}
-              error={maxOutputTokensError}
-              disabled={submitting}
-            />
+            <span className="block text-base font-medium text-foreground">
+              預設模型
+            </span>
+            <span className="block text-sm text-muted">
+              全系統僅能有一個預設模型
+            </span>
           </div>
+          <Toggle
+            checked={isDefault}
+            onChange={handleToggleDefault}
+            disabled={submitting}
+            label="預設模型切換"
+          />
+        </div>
 
-          <div className="mt-2 flex justify-end gap-3">
-            <button
-              type="button"
-              className="min-h-11 min-w-11 rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
-              onClick={onClose}
-              disabled={submitting}
-            >
-              取消
-            </button>
-            <Button type="submit" loading={submitting}>
-              {mode === "create" ? "建立" : "儲存"}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div>
+          <label
+            htmlFor="max-output-tokens"
+            className="mb-1.5 block text-base font-medium text-foreground"
+          >
+            單次回覆最大 Token 數
+          </label>
+          <Input
+            id="max-output-tokens"
+            type="number"
+            placeholder="留空表示未設定"
+            value={maxOutputTokens}
+            onChange={handleMaxOutputTokensChange}
+            error={maxOutputTokensError}
+            disabled={submitting}
+          />
+        </div>
+
+        <div className="mt-2 flex justify-end gap-3">
+          <button
+            type="button"
+            className="min-h-11 min-w-11 rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            取消
+          </button>
+          <Button type="submit" loading={submitting}>
+            {mode === "create" ? "建立" : "儲存"}
+          </Button>
+        </div>
+      </form>
+    </ModalDialog>
   );
-
-  if (typeof document === "undefined") return null;
-  return createPortal(content, document.body);
 });
 
 type StatusFilter = "all" | "active" | "inactive";
@@ -428,33 +390,26 @@ const ModelCard = React.memo(function ModelCard({
 });
 
 export default function AdminModelsPage(): React.ReactNode {
-  const router = useRouter();
-  const { role, isLoading: authLoading } = useAuth();
-  const { showDialog } = useDialog();
-
-  const [limit, setLimit] = useState<number>(20);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
+  const { authLoading, isAdmin, shouldBlockRender } = useAdminGuard();
+  const pagination = useCursorPagination(20);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [vendorFilter, setVendorFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [formState, setFormState] = useState<FormState | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && role !== "admin") {
-      router.replace("/403");
-    }
-  }, [role, authLoading, router]);
-
   const { data, isLoading, isFetching } = useListAdminModelsQuery(
-    { limit, cursor },
-    { skip: authLoading || role !== "admin" }
+    { limit: pagination.limit, cursor: pagination.cursor },
+    { skip: authLoading || !isAdmin }
   );
 
   const [createModel, { isLoading: creating }] = useCreateModelMutation();
   const [updateModel, { isLoading: updating }] = useUpdateModelMutation();
   const [deleteModel] = useDeleteModelMutation();
+
+  const runCreate = useMutationWithDialog(createModel);
+  const runUpdate = useMutationWithDialog(updateModel);
+  const runToggleActive = useMutationWithDialog(updateModel);
 
   const submitting = creating || updating;
 
@@ -472,26 +427,41 @@ export default function AdminModelsPage(): React.ReactNode {
     return Array.from(set).sort();
   }, [items]);
 
+  const vendorPredicate = useCallback(
+    (m: LlmModelAdmin): boolean =>
+      vendorFilter === "all" || m.model_id.startsWith(`${vendorFilter}/`),
+    [vendorFilter]
+  );
+  const statusPredicate = useCallback(
+    (m: LlmModelAdmin): boolean => {
+      if (statusFilter === "active") return m.is_active;
+      if (statusFilter === "inactive") return !m.is_active;
+      return true;
+    },
+    [statusFilter]
+  );
+  const predicates = useMemo(
+    () => [vendorPredicate, statusPredicate],
+    [vendorPredicate, statusPredicate]
+  );
+  const searchFields = useMemo(
+    () => ["model_id" as const, "display_name" as const],
+    []
+  );
+  const filteredItems = useFilteredList<LlmModelAdmin>({
+    items,
+    searchTerm,
+    searchFields,
+    predicates,
+  });
+
   const filteredModels = useMemo((): LlmModelAdmin[] => {
-    const term = searchTerm.trim().toLowerCase();
-    const matched = items.filter((m) => {
-      if (vendorFilter !== "all" && !m.model_id.startsWith(`${vendorFilter}/`)) {
-        return false;
-      }
-      if (statusFilter === "active" && !m.is_active) return false;
-      if (statusFilter === "inactive" && m.is_active) return false;
-      if (!term) return true;
-      return (
-        m.model_id.toLowerCase().includes(term) ||
-        m.display_name.toLowerCase().includes(term)
-      );
-    });
-    const sorted = [...matched].sort((a, b) => {
+    const sorted = [...filteredItems].sort((a, b) => {
       const diff = a.created_at.localeCompare(b.created_at);
       return sortOrder === "newest" ? -diff : diff;
     });
     return sorted;
-  }, [items, searchTerm, vendorFilter, statusFilter, sortOrder]);
+  }, [filteredItems, sortOrder]);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -501,26 +471,8 @@ export default function AdminModelsPage(): React.ReactNode {
   );
 
   const handleNextPage = useCallback((): void => {
-    if (data?.next_cursor) {
-      setCursorHistory((prev) => [...prev, cursor ?? ""]);
-      setCursor(data.next_cursor);
-    }
-  }, [data, cursor]);
-
-  const handlePrevPage = useCallback((): void => {
-    setCursorHistory((prev) => {
-      const newHistory = [...prev];
-      const prevCursor = newHistory.pop();
-      setCursor(prevCursor || null);
-      return newHistory;
-    });
-  }, []);
-
-  const handleLimitChange = useCallback((newLimit: number): void => {
-    setLimit(newLimit);
-    setCursor(null);
-    setCursorHistory([]);
-  }, []);
+    pagination.handleNextPage(data?.next_cursor);
+  }, [pagination, data]);
 
   const handleOpenCreate = useCallback((): void => {
     setFormState({ mode: "create" });
@@ -543,22 +495,26 @@ export default function AdminModelsPage(): React.ReactNode {
       max_output_tokens: number | null;
     }): Promise<void> => {
       if (!formState) return;
-      try {
-        if (formState.mode === "create") {
-          await createModel({
+      if (formState.mode === "create") {
+        await runCreate(
+          {
             model_id: payload.model_id,
             display_name: payload.display_name,
             is_default: payload.is_default,
             max_output_tokens: payload.max_output_tokens,
-          }).unwrap();
-          setFormState(null);
-          showDialog({
-            type: "info",
-            title: "建立成功",
-            message: "LLM 模型已新增。",
-          });
-        } else if (formState.model) {
-          await updateModel({
+          },
+          {
+            successTitle: "建立成功",
+            successMessage: "LLM 模型已新增。",
+            errorMessage: "新增失敗，請稍後再試",
+            onSuccess: () => setFormState(null),
+          }
+        );
+        return;
+      }
+      if (formState.model) {
+        await runUpdate(
+          {
             uid: formState.model.llm_model_uid,
             body: {
               display_name: payload.display_name,
@@ -566,83 +522,48 @@ export default function AdminModelsPage(): React.ReactNode {
               is_default: payload.is_default,
               max_output_tokens: payload.max_output_tokens,
             },
-          }).unwrap();
-          setFormState(null);
-          showDialog({
-            type: "info",
-            title: "更新成功",
-            message: "LLM 模型已更新。",
-          });
-        }
-      } catch (err: unknown) {
-        const message =
-          typeof err === "string"
-            ? err
-            : formState.mode === "create"
-              ? "新增失敗，請稍後再試"
-              : "更新失敗，請稍後再試";
-        showDialog({
-          type: "error",
-          title: "操作失敗",
-          message,
-        });
+          },
+          {
+            successTitle: "更新成功",
+            successMessage: "LLM 模型已更新。",
+            errorMessage: "更新失敗，請稍後再試",
+            onSuccess: () => setFormState(null),
+          }
+        );
       }
     },
-    [formState, createModel, updateModel, showDialog]
+    [formState, runCreate, runUpdate]
   );
 
   const handleToggleActive = useCallback(
     (model: LlmModelAdmin): void => {
-      const nextActive = !model.is_active;
-      const toggleAsync = async (): Promise<void> => {
-        try {
-          await updateModel({
-            uid: model.llm_model_uid,
-            body: { is_active: nextActive },
-          }).unwrap();
-        } catch (err: unknown) {
-          const message =
-            typeof err === "string" ? err : "切換狀態失敗，請稍後再試";
-          showDialog({
-            type: "error",
-            title: "操作失敗",
-            message,
-          });
-        }
-      };
-      void toggleAsync();
+      void runToggleActive(
+        {
+          uid: model.llm_model_uid,
+          body: { is_active: !model.is_active },
+        },
+        { errorMessage: "切換狀態失敗，請稍後再試" }
+      );
     },
-    [updateModel, showDialog]
+    [runToggleActive]
   );
 
+  const deleteOptions = useMemo(
+    () => ({
+      title: "刪除 LLM 模型",
+      message: "確定刪除此模型？已設定此模型的 Agent 將無法使用。",
+      successTitle: "刪除成功",
+      successMessage: "LLM 模型已刪除。",
+      errorMessage: "刪除失敗，請稍後再試",
+    }),
+    []
+  );
+  const confirmDelete = useConfirmMutation(deleteModel, deleteOptions);
   const handleDelete = useCallback(
     (model: LlmModelAdmin): void => {
-      showDialog({
-        type: "warning",
-        title: "刪除 LLM 模型",
-        message: "確定刪除此模型？已設定此模型的 Agent 將無法使用。",
-        onConfirm: async () => {
-          try {
-            await deleteModel(model.llm_model_uid).unwrap();
-            showDialog({
-              type: "info",
-              title: "刪除成功",
-              message: "LLM 模型已刪除。",
-            });
-          } catch (err: unknown) {
-            const message =
-              typeof err === "string" ? err : "刪除失敗，請稍後再試";
-            showDialog({
-              type: "error",
-              title: "操作失敗",
-              message,
-            });
-          }
-        },
-        onCancel: () => {},
-      });
+      confirmDelete(model.llm_model_uid);
     },
-    [deleteModel, showDialog]
+    [confirmDelete]
   );
 
   const columns = useMemo(
@@ -762,7 +683,7 @@ export default function AdminModelsPage(): React.ReactNode {
     [handleOpenEdit, handleToggleActive, handleDelete]
   );
 
-  if (authLoading || role !== "admin") {
+  if (shouldBlockRender) {
     return <PageLoading />;
   }
 
@@ -852,11 +773,11 @@ export default function AdminModelsPage(): React.ReactNode {
             <div className="mt-4">
               <Pagination
                 hasNext={data?.has_next ?? false}
-                hasPrev={cursorHistory.length > 0}
-                limit={limit}
+                hasPrev={pagination.hasPrev}
+                limit={pagination.limit}
                 onNextPage={handleNextPage}
-                onPrevPage={handlePrevPage}
-                onLimitChange={handleLimitChange}
+                onPrevPage={pagination.handlePrevPage}
+                onLimitChange={pagination.handleLimitChange}
               />
             </div>
           </>

@@ -2,19 +2,16 @@
 
 import React, {
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
 import { Toggle } from "@/components/ui/Toggle";
-import { useDialog } from "@/hooks/useDialog";
-import { useAuth } from "@/hooks/useAuth";
+import { ModalDialog } from "@/components/ui/ModalDialog";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
 import {
   useListAdminSettingsQuery,
   useUpdateSettingMutation,
@@ -63,7 +60,6 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
   onSubmit,
   onClose,
 }: SettingFormDialogProps): React.ReactNode {
-  const overlayRef = useRef<HTMLDivElement>(null);
   const [value, setValue] = useState<string>(setting.value);
   const [description, setDescription] = useState<string>(
     setting.description ?? ""
@@ -71,29 +67,6 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
   const [isPublic, setIsPublic] = useState<boolean>(setting.is_public);
   const [isActive, setIsActive] = useState<boolean>(setting.is_active);
   const [valueError, setValueError] = useState<string>("");
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent): void => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose]
-  );
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
-    return (): void => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [handleKeyDown]);
-
-  const handleOverlayClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>): void => {
-      if (e.target === overlayRef.current) onClose();
-    },
-    [onClose]
-  );
 
   const handleValueChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
@@ -142,19 +115,12 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
   );
 
   const valueBoolean = value.toLowerCase() === "true";
+  const modalTitle = setting.description || "編輯系統設定";
 
-  const content = (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
-      onClick={handleOverlayClick}
-    >
-      <div className="w-full max-w-md rounded-xl bg-card-bg p-6 shadow-lg">
-        <h3 className="mb-1 text-xl font-semibold text-foreground">
-          {setting.description || "編輯系統設定"}
-        </h3>
-        <p className="mb-4 font-mono text-sm text-muted">{setting.key}</p>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+  return (
+    <ModalDialog title={modalTitle} onClose={onClose}>
+      <p className="mb-4 -mt-2 font-mono text-sm text-muted">{setting.key}</p>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="mb-1.5 block text-base font-medium text-foreground">
               型別
@@ -273,12 +239,8 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalDialog>
   );
-
-  if (typeof document === "undefined") return null;
-  return createPortal(content, document.body);
 });
 
 interface SettingRowProps {
@@ -343,23 +305,15 @@ const SettingRow = React.memo(function SettingRow({
 });
 
 export default function AdminSettingsPage(): React.ReactNode {
-  const router = useRouter();
-  const { role, isLoading: authLoading } = useAuth();
-  const { showDialog } = useDialog();
-
+  const { authLoading, isAdmin, shouldBlockRender } = useAdminGuard();
   const [editTarget, setEditTarget] = useState<SystemSetting | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && role !== "admin") {
-      router.replace("/403");
-    }
-  }, [role, authLoading, router]);
-
   const { data, isLoading, isFetching } = useListAdminSettingsQuery(undefined, {
-    skip: authLoading || role !== "admin",
+    skip: authLoading || !isAdmin,
   });
 
   const [updateSetting, { isLoading: updating }] = useUpdateSettingMutation();
+  const runUpdate = useMutationWithDialog(updateSetting);
 
   const items = useMemo(
     (): SystemSetting[] => data?.items ?? [],
@@ -382,31 +336,23 @@ export default function AdminSettingsPage(): React.ReactNode {
       is_active: boolean;
     }): Promise<void> => {
       if (!editTarget) return;
-      try {
-        await updateSetting({
+      await runUpdate(
+        {
           key: editTarget.key,
           body: payload,
-        }).unwrap();
-        setEditTarget(null);
-        showDialog({
-          type: "info",
-          title: "更新成功",
-          message: "系統設定已更新。",
-        });
-      } catch (err: unknown) {
-        const message =
-          typeof err === "string" ? err : "更新失敗，請稍後再試";
-        showDialog({
-          type: "error",
-          title: "操作失敗",
-          message,
-        });
-      }
+        },
+        {
+          successTitle: "更新成功",
+          successMessage: "系統設定已更新。",
+          errorMessage: "更新失敗，請稍後再試",
+          onSuccess: () => setEditTarget(null),
+        }
+      );
     },
-    [editTarget, updateSetting, showDialog]
+    [editTarget, runUpdate]
   );
 
-  if (authLoading || role !== "admin") {
+  if (shouldBlockRender) {
     return <PageLoading />;
   }
 

@@ -5,8 +5,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PageLoading } from "@/components/ui/Loading";
-import { useDialog } from "@/hooks/useDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
+import { useConfirmMutation } from "@/hooks/useConfirmMutation";
 import {
   useListSkillsQuery,
   useDeleteSkillMutation,
@@ -131,7 +132,6 @@ const FilterChip = React.memo(function FilterChip({
 
 export default function SkillsListPage(): React.ReactNode {
   const { userUid, isLoading: authLoading } = useAuth();
-  const { showDialog } = useDialog();
 
   const [query, setQuery] = useState<string>("");
   const [visibilityFilter, setVisibilityFilter] =
@@ -145,6 +145,7 @@ export default function SkillsListPage(): React.ReactNode {
 
   const [deleteSkill] = useDeleteSkillMutation();
   const [toggleVisibility] = useToggleSkillVisibilityMutation();
+  const runToggleVisibility = useMutationWithDialog(toggleVisibility);
 
   const skills = useMemo((): Skill[] => data?.items ?? [], [data]);
 
@@ -176,58 +177,36 @@ export default function SkillsListPage(): React.ReactNode {
     []
   );
 
+  const deleteOptions = useMemo(
+    () => ({
+      title: "刪除 Skill",
+      message: "確定要刪除此 Skill 嗎？此操作無法復原。",
+      successTitle: "刪除成功",
+      successMessage: "Skill 已成功刪除。",
+      errorMessage: "刪除失敗，請稍後再試",
+    }),
+    []
+  );
+  const confirmDeleteSkill = useConfirmMutation(deleteSkill, deleteOptions);
   const handleDelete = useCallback(
     (skillUid: string): void => {
-      showDialog({
-        type: "warning",
-        title: "刪除 Skill",
-        message: "確定要刪除此 Skill 嗎？此操作無法復原。",
-        onConfirm: async () => {
-          try {
-            await deleteSkill(skillUid).unwrap();
-            showDialog({
-              type: "info",
-              title: "刪除成功",
-              message: "Skill 已成功刪除。",
-            });
-          } catch (err: unknown) {
-            const message =
-              typeof err === "string" ? err : "刪除失敗，請稍後再試";
-            showDialog({
-              type: "error",
-              title: "操作失敗",
-              message,
-            });
-          }
-        },
-        onCancel: () => {},
-      });
+      confirmDeleteSkill(skillUid);
     },
-    [showDialog, deleteSkill]
+    [confirmDeleteSkill]
   );
 
   const handleToggleVisibility = useCallback(
     (skillUid: string, current: string): void => {
       const newVisibility = current === "public" ? "private" : "public";
-      const toggleAsync = async (): Promise<void> => {
-        try {
-          await toggleVisibility({
-            skillUid,
-            body: { visibility: newVisibility },
-          }).unwrap();
-        } catch (err: unknown) {
-          const message =
-            typeof err === "string" ? err : "切換可見性失敗，請稍後再試";
-          showDialog({
-            type: "error",
-            title: "操作失敗",
-            message,
-          });
-        }
-      };
-      void toggleAsync();
+      void runToggleVisibility(
+        {
+          skillUid,
+          body: { visibility: newVisibility },
+        },
+        { errorMessage: "切換可見性失敗，請稍後再試" }
+      );
     },
-    [showDialog, toggleVisibility]
+    [runToggleVisibility]
   );
 
   if (authLoading) {

@@ -4,16 +4,15 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Slider } from "@/components/ui/Slider";
 import { MultiSelect } from "@/components/ui/MultiSelect";
 import type { MultiSelectOption } from "@/components/ui/MultiSelect";
+import { ModalDialog } from "@/components/ui/ModalDialog";
 import { useDialog } from "@/hooks/useDialog";
 import { useAgentDraft } from "@/hooks/useAgentDraft";
 import {
@@ -153,35 +152,7 @@ const CopyAgentModal = React.memo(function CopyAgentModal({
   onSelect,
   onClose,
 }: CopyAgentModalProps): React.ReactNode {
-  const overlayRef = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState<string>("");
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent): void => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    },
-    [onClose]
-  );
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
-    return (): void => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [handleKeyDown]);
-
-  const handleOverlayClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>): void => {
-      if (e.target === overlayRef.current) {
-        onClose();
-      }
-    },
-    [onClose]
-  );
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -202,16 +173,9 @@ const CopyAgentModal = React.memo(function CopyAgentModal({
     });
   }, [agents, search]);
 
-  const content = (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
-      onClick={handleOverlayClick}
-    >
-      <div className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-xl bg-card-bg p-6 shadow-lg">
-        <h3 className="mb-4 text-xl font-semibold text-foreground">
-          從既有 Agent 複製
-        </h3>
+  return (
+    <ModalDialog title="從既有 Agent 複製" onClose={onClose} size="md">
+      <div className="flex max-h-[70vh] flex-col">
         <input
           type="text"
           value={search}
@@ -262,11 +226,8 @@ const CopyAgentModal = React.memo(function CopyAgentModal({
           </button>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
-
-  if (typeof document === "undefined") return null;
-  return createPortal(content, document.body);
 });
 
 function agentToFormState(
