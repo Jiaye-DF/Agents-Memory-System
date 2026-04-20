@@ -1,6 +1,6 @@
 from collections.abc import AsyncIterator
 
-from fastapi import Depends
+from fastapi import Depends, params
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,7 +38,7 @@ async def get_current_user(
     return TokenPayload(user_uid=user_uid, role=role)
 
 
-def require_role(*allowed_roles: str):  # noqa: ANN201
+def require_role(*allowed_roles: str) -> params.Depends:
     async def checker(
         current_user: TokenPayload = Depends(get_current_user),
     ) -> TokenPayload:

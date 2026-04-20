@@ -1,20 +1,31 @@
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, require_role
 from app.core.response import success
-from app.schemas.admin.schemas import UserUpdateRequest
+from app.schemas.admin.schemas import RoleResponse, UserResponse, UserUpdateRequest
 from app.schemas.agent_languages.schemas import (
     AgentLanguageCreateRequest,
+    AgentLanguageResponse,
     AgentLanguageUpdateRequest,
 )
 from app.schemas.auth.schemas import TokenPayload
 from app.schemas.models.schemas import (
+    LlmModelAdminResponse,
     LlmModelCreateRequest,
     LlmModelUpdateRequest,
 )
-from app.schemas.system_settings.schemas import SystemSettingUpdateRequest
+from app.schemas.response import (
+    ApiResponse,
+    MessageData,
+    PaginatedData,
+)
+from app.schemas.system_settings.schemas import (
+    SystemSettingResponse,
+    SystemSettingUpdateRequest,
+)
 from app.services import (
     admin_service,
     agent_language_service,
@@ -22,10 +33,22 @@ from app.services import (
     system_setting_service,
 )
 
+
+class RolesListData(BaseModel):
+    roles: list[RoleResponse]
+
+
+class SystemSettingListData(BaseModel):
+    items: list[SystemSettingResponse]
+
+
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-@router.get("/users")
+@router.get(
+    "/users",
+    response_model=ApiResponse[PaginatedData[UserResponse]],
+)
 async def list_users(
     _current_user: TokenPayload = require_role("admin"),
     cursor: str | None = Query(None),
@@ -36,7 +59,7 @@ async def list_users(
     return success(data=result)
 
 
-@router.get("/users/{user_uid}")
+@router.get("/users/{user_uid}", response_model=ApiResponse[UserResponse])
 async def get_user(
     user_uid: str,
     _current_user: TokenPayload = require_role("admin"),
@@ -46,7 +69,7 @@ async def get_user(
     return success(data=result)
 
 
-@router.put("/users/{user_uid}")
+@router.put("/users/{user_uid}", response_model=ApiResponse[UserResponse])
 async def update_user(
     user_uid: str,
     data: UserUpdateRequest,
@@ -57,7 +80,7 @@ async def update_user(
     return success(data=result)
 
 
-@router.get("/roles")
+@router.get("/roles", response_model=ApiResponse[RolesListData])
 async def list_roles(
     _current_user: TokenPayload = require_role("admin"),
     db: AsyncSession = Depends(get_db),
@@ -66,7 +89,10 @@ async def list_roles(
     return success(data=result)
 
 
-@router.get("/llm-models")
+@router.get(
+    "/llm-models",
+    response_model=ApiResponse[PaginatedData[LlmModelAdminResponse]],
+)
 async def list_llm_models(
     _current_user: TokenPayload = require_role("admin"),
     cursor: str | None = Query(None),
@@ -77,7 +103,10 @@ async def list_llm_models(
     return success(data=result)
 
 
-@router.post("/llm-models")
+@router.post(
+    "/llm-models",
+    response_model=ApiResponse[LlmModelAdminResponse],
+)
 async def create_llm_model(
     data: LlmModelCreateRequest,
     _current_user: TokenPayload = require_role("admin"),
@@ -87,7 +116,10 @@ async def create_llm_model(
     return success(data=result, response_code=201)
 
 
-@router.get("/llm-models/{llm_model_uid}")
+@router.get(
+    "/llm-models/{llm_model_uid}",
+    response_model=ApiResponse[LlmModelAdminResponse],
+)
 async def get_llm_model(
     llm_model_uid: str,
     _current_user: TokenPayload = require_role("admin"),
@@ -97,7 +129,10 @@ async def get_llm_model(
     return success(data=result)
 
 
-@router.put("/llm-models/{llm_model_uid}")
+@router.put(
+    "/llm-models/{llm_model_uid}",
+    response_model=ApiResponse[LlmModelAdminResponse],
+)
 async def update_llm_model(
     llm_model_uid: str,
     data: LlmModelUpdateRequest,
@@ -108,7 +143,10 @@ async def update_llm_model(
     return success(data=result)
 
 
-@router.delete("/llm-models/{llm_model_uid}")
+@router.delete(
+    "/llm-models/{llm_model_uid}",
+    response_model=ApiResponse[MessageData],
+)
 async def delete_llm_model(
     llm_model_uid: str,
     _current_user: TokenPayload = require_role("admin"),
@@ -123,7 +161,10 @@ async def delete_llm_model(
 # ============================================================
 
 
-@router.get("/agent-languages")
+@router.get(
+    "/agent-languages",
+    response_model=ApiResponse[PaginatedData[AgentLanguageResponse]],
+)
 async def list_agent_languages_admin(
     _current_user: TokenPayload = require_role("admin"),
     cursor: str | None = Query(None),
@@ -136,7 +177,10 @@ async def list_agent_languages_admin(
     return success(data=result)
 
 
-@router.post("/agent-languages")
+@router.post(
+    "/agent-languages",
+    response_model=ApiResponse[AgentLanguageResponse],
+)
 async def create_agent_language(
     data: AgentLanguageCreateRequest,
     _current_user: TokenPayload = require_role("admin"),
@@ -146,7 +190,10 @@ async def create_agent_language(
     return success(data=result, response_code=201)
 
 
-@router.get("/agent-languages/{agent_language_uid}")
+@router.get(
+    "/agent-languages/{agent_language_uid}",
+    response_model=ApiResponse[AgentLanguageResponse],
+)
 async def get_agent_language(
     agent_language_uid: str,
     _current_user: TokenPayload = require_role("admin"),
@@ -156,7 +203,10 @@ async def get_agent_language(
     return success(data=result)
 
 
-@router.put("/agent-languages/{agent_language_uid}")
+@router.put(
+    "/agent-languages/{agent_language_uid}",
+    response_model=ApiResponse[AgentLanguageResponse],
+)
 async def update_agent_language(
     agent_language_uid: str,
     data: AgentLanguageUpdateRequest,
@@ -169,7 +219,10 @@ async def update_agent_language(
     return success(data=result)
 
 
-@router.delete("/agent-languages/{agent_language_uid}")
+@router.delete(
+    "/agent-languages/{agent_language_uid}",
+    response_model=ApiResponse[MessageData],
+)
 async def delete_agent_language(
     agent_language_uid: str,
     _current_user: TokenPayload = require_role("admin"),
@@ -184,7 +237,10 @@ async def delete_agent_language(
 # ============================================================
 
 
-@router.get("/settings")
+@router.get(
+    "/settings",
+    response_model=ApiResponse[SystemSettingListData],
+)
 async def list_settings_admin(
     _current_user: TokenPayload = require_role("admin"),
     db: AsyncSession = Depends(get_db),
@@ -193,7 +249,10 @@ async def list_settings_admin(
     return success(data=result)
 
 
-@router.get("/settings/{key}")
+@router.get(
+    "/settings/{key}",
+    response_model=ApiResponse[SystemSettingResponse],
+)
 async def get_setting_admin(
     key: str,
     _current_user: TokenPayload = require_role("admin"),
@@ -203,7 +262,10 @@ async def get_setting_admin(
     return success(data=result)
 
 
-@router.put("/settings/{key}")
+@router.put(
+    "/settings/{key}",
+    response_model=ApiResponse[SystemSettingResponse],
+)
 async def update_setting_admin(
     key: str,
     data: SystemSettingUpdateRequest,

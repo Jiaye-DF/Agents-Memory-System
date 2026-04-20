@@ -245,7 +245,7 @@ export default function SkillsUploadPage(): React.ReactNode {
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            className={`flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors ${
+            className={`flex min-h-45 flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors ${
               isDragOver
                 ? "border-primary bg-primary/5"
                 : "border-border"
@@ -375,7 +375,7 @@ export default function SkillsUploadPage(): React.ReactNode {
               onChange={handleDescriptionChange}
               placeholder="輸入 Skill 描述"
               rows={4}
-              className={`min-h-[88px] w-full rounded-xl border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 ${
+              className={`min-h-22 w-full rounded-xl border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 ${
                 descriptionError
                   ? "border-destructive"
                   : "border-input-border"

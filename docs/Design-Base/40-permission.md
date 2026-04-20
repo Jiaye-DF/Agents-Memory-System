@@ -108,22 +108,27 @@ COMMENT ON COLUMN "user".role_uid IS '所屬角色 UID（關聯 user_role）';
 
 ### member + admin 共用端點
 
-| 端點                             | 說明                         |
-| -------------------------------- | ---------------------------- |
-| `POST /api/v1/auth/logout`       | 登出                         |
-| `POST /api/v1/auth/refresh`      | 換發 Token                   |
-| `/api/v1/agents/*`               | Agent 管理（僅限自身資源）   |
-| `/api/v1/skills/*`               | Skills 管理（僅限自身資源）  |
-| `/api/v1/memories/*`             | 記憶管理（僅限自身資源）     |
-| `/api/v1/conversations/*`        | 對話管理（僅限自身資源）     |
+| 端點                               | 說明                                       |
+| ---------------------------------- | ------------------------------------------ |
+| `POST /api/v1/auth/logout`         | 登出                                       |
+| `POST /api/v1/auth/refresh`        | 換發 Token                                 |
+| `/api/v1/agents/*`                 | Agent 管理（僅限自身資源）                 |
+| `/api/v1/skills/*`                 | Skills 管理（僅限自身資源）                |
+| `/api/v1/memories/*`               | 記憶管理（僅限自身資源）                   |
+| `/api/v1/conversations/*`          | 對話管理（僅限自身資源）                   |
+| `GET /api/v1/models`               | 取得啟用中的 LLM 模型清單（唯讀）          |
+| `GET /api/v1/agent-languages`      | 取得啟用中的 Agent 語言清單（唯讀）        |
+| `GET /api/v1/settings/public`      | 取得 `is_public = TRUE` 的系統設定字典     |
 
 ### admin 專屬端點
 
-| 端點                     | 說明                                 |
-| ------------------------ | ------------------------------------ |
-| `/api/v1/admin/users/*`  | 使用者管理（查詢、停用、角色變更）   |
-| `/api/v1/admin/roles/*`  | 角色管理（新增、修改、停用角色）     |
-| `/api/v1/admin/system/*` | 系統設定管理                         |
+| 端點                              | 說明                                       |
+| --------------------------------- | ------------------------------------------ |
+| `/api/v1/admin/users/*`           | 使用者管理（查詢、停用、角色變更）         |
+| `/api/v1/admin/roles/*`           | 角色管理（新增、修改、停用角色）           |
+| `/api/v1/admin/llm-models/*`      | LLM 模型清單管理（新增、編輯、啟停、刪除） |
+| `/api/v1/admin/agent-languages/*` | Agent 語言清單管理（含預設語言切換）       |
+| `/api/v1/admin/settings/*`        | 系統設定管理（含 `is_public` 切換）        |
 
 ---
 

@@ -9,10 +9,10 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Table } from "@/components/ui/Table";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
+import { Toggle } from "@/components/ui/Toggle";
 import { useDialog } from "@/hooks/useDialog";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -103,8 +103,8 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
     []
   );
 
-  const handleToggleValueBoolean = useCallback((): void => {
-    setValue((prev) => (prev.toLowerCase() === "true" ? "false" : "true"));
+  const handleToggleValueBoolean = useCallback((next: boolean): void => {
+    setValue(next ? "true" : "false");
     setValueError("");
   }, []);
 
@@ -115,12 +115,12 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
     []
   );
 
-  const handleTogglePublic = useCallback((): void => {
-    setIsPublic((prev) => !prev);
+  const handleTogglePublic = useCallback((next: boolean): void => {
+    setIsPublic(next);
   }, []);
 
-  const handleToggleActive = useCallback((): void => {
-    setIsActive((prev) => !prev);
+  const handleToggleActive = useCallback((next: boolean): void => {
+    setIsActive(next);
   }, []);
 
   const handleSubmit = useCallback(
@@ -150,24 +150,16 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
       onClick={handleOverlayClick}
     >
       <div className="w-full max-w-md rounded-xl bg-card-bg p-6 shadow-lg">
-        <h3 className="mb-4 text-xl font-semibold text-foreground">
-          編輯系統設定
+        <h3 className="mb-1 text-xl font-semibold text-foreground">
+          {setting.description || "編輯系統設定"}
         </h3>
+        <p className="mb-4 font-mono text-sm text-muted">{setting.key}</p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="mb-1.5 block text-base font-medium text-foreground">
-              Key
-            </label>
-            <div className="min-h-[44px] w-full rounded-xl border border-input-border bg-muted-bg px-3 py-2 font-mono text-base text-muted">
-              {setting.key}
-            </div>
-          </div>
-
           <div>
             <label className="mb-1.5 block text-base font-medium text-foreground">
               型別
             </label>
-            <div className="min-h-[44px] w-full rounded-xl border border-input-border bg-muted-bg px-3 py-2 font-mono text-base text-muted">
+            <div className="min-h-11 w-full rounded-xl border border-input-border bg-muted-bg px-3 py-2 font-mono text-base text-muted">
               {setting.value_type}
             </div>
           </div>
@@ -185,21 +177,12 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
                 <span className="font-mono text-base text-foreground">
                   {value || "false"}
                 </span>
-                <button
-                  type="button"
-                  onClick={handleToggleValueBoolean}
+                <Toggle
+                  checked={valueBoolean}
+                  onChange={handleToggleValueBoolean}
                   disabled={submitting}
-                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
-                    valueBoolean ? "bg-primary" : "bg-muted-bg"
-                  }`}
-                  aria-pressed={valueBoolean}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      valueBoolean ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
+                  label="切換布林值"
+                />
               </div>
             ) : setting.value_type === "integer" ? (
               <Input
@@ -217,7 +200,7 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
                 onChange={handleValueChange}
                 rows={5}
                 disabled={submitting}
-                className={`min-h-[44px] w-full rounded-xl border bg-input-bg px-3 py-2 font-mono text-sm text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 ${
+                className={`min-h-11 w-full rounded-xl border bg-input-bg px-3 py-2 font-mono text-sm text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 ${
                   valueError ? "border-destructive" : "border-input-border"
                 }`}
               />
@@ -248,7 +231,7 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
               onChange={handleDescriptionChange}
               rows={3}
               disabled={submitting}
-              className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+              className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
             />
           </div>
 
@@ -256,42 +239,24 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
             <span className="text-base font-medium text-foreground">
               公開設定（member 可讀取）
             </span>
-            <button
-              type="button"
-              onClick={handleTogglePublic}
+            <Toggle
+              checked={isPublic}
+              onChange={handleTogglePublic}
               disabled={submitting}
-              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
-                isPublic ? "bg-primary" : "bg-muted-bg"
-              }`}
-              aria-pressed={isPublic}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  isPublic ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
+              label="切換公開設定"
+            />
           </div>
 
           <div className="flex items-center justify-between">
             <span className="text-base font-medium text-foreground">
               啟用狀態
             </span>
-            <button
-              type="button"
-              onClick={handleToggleActive}
+            <Toggle
+              checked={isActive}
+              onChange={handleToggleActive}
               disabled={submitting}
-              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
-                isActive ? "bg-primary" : "bg-muted-bg"
-              }`}
-              aria-pressed={isActive}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  isActive ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
+              label="切換啟用狀態"
+            />
           </div>
 
           <div className="mt-2 flex justify-end gap-3">
@@ -299,7 +264,7 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="min-h-[44px] rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
+              className="min-h-11 rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
             >
               取消
             </button>
@@ -316,55 +281,59 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
   return createPortal(content, document.body);
 });
 
-interface SettingCardProps {
+interface SettingRowProps {
   setting: SystemSetting;
   onEdit: (s: SystemSetting) => void;
 }
 
-const SettingCard = React.memo(function SettingCard({
+const SettingRow = React.memo(function SettingRow({
   setting,
   onEdit,
-}: SettingCardProps): React.ReactNode {
+}: SettingRowProps): React.ReactNode {
   const handleEdit = useCallback((): void => {
     onEdit(setting);
   }, [setting, onEdit]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-mono font-medium text-foreground">
-          {setting.key}
-        </span>
-        <span className="shrink-0 rounded-xl bg-muted-bg px-2 py-0.5 font-mono text-sm text-muted">
-          {setting.value_type}
-        </span>
-      </div>
-      <div className="break-all rounded-xl bg-muted-bg/60 p-2 font-mono text-sm text-foreground">
-        {setting.value}
-      </div>
-      {setting.description && (
-        <div className="text-sm text-muted">{setting.description}</div>
-      )}
-      <div className="flex items-center gap-2 text-sm">
-        {setting.is_public && (
-          <span className="rounded-xl bg-info-bg px-2 py-0.5 font-medium text-info">
-            公開
+    <div className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted-bg/40 md:flex-row md:items-start md:gap-6">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="truncate text-lg font-semibold text-foreground">
+            {setting.description || setting.key}
+          </h3>
+          <span className="shrink-0 rounded-xl bg-muted-bg px-2 py-0.5 font-mono text-sm text-muted">
+            {setting.value_type}
           </span>
-        )}
-        <span
-          className={`rounded-xl px-2 py-0.5 font-medium ${
-            setting.is_active
-              ? "bg-success/10 text-success"
-              : "bg-muted-bg text-muted"
-          }`}
-        >
-          {setting.is_active ? "啟用" : "停用"}
-        </span>
+          {setting.is_public && (
+            <span className="shrink-0 rounded-xl bg-info-bg px-2 py-0.5 text-sm font-medium text-info">
+              公開
+            </span>
+          )}
+          <span
+            className={`shrink-0 rounded-xl px-2 py-0.5 text-sm font-medium ${
+              setting.is_active
+                ? "bg-success/10 text-success"
+                : "bg-muted-bg text-muted"
+            }`}
+          >
+            {setting.is_active ? "啟用" : "停用"}
+          </span>
+        </div>
+
+        <p className="mt-1 font-mono text-sm text-muted">{setting.key}</p>
+
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span className="shrink-0 text-muted">目前值：</span>
+          <code className="break-all rounded-md bg-muted-bg px-2 py-0.5 font-mono text-foreground">
+            {setting.value}
+          </code>
+          <span className="text-muted">
+            更新於 {formatDateTime(setting.updated_at)}
+          </span>
+        </div>
       </div>
-      <div className="text-sm text-muted">
-        更新時間：{formatDateTime(setting.updated_at)}
-      </div>
-      <div>
+
+      <div className="shrink-0 md:pt-1">
         <Button size="sm" variant="secondary" onClick={handleEdit}>
           編輯
         </Button>
@@ -437,96 +406,6 @@ export default function AdminSettingsPage(): React.ReactNode {
     [editTarget, updateSetting, showDialog]
   );
 
-  const columns = useMemo(
-    () => [
-      {
-        key: "key",
-        header: "Key",
-        render: (s: SystemSetting): React.ReactNode => (
-          <span className="font-mono text-base text-foreground">{s.key}</span>
-        ),
-      },
-      {
-        key: "value_type",
-        header: "型別",
-        render: (s: SystemSetting): React.ReactNode => (
-          <span className="rounded-xl bg-muted-bg px-2 py-0.5 font-mono text-sm text-muted">
-            {s.value_type}
-          </span>
-        ),
-      },
-      {
-        key: "value",
-        header: "值",
-        render: (s: SystemSetting): React.ReactNode => (
-          <span className="break-all font-mono text-base text-foreground">
-            {s.value}
-          </span>
-        ),
-      },
-      {
-        key: "description",
-        header: "說明",
-        render: (s: SystemSetting): React.ReactNode => (
-          <span className="text-base text-muted">{s.description ?? "-"}</span>
-        ),
-      },
-      {
-        key: "is_public",
-        header: "公開",
-        render: (s: SystemSetting): React.ReactNode =>
-          s.is_public ? (
-            <span className="rounded-xl bg-info-bg px-2 py-0.5 text-sm font-medium text-info">
-              公開
-            </span>
-          ) : (
-            <span className="text-sm text-muted">-</span>
-          ),
-      },
-      {
-        key: "is_active",
-        header: "狀態",
-        render: (s: SystemSetting): React.ReactNode => (
-          <span
-            className={`rounded-xl px-2 py-0.5 text-sm font-medium ${
-              s.is_active
-                ? "bg-success/10 text-success"
-                : "bg-muted-bg text-muted"
-            }`}
-          >
-            {s.is_active ? "啟用" : "停用"}
-          </span>
-        ),
-      },
-      {
-        key: "actions",
-        header: "操作",
-        render: (s: SystemSetting): React.ReactNode => (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => handleOpenEdit(s)}
-          >
-            編輯
-          </Button>
-        ),
-      },
-    ],
-    [handleOpenEdit]
-  );
-
-  const keyExtractor = useCallback(
-    (s: SystemSetting): string => s.system_setting_uid,
-    []
-  );
-
-  const cardRender = useCallback(
-    (s: SystemSetting): React.ReactNode => (
-      <SettingCard setting={s} onEdit={handleOpenEdit} />
-    ),
-    [handleOpenEdit]
-  );
-
   if (authLoading || role !== "admin") {
     return <PageLoading />;
   }
@@ -534,17 +413,23 @@ export default function AdminSettingsPage(): React.ReactNode {
   return (
     <div>
       <h1 className="mb-4 text-3xl font-bold text-foreground">系統設定</h1>
-      <div className="rounded-xl bg-card-bg p-6 shadow-sm">
+      <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
         {isLoading || isFetching ? (
           <PageLoading />
+        ) : items.length === 0 ? (
+          <div className="py-12 text-center text-base text-muted">
+            尚無系統設定
+          </div>
         ) : (
-          <Table
-            columns={columns}
-            data={items}
-            keyExtractor={keyExtractor}
-            cardRender={cardRender}
-            emptyMessage="尚無系統設定"
-          />
+          <div className="divide-y divide-border">
+            {items.map((setting) => (
+              <SettingRow
+                key={setting.system_setting_uid}
+                setting={setting}
+                onEdit={handleOpenEdit}
+              />
+            ))}
+          </div>
         )}
       </div>
 

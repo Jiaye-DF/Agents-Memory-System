@@ -1,4 +1,4 @@
-import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi } from "@reduxjs/toolkit/query/react";
 import { apiClient } from "@/lib/api/client";
 import type { ApiResponse } from "@/types/api";
 
@@ -9,8 +9,6 @@ interface BaseQueryArgs {
   params?: Record<string, string>;
   formData?: FormData;
 }
-
-const customBaseQuery = fakeBaseQuery<string>();
 
 export const baseApi = createApi({
   reducerPath: "api",
@@ -50,5 +48,3 @@ export const baseApi = createApi({
   ],
   endpoints: () => ({}),
 });
-
-void customBaseQuery;

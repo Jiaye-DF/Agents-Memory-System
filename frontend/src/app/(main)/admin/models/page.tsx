@@ -14,6 +14,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
+import { Toggle } from "@/components/ui/Toggle";
 import { useDialog } from "@/hooks/useDialog";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -118,12 +119,12 @@ const FormDialog = React.memo(function FormDialog({
     []
   );
 
-  const handleToggleActive = useCallback((): void => {
-    setIsActive((prev) => !prev);
+  const handleToggleActive = useCallback((next: boolean): void => {
+    setIsActive(next);
   }, []);
 
-  const handleToggleDefault = useCallback((): void => {
-    setIsDefault((prev) => !prev);
+  const handleToggleDefault = useCallback((next: boolean): void => {
+    setIsDefault(next);
   }, []);
 
   const handleMaxOutputTokensChange = useCallback(
@@ -232,7 +233,7 @@ const FormDialog = React.memo(function FormDialog({
                 disabled={submitting}
               />
             ) : (
-              <div className="min-h-[44px] w-full rounded-xl border border-input-border bg-muted-bg px-3 py-2 font-mono text-base text-muted">
+              <div className="min-h-11 w-full rounded-xl border border-input-border bg-muted-bg px-3 py-2 font-mono text-base text-muted">
                 {modelId}
               </div>
             )}
@@ -253,21 +254,12 @@ const FormDialog = React.memo(function FormDialog({
               <span className="text-base font-medium text-foreground">
                 啟用狀態
               </span>
-              <button
-                type="button"
-                onClick={handleToggleActive}
+              <Toggle
+                checked={isActive}
+                onChange={handleToggleActive}
                 disabled={submitting}
-                aria-label="啟用狀態切換"
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
-                  isActive ? "bg-primary" : "bg-muted-bg"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    isActive ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
+                label="啟用狀態切換"
+              />
             </div>
           )}
 
@@ -280,21 +272,12 @@ const FormDialog = React.memo(function FormDialog({
                 全系統僅能有一個預設模型
               </span>
             </div>
-            <button
-              type="button"
-              onClick={handleToggleDefault}
+            <Toggle
+              checked={isDefault}
+              onChange={handleToggleDefault}
               disabled={submitting}
-              aria-label="預設模型切換"
-              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
-                isDefault ? "bg-primary" : "bg-muted-bg"
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  isDefault ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
+              label="預設模型切換"
+            />
           </div>
 
           <div>
@@ -318,7 +301,7 @@ const FormDialog = React.memo(function FormDialog({
           <div className="mt-2 flex justify-end gap-3">
             <button
               type="button"
-              className="min-h-[44px] min-w-[44px] rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
+              className="min-h-11 min-w-11 rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
               onClick={onClose}
               disabled={submitting}
             >

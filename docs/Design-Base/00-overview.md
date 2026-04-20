@@ -47,7 +47,7 @@
 
 | 技術          | 版本   | 用途                     |
 | ------------- | ------ | ------------------------ |
-| Next.js       | 15     | React 框架、App Router   |
+| Next.js       | 16     | React 框架、App Router   |
 | React         | 19     | UI 元件庫                |
 | TailwindCSS   | 4      | Utility-first CSS        |
 | Redux Toolkit | latest | 全域狀態管理             |

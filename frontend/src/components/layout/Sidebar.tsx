@@ -146,7 +146,7 @@ export const Sidebar = React.memo(function Sidebar({
               key={item.href}
               href={item.href}
               onClick={isOverlay ? onClose : undefined}
-              className={`flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2 text-base font-medium transition-colors hover:cursor-pointer hover:bg-sidebar-hover ${
+              className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-base font-medium transition-colors hover:cursor-pointer hover:bg-sidebar-hover ${
                 isActive
                   ? "bg-sidebar-active text-primary"
                   : "text-foreground"

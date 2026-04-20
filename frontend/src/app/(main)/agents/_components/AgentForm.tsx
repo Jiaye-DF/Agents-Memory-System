@@ -217,7 +217,7 @@ const CopyAgentModal = React.memo(function CopyAgentModal({
           value={search}
           onChange={handleSearchChange}
           placeholder="搜尋 Agent 名稱 / 描述 / 作者"
-          className="mb-3 min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+          className="mb-3 min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
         />
         <div className="flex-1 overflow-y-auto rounded-xl border border-border">
           {filtered.length === 0 ? (
@@ -256,7 +256,7 @@ const CopyAgentModal = React.memo(function CopyAgentModal({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
+            className="min-h-11 rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
           >
             取消
           </button>
@@ -376,7 +376,9 @@ export function AgentForm({
     return models.find((m) => m.model_id === form.model);
   }, [models, form.model]);
 
-  // 初始化（編輯模式 / 新增模式）
+  // 初始化（編輯模式 / 新增模式）— 依外部資料（agent/languages/models/draft）一次性填入 form，
+  // 這是合法的同步化需求，不適用 derived-state 改寫。
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (initialized) return;
 
@@ -434,6 +436,7 @@ export function AgentForm({
     fromAgent,
     loadDraft,
   ]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // 草稿自動儲存（僅 create）
   useEffect(() => {
@@ -825,7 +828,7 @@ export function AgentForm({
                   onChange={handleTextChange("description")}
                   placeholder="輸入 Agent 描述"
                   rows={3}
-                  className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+                  className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
                 />
               </div>
               {mode === "create" && (
@@ -840,7 +843,7 @@ export function AgentForm({
                     id="visibility"
                     value={form.visibility}
                     onChange={handleVisibilityChange}
-                    className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+                    className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
                   >
                     <option value="private">私人</option>
                     <option value="public">公開</option>
@@ -867,7 +870,7 @@ export function AgentForm({
                   id="language"
                   value={form.language}
                   onChange={handleLanguageChange}
-                  className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+                  className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
                 >
                   <option value="">未指定</option>
                   {languages.map((l) => (
@@ -897,7 +900,7 @@ export function AgentForm({
                   onChange={handleTextChange("role_prompt")}
                   placeholder="輸入角色設定提示詞"
                   rows={6}
-                  className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+                  className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
                 />
               </div>
             </Section>
@@ -914,7 +917,7 @@ export function AgentForm({
                   id="model"
                   value={form.model}
                   onChange={handleModelChange}
-                  className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+                  className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
                 >
                   <option value="">未指定（使用系統預設）</option>
                   {models.map((m) => (
@@ -994,7 +997,7 @@ export function AgentForm({
                   max={200000}
                   value={Number.isNaN(form.max_tokens) ? "" : form.max_tokens}
                   onChange={handleMaxTokensChange}
-                  className={`min-h-[44px] w-full rounded-xl border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 ${
+                  className={`min-h-11 w-full rounded-xl border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 ${
                     errors.max_tokens
                       ? "border-destructive"
                       : "border-input-border"
@@ -1024,7 +1027,7 @@ export function AgentForm({
                   id="response_format"
                   value={form.response_format}
                   onChange={handleResponseFormatChange}
-                  className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+                  className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
                 >
                   <option value="markdown">Markdown</option>
                   <option value="plain_text">純文字</option>
@@ -1047,7 +1050,7 @@ export function AgentForm({
                   onChange={handleTextChange("greeting")}
                   placeholder="Agent 對話開始時的第一句話"
                   rows={3}
-                  className="min-h-[44px] w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+                  className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
                 />
               </div>
 
@@ -1089,7 +1092,7 @@ export function AgentForm({
                 </p>
               </div>
               {composedPrompt ? (
-                <pre className="max-h-[480px] overflow-auto whitespace-pre-wrap rounded-xl bg-muted-bg p-4 font-mono text-sm text-foreground">
+                <pre className="max-h-120 overflow-auto whitespace-pre-wrap rounded-xl bg-muted-bg p-4 font-mono text-sm text-foreground">
                   {composedPrompt}
                 </pre>
               ) : (

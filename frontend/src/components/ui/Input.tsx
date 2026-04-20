@@ -56,7 +56,7 @@ export const Input = React.memo(
           required={required}
           onChange={onChange}
           onBlur={onBlur}
-          className={`min-h-[44px] w-full rounded-xl border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50 ${
+          className={`min-h-11 w-full rounded-xl border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50 ${
             error ? "border-destructive" : "border-input-border"
           } ${className}`}
         />

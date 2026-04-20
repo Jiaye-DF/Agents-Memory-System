@@ -14,6 +14,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
+import { Toggle } from "@/components/ui/Toggle";
 import { useDialog } from "@/hooks/useDialog";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -117,12 +118,12 @@ const LanguageFormDialog = React.memo(function LanguageFormDialog({
     []
   );
 
-  const handleToggleDefault = useCallback((): void => {
-    setIsDefault((prev) => !prev);
+  const handleToggleDefault = useCallback((next: boolean): void => {
+    setIsDefault(next);
   }, []);
 
-  const handleToggleActive = useCallback((): void => {
-    setIsActive((prev) => !prev);
+  const handleToggleActive = useCallback((next: boolean): void => {
+    setIsActive(next);
   }, []);
 
   const handleSubmit = useCallback(
@@ -206,7 +207,7 @@ const LanguageFormDialog = React.memo(function LanguageFormDialog({
                 disabled={submitting}
               />
             ) : (
-              <div className="min-h-[44px] w-full rounded-xl border border-input-border bg-muted-bg px-3 py-2 font-mono text-base text-muted">
+              <div className="min-h-11 w-full rounded-xl border border-input-border bg-muted-bg px-3 py-2 font-mono text-base text-muted">
                 {code}
               </div>
             )}
@@ -244,21 +245,12 @@ const LanguageFormDialog = React.memo(function LanguageFormDialog({
             <span className="text-base font-medium text-foreground">
               設為預設語言
             </span>
-            <button
-              type="button"
-              onClick={handleToggleDefault}
+            <Toggle
+              checked={isDefault}
+              onChange={handleToggleDefault}
               disabled={submitting}
-              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
-                isDefault ? "bg-primary" : "bg-muted-bg"
-              }`}
-              aria-pressed={isDefault}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  isDefault ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
+              label="切換預設語言"
+            />
           </div>
 
           {mode === "edit" && (
@@ -266,21 +258,12 @@ const LanguageFormDialog = React.memo(function LanguageFormDialog({
               <span className="text-base font-medium text-foreground">
                 啟用狀態
               </span>
-              <button
-                type="button"
-                onClick={handleToggleActive}
+              <Toggle
+                checked={isActive}
+                onChange={handleToggleActive}
                 disabled={submitting}
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
-                  isActive ? "bg-primary" : "bg-muted-bg"
-                }`}
-                aria-pressed={isActive}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    isActive ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
+                label="切換啟用狀態"
+              />
             </div>
           )}
 
@@ -289,7 +272,7 @@ const LanguageFormDialog = React.memo(function LanguageFormDialog({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="min-h-[44px] min-w-[44px] rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
+              className="min-h-11 min-w-11 rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
             >
               取消
             </button>

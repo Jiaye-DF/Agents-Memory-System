@@ -4,13 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.core.config import settings
-from app.core.response import success, failure
+from app.core.response import failure, success
 from app.schemas.auth.schemas import (
     LoginRequest,
     RegisterRequest,
     ResetPasswordRequest,
     TokenPayload,
 )
+from app.schemas.response import ApiResponse, MessageData, TokenData
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -43,7 +44,7 @@ def _delete_refresh_cookie(response: JSONResponse) -> None:
     )
 
 
-@router.post("/register")
+@router.post("/register", response_model=ApiResponse[MessageData])
 async def register(
     data: RegisterRequest,
     db: AsyncSession = Depends(get_db),
@@ -52,7 +53,7 @@ async def register(
     return success(data=result, response_code=201)
 
 
-@router.post("/login")
+@router.post("/login", response_model=ApiResponse[TokenData])
 async def login(
     data: LoginRequest,
     db: AsyncSession = Depends(get_db),
@@ -65,7 +66,7 @@ async def login(
     return response
 
 
-@router.post("/logout")
+@router.post("/logout", response_model=ApiResponse[MessageData])
 async def logout(
     _current_user: TokenPayload = Depends(get_current_user),
     refresh_token: str | None = Cookie(None, alias=COOKIE_KEY),
@@ -77,7 +78,7 @@ async def logout(
     return response
 
 
-@router.post("/refresh")
+@router.post("/refresh", response_model=ApiResponse[TokenData])
 async def refresh(
     db: AsyncSession = Depends(get_db),
     refresh_token: str | None = Cookie(None, alias=COOKIE_KEY),
@@ -94,7 +95,7 @@ async def refresh(
     return response
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", response_model=ApiResponse[MessageData])
 async def reset_password(
     data: ResetPasswordRequest,
     db: AsyncSession = Depends(get_db),

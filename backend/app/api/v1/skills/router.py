@@ -1,17 +1,30 @@
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.core.response import success
 from app.schemas.auth.schemas import TokenPayload
-from app.schemas.skills.schemas import SkillUpdateRequest, VisibilityRequest
+from app.schemas.response import ApiResponse, MessageData, PaginatedData
+from app.schemas.skills.schemas import (
+    FileContentResponse,
+    FileTreeNode,
+    SkillResponse,
+    SkillUpdateRequest,
+    VisibilityRequest,
+)
 from app.services import skill_service
+
+
+class FileTreeData(BaseModel):
+    tree: list[FileTreeNode]
+
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
 
-@router.get("")
+@router.get("", response_model=ApiResponse[PaginatedData[SkillResponse]])
 async def list_skills(
     current_user: TokenPayload = Depends(get_current_user),
     cursor: str | None = Query(None),
@@ -24,7 +37,7 @@ async def list_skills(
     return success(data=result)
 
 
-@router.post("")
+@router.post("", response_model=ApiResponse[SkillResponse])
 async def upload_skill(
     files: list[UploadFile] = File(...),
     name: str = Form(...),
@@ -38,7 +51,7 @@ async def upload_skill(
     return success(data=result, response_code=201)
 
 
-@router.get("/{skill_uid}")
+@router.get("/{skill_uid}", response_model=ApiResponse[SkillResponse])
 async def get_skill(
     skill_uid: str,
     current_user: TokenPayload = Depends(get_current_user),
@@ -50,7 +63,7 @@ async def get_skill(
     return success(data=result)
 
 
-@router.put("/{skill_uid}")
+@router.put("/{skill_uid}", response_model=ApiResponse[SkillResponse])
 async def update_skill(
     skill_uid: str,
     data: SkillUpdateRequest,
@@ -63,7 +76,7 @@ async def update_skill(
     return success(data=result)
 
 
-@router.delete("/{skill_uid}")
+@router.delete("/{skill_uid}", response_model=ApiResponse[MessageData])
 async def delete_skill(
     skill_uid: str,
     current_user: TokenPayload = Depends(get_current_user),
@@ -75,7 +88,10 @@ async def delete_skill(
     return success(data={"message": "Skill 已刪除"})
 
 
-@router.patch("/{skill_uid}/visibility")
+@router.patch(
+    "/{skill_uid}/visibility",
+    response_model=ApiResponse[SkillResponse],
+)
 async def toggle_visibility(
     skill_uid: str,
     data: VisibilityRequest,
@@ -104,7 +120,10 @@ async def download_skill(
     )
 
 
-@router.get("/{skill_uid}/tree")
+@router.get(
+    "/{skill_uid}/tree",
+    response_model=ApiResponse[FileTreeData],
+)
 async def get_file_tree(
     skill_uid: str,
     current_user: TokenPayload = Depends(get_current_user),
@@ -116,7 +135,10 @@ async def get_file_tree(
     return success(data={"tree": [node.model_dump() for node in tree]})
 
 
-@router.get("/{skill_uid}/file")
+@router.get(
+    "/{skill_uid}/file",
+    response_model=ApiResponse[FileContentResponse],
+)
 async def get_file_content(
     skill_uid: str,
     path: str = Query(..., min_length=1),

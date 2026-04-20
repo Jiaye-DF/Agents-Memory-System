@@ -8,7 +8,10 @@ import { PageLoading } from "@/components/ui/Loading";
 import { useDialog } from "@/hooks/useDialog";
 import { useGetAgentQuery } from "@/store/agentsApi";
 import { useListAgentLanguagesQuery } from "@/store/agentLanguagesApi";
-import { getAccessToken } from "@/lib/api/client";
+import {
+  downloadText,
+  triggerBrowserDownload,
+} from "@/lib/api/download";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDateTime } from "@/utils/datetime";
 
@@ -23,17 +26,8 @@ export default function AgentDetailPage(): React.ReactNode {
 
   const handleDownload = useCallback(async (): Promise<void> => {
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-      const token = getAccessToken();
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      const response = await fetch(
-        `${baseUrl}/agents/${agentUid}/download`,
-        { headers, credentials: "include" }
-      );
-      if (!response.ok) {
+      const result = await downloadText(`/agents/${agentUid}/download`);
+      if (!result.ok || result.text === undefined) {
         showDialog({
           type: "error",
           title: "下載失敗",
@@ -41,16 +35,8 @@ export default function AgentDetailPage(): React.ReactNode {
         });
         return;
       }
-      const text = await response.text();
-      const blob = new Blob([text], { type: "text/markdown" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "AGENTS.md";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const blob = new Blob([result.text], { type: "text/markdown" });
+      triggerBrowserDownload(blob, "AGENTS.md");
     } catch {
       showDialog({
         type: "error",

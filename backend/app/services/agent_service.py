@@ -266,31 +266,31 @@ async def download_agent(
     ]
 
     if agent.description:
-        lines.append(f"## 描述")
+        lines.append("## 描述")
         lines.append("")
         lines.append(agent.description)
         lines.append("")
 
     if agent.identity:
-        lines.append(f"## 身分")
+        lines.append("## 身分")
         lines.append("")
         lines.append(agent.identity)
         lines.append("")
 
     if agent.language:
-        lines.append(f"## 語言偏好")
+        lines.append("## 語言偏好")
         lines.append("")
         lines.append(agent.language)
         lines.append("")
 
     if agent.style:
-        lines.append(f"## 風格")
+        lines.append("## 風格")
         lines.append("")
         lines.append(agent.style)
         lines.append("")
 
     if agent.role_prompt:
-        lines.append(f"## 角色設定")
+        lines.append("## 角色設定")
         lines.append("")
         lines.append(agent.role_prompt)
         lines.append("")

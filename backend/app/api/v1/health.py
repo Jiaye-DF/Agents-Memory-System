@@ -7,14 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.core.redis import get_redis
-from app.core.response import success, failure
+from app.core.response import failure, success
+from app.schemas.response import ApiResponse, HealthData
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-@router.get("/health")
+@router.get("/health", response_model=ApiResponse[HealthData])
 async def health_check(db: AsyncSession = Depends(get_db)) -> JSONResponse:
     db_ok = False
     redis_ok = False

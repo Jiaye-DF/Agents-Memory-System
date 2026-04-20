@@ -6,16 +6,18 @@ from app.api.deps import get_current_user, get_db
 from app.core.response import success
 from app.schemas.agents.schemas import (
     AgentCreateRequest,
+    AgentResponse,
     AgentUpdateRequest,
     VisibilityRequest,
 )
 from app.schemas.auth.schemas import TokenPayload
+from app.schemas.response import ApiResponse, MessageData, PaginatedData
 from app.services import agent_service
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
 
-@router.get("")
+@router.get("", response_model=ApiResponse[PaginatedData[AgentResponse]])
 async def list_agents(
     current_user: TokenPayload = Depends(get_current_user),
     cursor: str | None = Query(None),
@@ -28,7 +30,7 @@ async def list_agents(
     return success(data=result)
 
 
-@router.post("")
+@router.post("", response_model=ApiResponse[AgentResponse])
 async def create_agent(
     data: AgentCreateRequest,
     current_user: TokenPayload = Depends(get_current_user),
@@ -40,7 +42,7 @@ async def create_agent(
     return success(data=result, response_code=201)
 
 
-@router.get("/{agent_uid}")
+@router.get("/{agent_uid}", response_model=ApiResponse[AgentResponse])
 async def get_agent(
     agent_uid: str,
     current_user: TokenPayload = Depends(get_current_user),
@@ -52,7 +54,7 @@ async def get_agent(
     return success(data=result)
 
 
-@router.put("/{agent_uid}")
+@router.put("/{agent_uid}", response_model=ApiResponse[AgentResponse])
 async def update_agent(
     agent_uid: str,
     data: AgentUpdateRequest,
@@ -65,7 +67,7 @@ async def update_agent(
     return success(data=result)
 
 
-@router.delete("/{agent_uid}")
+@router.delete("/{agent_uid}", response_model=ApiResponse[MessageData])
 async def delete_agent(
     agent_uid: str,
     current_user: TokenPayload = Depends(get_current_user),
@@ -77,7 +79,10 @@ async def delete_agent(
     return success(data={"message": "Agent 已刪除"})
 
 
-@router.patch("/{agent_uid}/visibility")
+@router.patch(
+    "/{agent_uid}/visibility",
+    response_model=ApiResponse[AgentResponse],
+)
 async def toggle_visibility(
     agent_uid: str,
     data: VisibilityRequest,

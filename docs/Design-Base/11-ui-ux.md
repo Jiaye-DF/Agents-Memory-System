@@ -35,6 +35,7 @@
 - 所有色彩定義統一於 `globals.css` 的 CSS Variables，**禁止**在元件內寫死 hex 色碼
 - 主題切換透過 `<html>` 的 `data-theme` 屬性控制，各主題定義獨立的 CSS Variable 區塊
 - 使用者選擇的主題偏好儲存至 localStorage，重新載入時自動套用
+- **例外**：`app/global-error.tsx` 由 Next.js 負責取代根佈局渲染，此時 `globals.css` 與 Tailwind class 均未載入，因此**允許**使用 inline style 與 hex 色碼；實作上應以中性色（例如 `#6b7280`、`#2563eb`）呈現純文字錯誤頁，不得包含業務邏輯或受主題影響的視覺元素
 
 ```css
 /* globals.css 範例 */

@@ -109,7 +109,7 @@ export function Dialog({
           {onCancel && (
             <button
               type="button"
-              className="min-h-[44px] min-w-[44px] rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
+              className="min-h-11 min-w-11 rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
               onClick={onCancel}
             >
               取消
@@ -117,7 +117,7 @@ export function Dialog({
           )}
           <button
             type="button"
-            className={`min-h-[44px] min-w-[44px] rounded-xl px-4 py-2 text-base font-medium text-white hover:cursor-pointer ${styles.buttonBg} ${styles.buttonHover}`}
+            className={`min-h-11 min-w-11 rounded-xl px-4 py-2 text-base font-medium text-white hover:cursor-pointer ${styles.buttonBg} ${styles.buttonHover}`}
             onClick={onConfirm}
           >
             確認

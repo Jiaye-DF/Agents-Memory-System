@@ -89,7 +89,9 @@ const UserCard = React.memo(function UserCard({
         <select
           value={roles.find((r) => r.name === user.role_name)?.user_role_uid ?? ""}
           onChange={handleRoleChange}
-          className="min-h-[36px] rounded-xl border border-input-border bg-input-bg px-2 py-1 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+          aria-label={`變更 ${user.username} 的角色`}
+          title="變更角色"
+          className="min-h-9 rounded-xl border border-input-border bg-input-bg px-2 py-1 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
         >
           {roles.map((role) => (
             <option key={role.user_role_uid} value={role.user_role_uid}>
@@ -166,7 +168,7 @@ export default function AdminUsersPage(): React.ReactNode {
         user.role_name.toLowerCase().includes(term)
       );
     });
-  }, [data?.items, searchTerm, roleFilter]);
+  }, [data, searchTerm, roleFilter]);
 
   const handleRoleChange = useCallback(
     (userUid: string, roleUid: string): void => {
@@ -223,7 +225,7 @@ export default function AdminUsersPage(): React.ReactNode {
       setCursorHistory((prev) => [...prev, cursor ?? ""]);
       setCursor(data.next_cursor);
     }
-  }, [data?.next_cursor, cursor]);
+  }, [data, cursor]);
 
   const handlePrevPage = useCallback((): void => {
     setCursorHistory((prev) => {
@@ -266,7 +268,9 @@ export default function AdminUsersPage(): React.ReactNode {
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
               handleRoleChange(user.user_uid, e.target.value)
             }
-            className="min-h-[36px] rounded-xl border border-input-border bg-input-bg px-2 py-1 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+            aria-label={`變更 ${user.username} 的角色`}
+            title="變更角色"
+            className="min-h-9 rounded-xl border border-input-border bg-input-bg px-2 py-1 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
           >
             {roles.map((role) => (
               <option key={role.user_role_uid} value={role.user_role_uid}>

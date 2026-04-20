@@ -43,7 +43,7 @@ export const ThemeSwitcher = React.memo(function ThemeSwitcher(): React.ReactNod
       <button
         type="button"
         onClick={handleToggle}
-        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-foreground transition-colors hover:cursor-pointer hover:bg-muted-bg"
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-foreground transition-colors hover:cursor-pointer hover:bg-muted-bg"
         aria-label="切換主題"
         title="切換主題"
       >

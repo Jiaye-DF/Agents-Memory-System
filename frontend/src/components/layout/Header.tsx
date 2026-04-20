@@ -26,7 +26,7 @@ export const Header = React.memo(function Header({
         <button
           type="button"
           onClick={onToggleSidebar}
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-foreground transition-colors hover:cursor-pointer hover:bg-muted-bg"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-foreground transition-colors hover:cursor-pointer hover:bg-muted-bg"
           aria-label="切換側邊選單"
         >
           <svg
@@ -60,7 +60,7 @@ export const Header = React.memo(function Header({
         <button
           type="button"
           onClick={handleLogout}
-          className="min-h-[44px] min-w-[44px] rounded-xl px-3 py-2 text-lg font-medium text-destructive transition-colors hover:cursor-pointer hover:bg-error-bg"
+          className="min-h-11 min-w-11 rounded-xl px-3 py-2 text-lg font-medium text-destructive transition-colors hover:cursor-pointer hover:bg-error-bg"
         >
           登出
         </button>

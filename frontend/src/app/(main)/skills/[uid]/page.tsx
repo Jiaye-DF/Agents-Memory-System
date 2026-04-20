@@ -17,7 +17,11 @@ import {
   useGetFileTreeQuery,
   useGetFileContentQuery,
 } from "@/store/skillsApi";
-import { getAccessToken } from "@/lib/api/client";
+import {
+  downloadBlob,
+  extractFilename,
+  triggerBrowserDownload,
+} from "@/lib/api/download";
 import type { FileTreeNode } from "@/types";
 import { formatDateTime } from "@/utils/datetime";
 import { detectLanguage } from "@/utils/language";
@@ -267,51 +271,20 @@ export default function SkillDetailPage(): React.ReactNode {
   }, []);
 
   const handleDownload = useCallback((): void => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-    const token = getAccessToken();
-    const url = `${baseUrl}/skills/${uid}/download`;
-
-    const link = document.createElement("a");
-    link.href = `${url}?token=${encodeURIComponent(token ?? "")}`;
-
-    const anchor = document.createElement("a");
-    anchor.style.display = "none";
-    document.body.appendChild(anchor);
-
     const downloadAsync = async (): Promise<void> => {
       try {
-        const response = await fetch(url, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          credentials: "include",
-        });
-
-        if (!response.ok) {
+        const result = await downloadBlob(`/skills/${uid}/download`);
+        if (!result.ok || !result.blob) {
           throw new Error("下載失敗");
         }
-
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        anchor.href = blobUrl;
-
-        const contentDisposition = response.headers.get("content-disposition");
-        let filename = "download.zip";
-        if (contentDisposition) {
-          const match = contentDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i);
-          if (match) {
-            filename = decodeURIComponent(match[1]);
-          }
-        }
-        anchor.download = filename;
-        anchor.click();
-        URL.revokeObjectURL(blobUrl);
+        const filename = extractFilename(result.headers, "download.zip");
+        triggerBrowserDownload(result.blob, filename);
       } catch {
         showDialog({
           type: "error",
           title: "下載失敗",
           message: "無法下載檔案，請稍後再試。",
         });
-      } finally {
-        document.body.removeChild(anchor);
       }
     };
 

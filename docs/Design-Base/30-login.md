@@ -19,8 +19,8 @@
 
 ### Token 規範
 
-- 使用 **JWT**（`HS256` 或 `RS256`），payload 包含 `user_uid`、`exp`、`iat`
-- **禁止**在 Token payload 中放入密碼、角色權限等敏感資訊
+- 使用 **JWT**（`HS256` 或 `RS256`），payload 必含 `user_uid`、`exp`、`iat`，並依 [40-permission.md § 請求驗證流程](40-permission.md#請求驗證流程) 加入 `role`（role name，用於 RBAC 檢查，非敏感資訊）
+- **禁止**在 Token payload 中放入**密碼**、**權限明細**（如權限字串清單）或其他敏感資訊；`role` 僅儲存角色名稱（如 `admin`、`member`）
 - Refresh Token 於 Redis 中記錄，登出或換發時作廢舊 Token
 - Access Token **禁止**存入 localStorage（XSS 風險），前端以記憶體變數持有
 
