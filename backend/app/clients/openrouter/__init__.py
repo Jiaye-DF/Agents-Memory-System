@@ -1,3 +1,7 @@
-from app.clients.openrouter.client import fetch_model_ids
+from app.clients.openrouter.client import (
+    extract_memory,
+    fetch_model_ids,
+    stream_chat_completion,
+)
 
-__all__ = ["fetch_model_ids"]
+__all__ = ["extract_memory", "fetch_model_ids", "stream_chat_completion"]

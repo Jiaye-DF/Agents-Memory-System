@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -7,14 +9,30 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import v1_router
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
-from app.core.redis import init_redis, close_redis
+from app.core.redis import close_redis, init_redis
+from app.workers import memory_worker
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await init_redis()
-    yield
-    await close_redis()
+    worker_task: asyncio.Task | None = None
+    try:
+        worker_task = asyncio.create_task(memory_worker.run())
+    except Exception as exc:
+        logger.warning("memory_worker 啟動失敗: %s", exc)
+    try:
+        yield
+    finally:
+        if worker_task is not None and not worker_task.done():
+            worker_task.cancel()
+            try:
+                await worker_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        await close_redis()
 
 
 app = FastAPI(

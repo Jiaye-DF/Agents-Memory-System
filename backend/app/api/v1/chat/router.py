@@ -1,0 +1,226 @@
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse, StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_current_user, get_db
+from app.core.response import success
+from app.schemas.auth.schemas import TokenPayload
+from app.schemas.chat.memory_schemas import ChatMemoryListData
+from app.schemas.chat.schemas import (
+    ChatMessageCreateRequest,
+    ChatMessageResponse,
+    ChatProjectCreateRequest,
+    ChatProjectResponse,
+    ChatProjectUpdateRequest,
+    ChatSessionCreateRequest,
+    ChatSessionResponse,
+    ChatSessionUpdateRequest,
+)
+from app.schemas.response import ApiResponse, MessageData, PaginatedData
+from app.services import chat_service
+
+router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+# ---------- Projects ----------
+
+@router.get(
+    "/projects",
+    response_model=ApiResponse[PaginatedData[ChatProjectResponse]],
+)
+async def list_projects(
+    current_user: TokenPayload = Depends(get_current_user),
+    cursor: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.list_projects(
+        current_user.user_uid, cursor, limit, db
+    )
+    return success(data=result)
+
+
+@router.post("/projects", response_model=ApiResponse[ChatProjectResponse])
+async def create_project(
+    data: ChatProjectCreateRequest,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.create_project(current_user.user_uid, data, db)
+    return success(data=result, response_code=201)
+
+
+@router.get(
+    "/projects/{chat_project_uid}",
+    response_model=ApiResponse[ChatProjectResponse],
+)
+async def get_project(
+    chat_project_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.get_project(
+        chat_project_uid, current_user.user_uid, db
+    )
+    return success(data=result)
+
+
+@router.put(
+    "/projects/{chat_project_uid}",
+    response_model=ApiResponse[ChatProjectResponse],
+)
+async def update_project(
+    chat_project_uid: str,
+    data: ChatProjectUpdateRequest,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.update_project(
+        chat_project_uid, current_user.user_uid, data, db
+    )
+    return success(data=result)
+
+
+@router.delete(
+    "/projects/{chat_project_uid}",
+    response_model=ApiResponse[MessageData],
+)
+async def delete_project(
+    chat_project_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    await chat_service.delete_project(
+        chat_project_uid, current_user.user_uid, db
+    )
+    return success(data={"message": "Project 已刪除"})
+
+
+@router.get(
+    "/projects/{chat_project_uid}/sessions",
+    response_model=ApiResponse[PaginatedData[ChatSessionResponse]],
+)
+async def list_sessions_by_project(
+    chat_project_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    cursor: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.list_sessions(
+        chat_project_uid, current_user.user_uid, cursor, limit, db
+    )
+    return success(data=result)
+
+
+# ---------- Sessions ----------
+
+@router.post("/sessions", response_model=ApiResponse[ChatSessionResponse])
+async def create_session(
+    data: ChatSessionCreateRequest,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.create_session(current_user.user_uid, data, db)
+    return success(data=result, response_code=201)
+
+
+@router.get(
+    "/sessions/{chat_session_uid}",
+    response_model=ApiResponse[ChatSessionResponse],
+)
+async def get_session(
+    chat_session_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.get_session(
+        chat_session_uid, current_user.user_uid, db
+    )
+    return success(data=result)
+
+
+@router.put(
+    "/sessions/{chat_session_uid}",
+    response_model=ApiResponse[ChatSessionResponse],
+)
+async def update_session(
+    chat_session_uid: str,
+    data: ChatSessionUpdateRequest,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.update_session(
+        chat_session_uid, current_user.user_uid, data, db
+    )
+    return success(data=result)
+
+
+@router.delete(
+    "/sessions/{chat_session_uid}",
+    response_model=ApiResponse[MessageData],
+)
+async def delete_session(
+    chat_session_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    await chat_service.delete_session(
+        chat_session_uid, current_user.user_uid, db
+    )
+    return success(data={"message": "Session 已刪除"})
+
+
+# ---------- Messages ----------
+
+@router.get(
+    "/sessions/{chat_session_uid}/messages",
+    response_model=ApiResponse[PaginatedData[ChatMessageResponse]],
+)
+async def list_messages(
+    chat_session_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    cursor: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.list_messages(
+        chat_session_uid, current_user.user_uid, cursor, limit, db
+    )
+    return success(data=result)
+
+
+@router.get(
+    "/sessions/{chat_session_uid}/memories",
+    response_model=ApiResponse[ChatMemoryListData],
+)
+async def list_session_memories(
+    chat_session_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """列出 session 下所有記憶（僅擁有者；不含 embedding）。"""
+    result = await chat_service.list_memories(
+        chat_session_uid, current_user.user_uid, db
+    )
+    return success(data=result)
+
+
+@router.post("/sessions/{chat_session_uid}/messages")
+async def send_message(
+    chat_session_uid: str,
+    data: ChatMessageCreateRequest,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    generator = chat_service.send_message(
+        chat_session_uid, current_user.user_uid, data.content, db
+    )
+    return StreamingResponse(
+        generator,
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

@@ -74,6 +74,25 @@ async def get_skill_uids_map(
     return result
 
 
+async def list_by_skill_uid(
+    skill_uid: str, db: AsyncSession
+) -> list[Agent]:
+    """列出引用指定 skill 的未刪除 agents（owner relationship 一併載入）。"""
+    stmt = (
+        select(Agent)
+        .join(
+            agent_skill_table,
+            agent_skill_table.c.agent_uid == Agent.agent_uid,
+        )
+        .where(
+            agent_skill_table.c.skill_uid == uuid.UUID(skill_uid),
+            Agent.is_deleted == False,
+        )
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().unique().all())
+
+
 async def set_skill_uids(
     agent_uid: str, skill_uids: list[str], db: AsyncSession
 ) -> None:

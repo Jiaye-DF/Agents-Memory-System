@@ -1,6 +1,11 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import {
@@ -9,6 +14,7 @@ import {
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
+import { ModalDialog } from "@/components/ui/ModalDialog";
 import { useDialog } from "@/hooks/useDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
@@ -16,15 +22,25 @@ import {
   useGetSkillQuery,
   useGetFileTreeQuery,
   useGetFileContentQuery,
+  useGetSkillUsageQuery,
+  useReuploadSkillMutation,
+  useUpdateSkillFileMutation,
 } from "@/store/skillsApi";
 import {
   downloadBlob,
   extractFilename,
   triggerBrowserDownload,
 } from "@/lib/api/download";
-import type { FileTreeNode } from "@/types";
+import type { FileTreeNode, SkillUsageResponse } from "@/types";
 import { formatDateTime } from "@/utils/datetime";
 import { detectLanguage } from "@/utils/language";
+import {
+  isEditable,
+  FILE_EDIT_MAX_BYTES,
+} from "@/utils/editableExtensions";
+
+const MAX_TOTAL_SIZE = 50 * 1024 * 1024;
+const BLOCKED_EXTENSIONS = [".exe"];
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -32,6 +48,17 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024)
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function getRelativePath(file: File): string {
+  const rel = (file as File & { webkitRelativePath?: string })
+    .webkitRelativePath;
+  return rel && rel.length > 0 ? rel : file.name;
+}
+
+function getFileExtension(filename: string): string {
+  const dotIndex = filename.lastIndexOf(".");
+  return dotIndex >= 0 ? filename.slice(dotIndex).toLowerCase() : "";
 }
 
 interface TreeNodeProps {
@@ -176,9 +203,18 @@ const TreeNode = React.memo(function TreeNode({
 interface CodeViewerProps {
   skillUid: string;
   path: string;
+  isOwner: boolean;
+  skillUpdatedAt: string;
+  onRequestEdit: (path: string, currentContent: string) => void;
 }
 
-function CodeViewer({ skillUid, path }: CodeViewerProps): React.ReactNode {
+function CodeViewer({
+  skillUid,
+  path,
+  isOwner,
+  skillUpdatedAt,
+  onRequestEdit,
+}: CodeViewerProps): React.ReactNode {
   const { theme } = useTheme();
   const { data, isFetching, error } = useGetFileContentQuery({
     skillUid,
@@ -187,6 +223,19 @@ function CodeViewer({ skillUid, path }: CodeViewerProps): React.ReactNode {
 
   const language = useMemo((): string => detectLanguage(path), [path]);
   const highlightStyle = theme === "dark" ? vscDarkPlus : oneLight;
+
+  const canEdit = useMemo((): boolean => {
+    if (!isOwner || !data) return false;
+    if (data.too_large) return false;
+    if (data.encoding !== "text") return false;
+    if (!isEditable(path)) return false;
+    if (data.size > FILE_EDIT_MAX_BYTES) return false;
+    return true;
+  }, [isOwner, data, path]);
+
+  const handleEditClick = useCallback((): void => {
+    if (data) onRequestEdit(path, data.content);
+  }, [data, path, onRequestEdit]);
 
   if (isFetching) {
     return <div className="p-6 text-center text-muted">載入中...</div>;
@@ -217,44 +266,465 @@ function CodeViewer({ skillUid, path }: CodeViewerProps): React.ReactNode {
   }
 
   return (
-    <div className="max-h-[70vh] overflow-auto">
-      <SyntaxHighlighter
-        language={language}
-        style={highlightStyle}
-        showLineNumbers
-        wrapLongLines={false}
-        customStyle={{
-          margin: 0,
-          padding: "0.75rem 1rem",
-          background: "transparent",
-          fontSize: "0.875rem",
-          lineHeight: 1.6,
-        }}
-        lineNumberStyle={{
-          minWidth: "2.5em",
-          paddingRight: "1em",
-          textAlign: "right",
-          userSelect: "none",
-          opacity: 0.5,
-        }}
-        codeTagProps={{
-          style: { fontFamily: "var(--font-mono, monospace)" },
-        }}
-      >
-        {data.content}
-      </SyntaxHighlighter>
+    <div>
+      {canEdit && (
+        <div className="flex items-center justify-end border-b border-border bg-muted-bg/50 px-3 py-1.5">
+          <Button size="sm" variant="secondary" onClick={handleEditClick}>
+            編輯
+          </Button>
+          {/* skillUpdatedAt is captured by parent on open */}
+          <span className="hidden">{skillUpdatedAt}</span>
+        </div>
+      )}
+      <div className="max-h-[65vh] overflow-auto">
+        <SyntaxHighlighter
+          language={language}
+          style={highlightStyle}
+          showLineNumbers
+          wrapLongLines={false}
+          customStyle={{
+            margin: 0,
+            padding: "0.75rem 1rem",
+            background: "transparent",
+            fontSize: "0.875rem",
+            lineHeight: 1.6,
+          }}
+          lineNumberStyle={{
+            minWidth: "2.5em",
+            paddingRight: "1em",
+            textAlign: "right",
+            userSelect: "none",
+            opacity: 0.5,
+          }}
+          codeTagProps={{
+            style: { fontFamily: "var(--font-mono, monospace)" },
+          }}
+        >
+          {data.content}
+        </SyntaxHighlighter>
+      </div>
     </div>
   );
 }
+
+interface CodeEditorProps {
+  initialContent: string;
+  saving: boolean;
+  onSave: (content: string) => Promise<void>;
+  onCancel: () => void;
+}
+
+function CodeEditor({
+  initialContent,
+  saving,
+  onSave,
+  onCancel,
+}: CodeEditorProps): React.ReactNode {
+  const [content, setContent] = useState<string>(initialContent);
+
+  const byteLength = useMemo(
+    (): number => new TextEncoder().encode(content).length,
+    [content]
+  );
+  const overLimit = byteLength > FILE_EDIT_MAX_BYTES;
+
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
+      setContent(e.target.value);
+    },
+    []
+  );
+
+  const handleSave = useCallback((): void => {
+    if (overLimit) return;
+    void onSave(content);
+  }, [content, onSave, overLimit]);
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted-bg/50 px-3 py-1.5">
+        <span className="text-sm text-muted">
+          編輯中 · {formatFileSize(byteLength)}
+          {overLimit && (
+            <span className="ml-2 text-destructive">
+              已超過 {FILE_EDIT_MAX_BYTES / 1024} KB 上限
+            </span>
+          )}
+        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onCancel}
+            disabled={saving}
+          >
+            取消
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            loading={saving}
+            disabled={overLimit}
+          >
+            儲存
+          </Button>
+        </div>
+      </div>
+      <textarea
+        value={content}
+        onChange={handleChange}
+        spellCheck={false}
+        className="block max-h-[65vh] min-h-[40vh] w-full resize-y bg-card-bg p-3 font-mono text-sm leading-relaxed text-foreground focus:outline-none"
+      />
+    </div>
+  );
+}
+
+interface UsageDialogProps {
+  title: string;
+  confirmLabel: string;
+  usage: SkillUsageResponse | undefined;
+  usageLoading: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}
+
+function UsageDialog({
+  title,
+  confirmLabel,
+  usage,
+  usageLoading,
+  onConfirm,
+  onClose,
+}: UsageDialogProps): React.ReactNode {
+  return (
+    <ModalDialog title={title} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        {usageLoading || !usage ? (
+          <p className="text-base text-muted">載入使用情況中...</p>
+        ) : (
+          <>
+            <p className="text-base text-foreground">
+              目前有 <span className="font-semibold">{usage.count}</span>{" "}
+              個 Agent 使用此 Skill，更新後會立即套用。
+            </p>
+            {usage.count > 0 && (
+              <div className="max-h-60 overflow-auto rounded-xl border border-border bg-muted-bg/30 p-2">
+                {usage.items.map((a) => (
+                  <div
+                    key={a.agent_uid}
+                    className="flex items-center justify-between gap-2 px-2 py-1.5 text-sm"
+                  >
+                    <span className="truncate font-medium text-foreground">
+                      {a.agent_name}
+                    </span>
+                    <span className="shrink-0 text-muted">
+                      {a.owner_username ?? "-"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+        <div className="mt-2 flex justify-end gap-3">
+          <button
+            type="button"
+            className="min-h-11 min-w-11 rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
+            onClick={onClose}
+          >
+            取消
+          </button>
+          <Button onClick={onConfirm} disabled={usageLoading}>
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </ModalDialog>
+  );
+}
+
+interface ReuploadDialogProps {
+  skillUid: string;
+  expectedUpdatedAt: string;
+  submitting: boolean;
+  onSubmit: (files: File[]) => Promise<void>;
+  onClose: () => void;
+}
+
+function ReuploadDialog({
+  submitting,
+  onSubmit,
+  onClose,
+}: ReuploadDialogProps): React.ReactNode {
+  const { showDialog } = useDialog();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const [fileError, setFileError] = useState<string>("");
+
+  const totalSize = useMemo(
+    (): number => selectedFiles.reduce((sum, f) => sum + f.size, 0),
+    [selectedFiles]
+  );
+
+  const topFolder = useMemo((): string | null => {
+    if (selectedFiles.length === 0) return null;
+    const first = getRelativePath(selectedFiles[0]);
+    if (!first.includes("/")) return null;
+    const top = first.split("/", 1)[0];
+    const allMatch = selectedFiles.every((f) => {
+      const p = getRelativePath(f);
+      return p === top || p.startsWith(`${top}/`);
+    });
+    return allMatch ? top : null;
+  }, [selectedFiles]);
+
+  const summary = useMemo((): string => {
+    if (selectedFiles.length === 0) return "";
+    if (selectedFiles.length === 1 && !topFolder) {
+      return `${selectedFiles[0].name}（${formatFileSize(totalSize)}）`;
+    }
+    if (topFolder) {
+      return `資料夾：${topFolder}／共 ${selectedFiles.length} 個檔案（${formatFileSize(totalSize)}）`;
+    }
+    return `共 ${selectedFiles.length} 個檔案（${formatFileSize(totalSize)}）`;
+  }, [selectedFiles, topFolder, totalSize]);
+
+  const validateFiles = useCallback(
+    (files: File[]): boolean => {
+      if (files.length === 0) {
+        setFileError("請選擇檔案或資料夾");
+        return false;
+      }
+      for (const f of files) {
+        const ext = getFileExtension(f.name);
+        if (BLOCKED_EXTENSIONS.includes(ext)) {
+          showDialog({
+            type: "error",
+            title: "不允許的檔案類型",
+            message: `不允許上傳 ${ext} 檔案：${getRelativePath(f)}`,
+          });
+          return false;
+        }
+      }
+      const total = files.reduce((sum, f) => sum + f.size, 0);
+      if (total > MAX_TOTAL_SIZE) {
+        showDialog({
+          type: "error",
+          title: "檔案過大",
+          message: `總大小超過上限（50 MB）。目前總大小：${formatFileSize(total)}`,
+        });
+        return false;
+      }
+      if (total === 0) {
+        setFileError("檔案內容為空");
+        return false;
+      }
+      return true;
+    },
+    [showDialog]
+  );
+
+  const handleFiles = useCallback(
+    (files: File[]): void => {
+      setFileError("");
+      if (validateFiles(files)) {
+        setSelectedFiles(files);
+      }
+    },
+    [validateFiles]
+  );
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>): void => {
+      const list = e.target.files;
+      if (!list) return;
+      handleFiles(Array.from(list));
+      e.target.value = "";
+    },
+    [handleFiles]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>): void => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const dropped = Array.from(e.dataTransfer.files ?? []);
+      if (dropped.length > 0) handleFiles(dropped);
+    },
+    [handleFiles]
+  );
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent<HTMLDivElement>): void => {
+      e.preventDefault();
+      setIsDragOver(true);
+    },
+    []
+  );
+
+  const handleDragLeave = useCallback(
+    (e: React.DragEvent<HTMLDivElement>): void => {
+      e.preventDefault();
+      setIsDragOver(false);
+    },
+    []
+  );
+
+  const handleSelectFiles = useCallback((): void => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleSelectFolder = useCallback((): void => {
+    folderInputRef.current?.click();
+  }, []);
+
+  const handleClear = useCallback((): void => {
+    setSelectedFiles([]);
+    setFileError("");
+  }, []);
+
+  const handleSubmit = useCallback((): void => {
+    if (selectedFiles.length === 0) {
+      setFileError("請選擇檔案或資料夾");
+      return;
+    }
+    void onSubmit(selectedFiles);
+  }, [selectedFiles, onSubmit]);
+
+  return (
+    <ModalDialog title="重新上傳 Skill" onClose={onClose} size="md">
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-muted">
+          重新上傳後將完整覆蓋原有檔案內容，且已使用此 Skill 的 Agent 會立即套用新內容。
+        </p>
+        <div
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          className={`flex min-h-40 flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors ${
+            isDragOver ? "border-primary bg-primary/5" : "border-border"
+          }`}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            aria-label="選擇檔案"
+            title="選擇檔案"
+            onChange={handleFileInputChange}
+            className="hidden"
+          />
+          <input
+            ref={folderInputRef}
+            type="file"
+            aria-label="選擇資料夾"
+            title="選擇資料夾"
+            onChange={handleFileInputChange}
+            className="hidden"
+            {...({
+              webkitdirectory: "",
+              directory: "",
+            } as React.InputHTMLAttributes<HTMLInputElement>)}
+          />
+          {selectedFiles.length > 0 ? (
+            <div className="w-full text-center">
+              <p className="text-base font-medium text-foreground">
+                {summary}
+              </p>
+              <div className="mt-3 flex justify-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleSelectFiles}
+                  disabled={submitting}
+                >
+                  重新選擇
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleClear}
+                  disabled={submitting}
+                >
+                  清除
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center">
+              <p className="text-base text-muted">
+                拖曳 .zip 或多個檔案至此處
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                總大小上限 50 MB，禁止上傳 .exe
+              </p>
+              <div className="mt-4 flex justify-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleSelectFolder}
+                  disabled={submitting}
+                >
+                  選擇資料夾
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleSelectFiles}
+                  disabled={submitting}
+                >
+                  選擇檔案
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+        {fileError && (
+          <p className="text-base text-destructive">{fileError}</p>
+        )}
+        <div className="mt-2 flex justify-end gap-3">
+          <button
+            type="button"
+            className="min-h-11 min-w-11 rounded-xl border border-border px-4 py-2 text-base font-medium text-foreground hover:cursor-pointer hover:bg-muted-bg"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            取消
+          </button>
+          <Button
+            onClick={handleSubmit}
+            loading={submitting}
+            disabled={selectedFiles.length === 0}
+          >
+            上傳
+          </Button>
+        </div>
+      </div>
+    </ModalDialog>
+  );
+}
+
+type PendingAction =
+  | { type: "reupload" }
+  | { type: "edit"; path: string; content: string };
 
 export default function SkillDetailPage(): React.ReactNode {
   const params = useParams();
   const router = useRouter();
   const { showDialog } = useDialog();
-  const { isLoading: authLoading } = useAuth();
+  const { isLoading: authLoading, userUid } = useAuth();
   const uid = params.uid as string;
 
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [editingPath, setEditingPath] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState<string>("");
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(
+    null
+  );
+  const [showReupload, setShowReupload] = useState<boolean>(false);
 
   const {
     data: skill,
@@ -266,8 +736,119 @@ export default function SkillDetailPage(): React.ReactNode {
     skip: authLoading || !skill,
   });
 
+  const { data: usage, isFetching: usageFetching } = useGetSkillUsageQuery(
+    uid,
+    { skip: authLoading || !skill || !pendingAction }
+  );
+
+  const [reuploadSkill, { isLoading: reuploading }] =
+    useReuploadSkillMutation();
+  const [updateSkillFile, { isLoading: savingFile }] =
+    useUpdateSkillFileMutation();
+
+  const isOwner = useMemo((): boolean => {
+    return !!skill && !!userUid && skill.owner_uid === userUid;
+  }, [skill, userUid]);
+
   const handleSelect = useCallback((path: string): void => {
     setSelectedPath(path);
+    setEditingPath(null);
+  }, []);
+
+  const handleRequestEdit = useCallback(
+    (path: string, currentContent: string): void => {
+      setPendingAction({ type: "edit", path, content: currentContent });
+    },
+    []
+  );
+
+  const handleRequestReupload = useCallback((): void => {
+    setPendingAction({ type: "reupload" });
+  }, []);
+
+  const handleCancelUsage = useCallback((): void => {
+    setPendingAction(null);
+  }, []);
+
+  const handleConfirmUsage = useCallback((): void => {
+    if (!pendingAction) return;
+    if (pendingAction.type === "edit") {
+      setEditingPath(pendingAction.path);
+      setEditingContent(pendingAction.content);
+      setPendingAction(null);
+    } else {
+      setShowReupload(true);
+      setPendingAction(null);
+    }
+  }, [pendingAction]);
+
+  const handleCancelEdit = useCallback((): void => {
+    setEditingPath(null);
+  }, []);
+
+  const handleSaveFile = useCallback(
+    async (content: string): Promise<void> => {
+      if (!skill || !editingPath) return;
+      try {
+        await updateSkillFile({
+          skillUid: uid,
+          path: editingPath,
+          body: {
+            content,
+            expected_updated_at: skill.updated_at,
+          },
+        }).unwrap();
+        setEditingPath(null);
+        showDialog({
+          type: "info",
+          title: "已儲存",
+          message: "檔案內容已更新。",
+        });
+      } catch (err: unknown) {
+        const msg = typeof err === "string" ? err : "儲存失敗，請稍後再試";
+        const isConflict = typeof err === "string" && err.includes("已被更新");
+        showDialog({
+          type: "error",
+          title: isConflict ? "檔案已被更新" : "儲存失敗",
+          message: msg,
+        });
+      }
+    },
+    [skill, editingPath, uid, updateSkillFile, showDialog]
+  );
+
+  const handleSubmitReupload = useCallback(
+    async (files: File[]): Promise<void> => {
+      if (!skill) return;
+      try {
+        await reuploadSkill({
+          skillUid: uid,
+          files,
+          expectedUpdatedAt: skill.updated_at,
+        }).unwrap();
+        setShowReupload(false);
+        setSelectedPath(null);
+        setEditingPath(null);
+        showDialog({
+          type: "info",
+          title: "上傳成功",
+          message: "Skill 已重新上傳，內容已更新。",
+        });
+      } catch (err: unknown) {
+        const msg = typeof err === "string" ? err : "上傳失敗，請稍後再試";
+        const isConflict = typeof err === "string" && err.includes("已被更新");
+        showDialog({
+          type: "error",
+          title: isConflict ? "檔案已被更新" : "上傳失敗",
+          message: msg,
+        });
+      }
+    },
+    [skill, uid, reuploadSkill, showDialog]
+  );
+
+  const handleCloseReupload = useCallback((): void => {
+    setShowReupload(false);
   }, []);
 
   const handleDownload = useCallback((): void => {
@@ -323,6 +904,11 @@ export default function SkillDetailPage(): React.ReactNode {
           <Button variant="secondary" onClick={handleBack}>
             返回列表
           </Button>
+          {isOwner && (
+            <Button variant="secondary" onClick={handleRequestReupload}>
+              重新上傳
+            </Button>
+          )}
           <Button onClick={handleDownload}>下載</Button>
         </div>
       </div>
@@ -412,7 +998,23 @@ export default function SkillDetailPage(): React.ReactNode {
                         {selectedPath}
                       </span>
                     </div>
-                    <CodeViewer skillUid={uid} path={selectedPath} />
+                    {editingPath === selectedPath ? (
+                      <CodeEditor
+                        key={selectedPath}
+                        initialContent={editingContent}
+                        saving={savingFile}
+                        onSave={handleSaveFile}
+                        onCancel={handleCancelEdit}
+                      />
+                    ) : (
+                      <CodeViewer
+                        skillUid={uid}
+                        path={selectedPath}
+                        isOwner={isOwner}
+                        skillUpdatedAt={skill.updated_at}
+                        onRequestEdit={handleRequestEdit}
+                      />
+                    )}
                   </>
                 ) : (
                   <div className="p-8 text-center text-muted">
@@ -428,6 +1030,31 @@ export default function SkillDetailPage(): React.ReactNode {
           )}
         </div>
       </div>
+
+      {pendingAction && (
+        <UsageDialog
+          title={
+            pendingAction.type === "edit" ? "確認編輯檔案" : "確認重新上傳"
+          }
+          confirmLabel={
+            pendingAction.type === "edit" ? "繼續編輯" : "繼續上傳"
+          }
+          usage={usage}
+          usageLoading={usageFetching}
+          onConfirm={handleConfirmUsage}
+          onClose={handleCancelUsage}
+        />
+      )}
+
+      {showReupload && (
+        <ReuploadDialog
+          skillUid={uid}
+          expectedUpdatedAt={skill.updated_at}
+          submitting={reuploading}
+          onSubmit={handleSubmitReupload}
+          onClose={handleCloseReupload}
+        />
+      )}
     </div>
   );
 }

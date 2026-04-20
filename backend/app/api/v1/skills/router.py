@@ -11,14 +11,23 @@ from app.schemas.common import VisibilityRequest
 from app.schemas.skills.schemas import (
     FileContentResponse,
     FileTreeNode,
+    SkillFileUpdateRequest,
     SkillResponse,
     SkillUpdateRequest,
+    SkillUsageResponse,
 )
 from app.services import skill_service
 
 
 class FileTreeData(BaseModel):
     tree: list[FileTreeNode]
+
+
+class SkillFileUpdateData(BaseModel):
+    file_path: str
+    size: int
+    updated_at: str | None
+    new_content_preview: str
 
 
 router = APIRouter(prefix="/skills", tags=["skills"])
@@ -147,5 +156,64 @@ async def get_file_content(
 ) -> JSONResponse:
     result = await skill_service.get_file_content(
         skill_uid, current_user.user_uid, current_user.role, path, db
+    )
+    return success(data=result)
+
+
+@router.get(
+    "/{skill_uid}/usage",
+    response_model=ApiResponse[SkillUsageResponse],
+)
+async def get_skill_usage(
+    skill_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await skill_service.get_usage(
+        skill_uid, current_user.user_uid, current_user.role, db
+    )
+    return success(data=result)
+
+
+@router.post(
+    "/{skill_uid}/reupload",
+    response_model=ApiResponse[SkillResponse],
+)
+async def reupload_skill(
+    skill_uid: str,
+    files: list[UploadFile] = File(...),
+    expected_updated_at: str = Form(...),
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await skill_service.reupload_skill(
+        skill_uid,
+        current_user.user_uid,
+        current_user.role,
+        files,
+        expected_updated_at,
+        db,
+    )
+    return success(data=result)
+
+
+@router.put(
+    "/{skill_uid}/file",
+    response_model=ApiResponse[SkillFileUpdateData],
+)
+async def update_skill_file(
+    skill_uid: str,
+    data: SkillFileUpdateRequest,
+    path: str = Query(..., min_length=1),
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await skill_service.update_file_content(
+        skill_uid,
+        current_user.user_uid,
+        path,
+        data.content,
+        data.expected_updated_at,
+        db,
     )
     return success(data=result)

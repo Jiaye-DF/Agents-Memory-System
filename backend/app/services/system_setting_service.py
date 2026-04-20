@@ -174,3 +174,41 @@ async def get_bool(key: str, default: bool, db: AsyncSession) -> bool:
         if lower in ("false", "0", "no", "off"):
             return False
     return default
+
+
+async def get_float(key: str, default: float, db: AsyncSession) -> float:
+    value = await _get_parsed_cached(key, db)
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return default
+    return default
+
+
+async def get(key: str, default: str | None, db: AsyncSession) -> str | None:
+    """取 string 設定（其他型別會 str() 轉回）。"""
+    value = await _get_parsed_cached(key, db)
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
+async def get_json(
+    key: str, default: dict | list | None, db: AsyncSession
+) -> dict | list | None:
+    value = await _get_parsed_cached(key, db)
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return default
+    return default

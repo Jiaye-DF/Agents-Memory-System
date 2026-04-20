@@ -33,6 +33,18 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
     ),
   },
   {
+    label: "對話",
+    href: "/projects",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M3 5C3 4.44772 3.44772 4 4 4H16C16.5523 4 17 4.44772 17 5V13C17 13.5523 16.5523 14 16 14H8L5 17V14H4C3.44772 14 3 13.5523 3 13V5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <circle cx="7" cy="9" r="0.8" fill="currentColor" />
+        <circle cx="10" cy="9" r="0.8" fill="currentColor" />
+        <circle cx="13" cy="9" r="0.8" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
     label: "Agent 管理",
     href: "/agents",
     icon: (

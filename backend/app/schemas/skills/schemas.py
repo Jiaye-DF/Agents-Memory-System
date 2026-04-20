@@ -73,3 +73,39 @@ class FileContentResponse(BaseModel):
     encoding: str
     content: str
     too_large: bool
+
+
+class SkillUsageItem(BaseModel):
+    agent_uid: str
+    agent_name: str
+    owner_username: str | None
+    visibility: str
+
+
+class SkillUsageResponse(BaseModel):
+    items: list[SkillUsageItem]
+    count: int
+
+
+# 單檔大小上限：500 KB（UTF-8 字串位元組數上限，以寬鬆估算 700_000 字元攔截）
+_MAX_CONTENT_BYTES = 500 * 1024
+
+
+class SkillFileUpdateRequest(BaseModel):
+    content: str
+    expected_updated_at: str
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > _MAX_CONTENT_BYTES:
+            raise ValueError("檔案內容超過 500 KB 上限")
+        return value
+
+    @field_validator("expected_updated_at")
+    @classmethod
+    def validate_expected_updated_at(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("expected_updated_at 為必填")
+        return value

@@ -20,6 +20,11 @@ export type {
   FileTreeNode,
   FileContent,
   SkillUploadParams,
+  SkillUsageItem,
+  SkillUsageResponse,
+  SkillReuploadParams,
+  SkillFileUpdateParams,
+  SkillFileUpdateResult,
 } from "./skills";
 export type {
   LlmModel,
@@ -43,3 +48,14 @@ export type {
   SystemSettingValueType,
   PublicSettings,
 } from "./system-settings";
+export type {
+  ChatProject,
+  ChatProjectCreateRequest,
+  ChatProjectUpdateRequest,
+  ChatSession,
+  ChatSessionCreateRequest,
+  ChatSessionUpdateRequest,
+  ChatMessage,
+  ChatMessageRole,
+  ChatMemory,
+} from "./chat";

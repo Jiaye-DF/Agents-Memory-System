@@ -15,9 +15,22 @@ from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.core.pagination import paginate
 from app.models.skill import Skill
-from app.repositories import skill_repository
+from app.repositories import agent_repository, skill_repository
 from app.schemas.common import VisibilityRequest
 from app.schemas.skills.schemas import FileTreeNode, SkillUpdateRequest
+
+EDITABLE_EXTENSIONS = {
+    ".md",
+    ".txt",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".py",
+    ".ts",
+    ".js",
+    ".sh",
+}
+FILE_EDIT_MAX_BYTES = 500 * 1024
 
 logger = logging.getLogger(__name__)
 
@@ -150,20 +163,7 @@ async def upload_skill(
         paths = [p for p, _ in entries]
         top_folder = _common_top_folder(paths)
         original_filename = top_folder or name
-
-        buf = io.BytesIO()
-        try:
-            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-                for rel_path, content in entries:
-                    zf.writestr(rel_path, content)
-        except Exception:
-            logger.exception("建立 ZIP 檔案失敗")
-            raise AppError(
-                detail="檔案封裝失敗，請稍後再試",
-                response_code=500,
-                status_code=500,
-            )
-        zip_content = buf.getvalue()
+        zip_content = _build_zip(entries)
 
     skill_dir = Path(settings.SKILLS_UPLOAD_DIR) / str(skill_uid)
     skill_dir.mkdir(parents=True, exist_ok=True)
@@ -441,3 +441,253 @@ def _tree_dict_to_list(tree: dict[str, FileTreeNode]) -> list[FileTreeNode]:
         key=lambda x: x.name,
     )
     return dirs + files
+
+
+def _build_zip(entries: list[tuple[str, bytes]]) -> bytes:
+    """將 `[(rel_path, content), ...]` 打包為 ZIP bytes。"""
+    buf = io.BytesIO()
+    try:
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for rel_path, content in entries:
+                zf.writestr(rel_path, content)
+    except Exception:
+        logger.exception("建立 ZIP 檔案失敗")
+        raise AppError(
+            detail="檔案封裝失敗，請稍後再試",
+            response_code=500,
+            status_code=500,
+        )
+    return buf.getvalue()
+
+
+def _ensure_owner_only(
+    skill: Skill | None, user_uid: str, action: str
+) -> Skill:
+    """僅擁有者可操作；admin 也不可代改（resource 不存在回 404）。"""
+    if skill is None:
+        raise AppError(
+            detail=NOT_FOUND_DETAIL, response_code=404, status_code=404
+        )
+    if str(skill.owner_uid) != user_uid:
+        raise AppError(
+            detail=f"只有擁有者可以{action}",
+            response_code=403,
+            status_code=403,
+        )
+    return skill
+
+
+def _check_optimistic_lock(skill: Skill, expected_updated_at: str) -> None:
+    current = to_taipei_iso(skill.updated_at) or ""
+    if current != expected_updated_at:
+        raise AppError(
+            detail="檔案已被更新，請重新載入後再編輯",
+            response_code=409,
+            status_code=409,
+        )
+
+
+def _is_editable_filename(filename: str) -> bool:
+    ext = os.path.splitext(filename)[1].lower()
+    return ext in EDITABLE_EXTENSIONS
+
+
+async def get_usage(
+    skill_uid: str, user_uid: str, role: str, db: AsyncSession
+) -> dict:
+    skill = await skill_repository.get_by_uid(skill_uid, db)
+    ensure_readable(skill, user_uid, role, NOT_FOUND_DETAIL)
+    assert skill is not None
+
+    agents = await agent_repository.list_by_skill_uid(skill_uid, db)
+    items = [
+        {
+            "agent_uid": str(a.agent_uid),
+            "agent_name": a.name,
+            "owner_username": a.owner.username if a.owner else None,
+            "visibility": a.visibility,
+        }
+        for a in agents
+    ]
+    return {"items": items, "count": len(items)}
+
+
+async def reupload_skill(
+    skill_uid: str,
+    user_uid: str,
+    role: str,
+    files: list,
+    expected_updated_at: str,
+    db: AsyncSession,
+) -> dict:
+    skill = await skill_repository.get_by_uid(skill_uid, db)
+    skill = _ensure_owner_only(skill, user_uid, "重新上傳 Skill")
+    _check_optimistic_lock(skill, expected_updated_at)
+
+    if not files:
+        raise AppError(
+            detail="請至少選擇一個檔案",
+            response_code=400,
+            status_code=400,
+        )
+
+    max_size = settings.SKILLS_MAX_FILE_SIZE
+    entries: list[tuple[str, bytes]] = []
+    total_size = 0
+
+    for uf in files:
+        _validate_file(uf)
+        rel_path = _validate_relative_path(uf.filename or "")
+        content = await uf.read()
+        total_size += len(content)
+        if total_size > max_size:
+            raise AppError(
+                detail=f"總檔案大小超過上限（{max_size // (1024 * 1024)} MB）",
+                response_code=400,
+                status_code=400,
+            )
+        entries.append((rel_path, content))
+
+    if total_size == 0:
+        raise AppError(
+            detail="檔案內容為空",
+            response_code=400,
+            status_code=400,
+        )
+
+    is_single_zip = (
+        len(entries) == 1 and entries[0][0].lower().endswith(".zip")
+    )
+
+    if is_single_zip:
+        original_filename = entries[0][0]
+        zip_content = entries[0][1]
+    else:
+        paths = [p for p, _ in entries]
+        top_folder = _common_top_folder(paths)
+        original_filename = top_folder or skill.name
+        zip_content = _build_zip(entries)
+
+    zip_path = Path(skill.file_path)
+    try:
+        zip_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = zip_path.with_suffix(zip_path.suffix + ".tmp")
+        tmp_path.write_bytes(zip_content)
+        os.replace(str(tmp_path), str(zip_path))
+    except Exception:
+        logger.exception("檔案儲存失敗")
+        raise AppError(
+            detail="檔案儲存失敗，請稍後再試",
+            response_code=500,
+            status_code=500,
+        )
+
+    await skill_repository.update(
+        skill,
+        {
+            "original_filename": original_filename,
+            "file_size": len(zip_content),
+        },
+        db,
+    )
+    return _skill_to_dict(skill)
+
+
+def _rebuild_zip_with_replacement(
+    zip_path: Path,
+    target_path: str,
+    new_content: bytes,
+) -> int:
+    """讀原 zip → 寫臨時 zip 時跳過目標檔 → 寫入新內容 → atomic rename。回傳新 file_size。"""
+    tmp_path = zip_path.with_suffix(zip_path.suffix + ".tmp")
+    try:
+        found = False
+        with zipfile.ZipFile(zip_path, "r") as src, zipfile.ZipFile(
+            tmp_path, "w", zipfile.ZIP_DEFLATED
+        ) as dst:
+            for info in src.infolist():
+                if info.filename == target_path and not info.is_dir():
+                    found = True
+                    continue
+                dst.writestr(info, src.read(info.filename))
+            if not found:
+                raise AppError(
+                    detail="找不到指定的檔案",
+                    response_code=404,
+                    status_code=404,
+                )
+            dst.writestr(target_path, new_content)
+    except AppError:
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+        raise
+    except zipfile.BadZipFile:
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+        raise AppError(
+            detail="檔案格式損毀，無法讀取",
+            response_code=500,
+            status_code=500,
+        )
+
+    os.replace(str(tmp_path), str(zip_path))
+    return zip_path.stat().st_size
+
+
+async def update_file_content(
+    skill_uid: str,
+    user_uid: str,
+    path: str,
+    content: str,
+    expected_updated_at: str,
+    db: AsyncSession,
+) -> dict:
+    skill = await skill_repository.get_by_uid(skill_uid, db)
+    skill = _ensure_owner_only(skill, user_uid, "編輯 Skill 檔案")
+    _check_optimistic_lock(skill, expected_updated_at)
+
+    normalized = path.lstrip("/").replace("\\", "/").strip()
+    if not normalized:
+        raise AppError(
+            detail="檔案路徑不可為空", response_code=400, status_code=400
+        )
+
+    if not _is_editable_filename(normalized):
+        raise AppError(
+            detail="此檔案類型不支援線上編輯，請使用『重新上傳整包』",
+            response_code=400,
+            status_code=400,
+        )
+
+    encoded = content.encode("utf-8")
+    if len(encoded) > FILE_EDIT_MAX_BYTES:
+        raise AppError(
+            detail=f"檔案內容超過 {FILE_EDIT_MAX_BYTES // 1024} KB 上限",
+            response_code=400,
+            status_code=400,
+        )
+
+    zip_path = Path(skill.file_path)
+    if not zip_path.exists():
+        raise AppError(
+            detail="檔案不存在，請聯繫管理員",
+            response_code=404,
+            status_code=404,
+        )
+
+    new_size = _rebuild_zip_with_replacement(zip_path, normalized, encoded)
+
+    await skill_repository.update(skill, {"file_size": new_size}, db)
+
+    return {
+        "file_path": normalized,
+        "size": len(encoded),
+        "updated_at": to_taipei_iso(skill.updated_at),
+        "new_content_preview": content[:200],
+    }

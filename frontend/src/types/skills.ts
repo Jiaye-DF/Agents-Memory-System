@@ -40,3 +40,37 @@ export interface SkillUploadParams {
   description: string;
   files: File[];
 }
+
+export interface SkillUsageItem {
+  agent_uid: string;
+  agent_name: string;
+  owner_username: string | null;
+  visibility: string;
+}
+
+export interface SkillUsageResponse {
+  items: SkillUsageItem[];
+  count: number;
+}
+
+export interface SkillReuploadParams {
+  skillUid: string;
+  files: File[];
+  expectedUpdatedAt: string;
+}
+
+export interface SkillFileUpdateParams {
+  skillUid: string;
+  path: string;
+  body: {
+    content: string;
+    expected_updated_at: string;
+  };
+}
+
+export interface SkillFileUpdateResult {
+  file_path: string;
+  size: number;
+  updated_at: string | null;
+  new_content_preview: string;
+}

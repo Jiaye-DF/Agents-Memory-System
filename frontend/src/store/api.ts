@@ -47,6 +47,9 @@ export const baseApi = createApi({
     "AdminAgentTemplates",
     "PublicSettings",
     "AdminSettings",
+    "ChatProjects",
+    "ChatSessions",
+    "ChatMessages",
   ],
   endpoints: () => ({}),
 });
