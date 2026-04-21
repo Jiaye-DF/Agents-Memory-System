@@ -11,13 +11,17 @@ import { useParams, useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { Button } from "@/components/ui/Button";
 import { PageLoading, Spinner } from "@/components/ui/Loading";
+import { ModalDialog } from "@/components/ui/ModalDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useChatStream } from "@/hooks/useChatStream";
 import { useDialog } from "@/hooks/useDialog";
+import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
 import {
   useGetSessionQuery,
   useListMessagesQuery,
+  useListProjectsQuery,
   useListSessionMemoriesQuery,
+  useMoveChatSessionMutation,
   chatApi,
 } from "@/store/chatApi";
 import type { AppDispatch } from "@/store/store";
@@ -86,6 +90,98 @@ const MessageBubble = React.memo(function MessageBubble({
   );
 });
 
+interface MoveSessionModalProps {
+  sessionUid: string;
+  currentProjectUid: string | null;
+  onClose: () => void;
+}
+
+function MoveSessionModal({
+  sessionUid,
+  currentProjectUid,
+  onClose,
+}: MoveSessionModalProps): React.ReactNode {
+  const [target, setTarget] = useState<string>(currentProjectUid ?? "");
+
+  const { data: projectsData, isLoading: projectsLoading } = useListProjectsQuery({
+    limit: 100,
+    cursor: null,
+  });
+  const projects = useMemo(() => projectsData?.items ?? [], [projectsData]);
+
+  const [moveSession, { isLoading: moving }] = useMoveChatSessionMutation();
+  const runMove = useMutationWithDialog(moveSession);
+
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>): void => {
+      setTarget(e.target.value);
+    },
+    [],
+  );
+
+  const handleSubmit = useCallback((): void => {
+    const targetUid = target === "" ? null : target;
+    void runMove(
+      {
+        sessionUid,
+        body: { chat_project_uid: targetUid },
+      },
+      {
+        successTitle: "移動成功",
+        successMessage: targetUid
+          ? "對話已移至指定 Project。"
+          : "對話已設為游離。",
+        errorMessage: "移動失敗，請稍後再試",
+        onSuccess: onClose,
+      },
+    );
+  }, [target, sessionUid, runMove, onClose]);
+
+  const isSame = target === (currentProjectUid ?? "");
+
+  return (
+    <ModalDialog title="移動對話至 Project" onClose={onClose} size="md">
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-muted">
+          選擇要移入的 Project，或選「（無，設為游離）」把對話移出。
+        </p>
+
+        <div>
+          <label
+            htmlFor="move-target"
+            className="mb-1.5 block text-base font-medium text-foreground"
+          >
+            目標
+          </label>
+          <select
+            id="move-target"
+            value={target}
+            onChange={handleChange}
+            disabled={projectsLoading || moving}
+            className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="">（無，設為游離）</option>
+            {projects.map((p) => (
+              <option key={p.chat_project_uid} value={p.chat_project_uid}>
+                {p.name}（{p.session_count} sessions）
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+          <Button variant="secondary" onClick={onClose}>
+            取消
+          </Button>
+          <Button onClick={handleSubmit} loading={moving} disabled={isSame}>
+            確定移動
+          </Button>
+        </div>
+      </div>
+    </ModalDialog>
+  );
+}
+
 function formatCost(cost: number | null): string {
   if (cost === null || cost === undefined) return "-";
   return `$${cost.toFixed(6)}`;
@@ -139,6 +235,7 @@ export default function SessionChatPage(): React.ReactNode {
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [streaming, setStreaming] = useState<StreamingBubble | null>(null);
   const [memoryOpen, setMemoryOpen] = useState<boolean>(false);
+  const [moveOpen, setMoveOpen] = useState<boolean>(false);
 
   const {
     data: memoriesData,
@@ -169,12 +266,20 @@ export default function SessionChatPage(): React.ReactNode {
   }, [messages, pendingUser, streaming, scrollToBottom]);
 
   const handleBack = useCallback((): void => {
-    if (session) {
+    if (session?.chat_project_uid) {
       router.push(`/projects/${session.chat_project_uid}`);
     } else {
-      router.push("/projects");
+      router.push("/sessions");
     }
   }, [router, session]);
+
+  const handleOpenMove = useCallback((): void => {
+    setMoveOpen(true);
+  }, []);
+
+  const handleCloseMove = useCallback((): void => {
+    setMoveOpen(false);
+  }, []);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
@@ -285,11 +390,22 @@ export default function SessionChatPage(): React.ReactNode {
           >
             記憶 {memories.length > 0 ? `(${memories.length})` : ""}
           </Button>
+          <Button variant="secondary" onClick={handleOpenMove}>
+            {session.chat_project_uid ? "更換 Project" : "移至 Project"}
+          </Button>
           <Button variant="secondary" onClick={handleBack}>
-            返回 Project
+            {session.chat_project_uid ? "返回 Project" : "返回對話列表"}
           </Button>
         </div>
       </div>
+
+      {moveOpen && (
+        <MoveSessionModal
+          sessionUid={sessionUid}
+          currentProjectUid={session.chat_project_uid}
+          onClose={handleCloseMove}
+        />
+      )}
 
       <div className="flex min-h-0 flex-1 gap-3">
        <div className="flex min-h-0 flex-1 flex-col rounded-xl bg-card-bg shadow-sm">

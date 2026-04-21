@@ -61,6 +61,10 @@ const SETTING_META: Record<string, SettingMeta> = {
     label: "每位使用者可建立的 Project 上限",
     hint: "防止濫建；預設 5、最大建議 20。",
   },
+  "chat.max_orphan_sessions_per_user": {
+    label: "每位使用者可建立的游離對話上限",
+    hint: "不屬於任何 Project 的 Session 數量上限；預設 10、硬上限 30。與 Project 內的 Session 分開計算。",
+  },
   "memory.extractor_model": {
     label: "記憶摘要用的 LLM 模型",
     hint: "負責把對話訊息抽成記憶條目，建議用便宜的小模型（如 claude-haiku / gemini-flash）降低成本。",

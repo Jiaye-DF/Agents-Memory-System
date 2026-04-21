@@ -21,7 +21,7 @@ export interface ChatProjectUpdateRequest {
 
 export interface ChatSession {
   chat_session_uid: string;
-  chat_project_uid: string;
+  chat_project_uid: string | null;
   agent_uid: string;
   agent_name: string | null;
   title: string;
@@ -33,13 +33,17 @@ export interface ChatSession {
 }
 
 export interface ChatSessionCreateRequest {
-  chat_project_uid: string;
+  chat_project_uid?: string | null;
   agent_uid: string;
   title?: string | null;
 }
 
 export interface ChatSessionUpdateRequest {
   title?: string | null;
+}
+
+export interface ChatSessionMoveRequest {
+  chat_project_uid: string | null;
 }
 
 export type ChatMessageRole = "user" | "assistant" | "system" | "tool";

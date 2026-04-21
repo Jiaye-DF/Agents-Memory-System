@@ -6,6 +6,7 @@ import type {
   ChatProjectUpdateRequest,
   ChatSession,
   ChatSessionCreateRequest,
+  ChatSessionMoveRequest,
   ChatSessionUpdateRequest,
   ChatMessage,
   ChatMemory,
@@ -18,6 +19,11 @@ interface ListProjectsParams {
 
 interface ListSessionsParams {
   projectUid: string;
+  limit?: number;
+  cursor?: string | null;
+}
+
+interface ListOrphanSessionsParams {
   limit?: number;
   cursor?: string | null;
 }
@@ -119,13 +125,54 @@ export const chatApi = baseApi.injectEndpoints({
       ],
     }),
 
+    listOrphanChatSessions: builder.query<
+      PaginatedData<ChatSession>,
+      ListOrphanSessionsParams
+    >({
+      query: ({ limit = 20, cursor } = {}) => {
+        const params: Record<string, string> = {
+          limit: String(limit),
+          orphan: "true",
+        };
+        if (cursor) {
+          params.cursor = cursor;
+        }
+        return {
+          method: "get",
+          path: "/chat/sessions",
+          params,
+        };
+      },
+      providesTags: ["OrphanChatSessions"],
+    }),
+
     createSession: builder.mutation<ChatSession, ChatSessionCreateRequest>({
       query: (body) => ({
         method: "post",
         path: "/chat/sessions",
         body,
       }),
-      invalidatesTags: ["ChatSessions", "ChatProjects"],
+      invalidatesTags: [
+        "ChatSessions",
+        "OrphanChatSessions",
+        "ChatProjects",
+      ],
+    }),
+
+    moveChatSession: builder.mutation<
+      ChatSession,
+      { sessionUid: string; body: ChatSessionMoveRequest }
+    >({
+      query: ({ sessionUid, body }) => ({
+        method: "post",
+        path: `/chat/sessions/${sessionUid}/move`,
+        body,
+      }),
+      invalidatesTags: [
+        "ChatSessions",
+        "OrphanChatSessions",
+        "ChatProjects",
+      ],
     }),
 
     updateSession: builder.mutation<
@@ -145,7 +192,11 @@ export const chatApi = baseApi.injectEndpoints({
         method: "delete",
         path: `/chat/sessions/${sessionUid}`,
       }),
-      invalidatesTags: ["ChatSessions", "ChatProjects"],
+      invalidatesTags: [
+        "ChatSessions",
+        "OrphanChatSessions",
+        "ChatProjects",
+      ],
     }),
 
     // ===== ChatMessage（只有 list，送訊息走 SSE 不走 RTK Query） =====
@@ -187,10 +238,12 @@ export const {
   useUpdateProjectMutation,
   useDeleteProjectMutation,
   useListSessionsQuery,
+  useListOrphanChatSessionsQuery,
   useGetSessionQuery,
   useCreateSessionMutation,
   useUpdateSessionMutation,
   useDeleteSessionMutation,
+  useMoveChatSessionMutation,
   useListMessagesQuery,
   useListSessionMemoriesQuery,
 } = chatApi;

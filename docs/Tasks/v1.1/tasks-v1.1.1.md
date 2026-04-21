@@ -40,7 +40,7 @@
 | #   | 決策                         | 結論                                                                         |
 | --- | ---------------------------- | ---------------------------------------------------------------------------- |
 | 1   | Session : Agent 關係          | 1:1。`chat_session.agent_uid` 建立後不可變更                                 |
-| 2   | Session 必須隸屬 Project      | 不支援游離 Session，`chat_project_uid` NOT NULL                              |
+| 2   | Session 必須隸屬 Project      | ~~不支援游離 Session，`chat_project_uid` NOT NULL~~ — **superseded by v1.1.4**，現為 nullable，游離 session 規格見 [tasks-v1.1.4.md](tasks-v1.1.4.md) |
 | 3   | Skills 在對話中的角色         | **純 prompt 文本注入**；tool call 留 v1.2+                                    |
 | 4   | 成本模型                     | 全系統共用 admin 的 `OPENROUTER_API_KEY`；Token / cost 仍記錄於 `chat_message` |
 | 5   | 訊息永久保存                 | `chat_message` **不軟刪除**（審計用）；Session 軟刪時 message 保留不動       |

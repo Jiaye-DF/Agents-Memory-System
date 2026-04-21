@@ -57,7 +57,7 @@ class ChatProjectResponse(BaseModel):
 
 
 class ChatSessionCreateRequest(BaseModel):
-    chat_project_uid: str
+    chat_project_uid: str | None = None
     agent_uid: str
     title: str | None = None
 
@@ -90,9 +90,15 @@ class ChatSessionUpdateRequest(BaseModel):
         return value
 
 
+class ChatSessionMoveRequest(BaseModel):
+    """移動 session 至某個 project；傳 None 代表移出成為游離 session。"""
+
+    chat_project_uid: str | None = None
+
+
 class ChatSessionResponse(BaseModel):
     chat_session_uid: str
-    chat_project_uid: str
+    chat_project_uid: str | None
     agent_uid: str
     agent_name: str | None
     title: str

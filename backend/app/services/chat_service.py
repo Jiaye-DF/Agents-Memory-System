@@ -30,6 +30,7 @@ from app.schemas.chat.schemas import (
     ChatProjectCreateRequest,
     ChatProjectUpdateRequest,
     ChatSessionCreateRequest,
+    ChatSessionMoveRequest,
     ChatSessionUpdateRequest,
 )
 from app.services import rag_service, system_setting_service
@@ -38,6 +39,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MAX_PROJECTS_PER_USER = 5
 DEFAULT_MAX_SESSIONS_PER_PROJECT = 3
+DEFAULT_MAX_ORPHAN_SESSIONS_PER_USER = 10
+MAX_ORPHAN_SESSIONS_HARD_LIMIT = 30
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 HISTORY_WINDOW = 20
 MAX_RETRIES = 2
@@ -71,7 +74,11 @@ def _session_to_dict(
 ) -> dict:
     return {
         "chat_session_uid": str(session.chat_session_uid),
-        "chat_project_uid": str(session.chat_project_uid),
+        "chat_project_uid": (
+            str(session.chat_project_uid)
+            if session.chat_project_uid is not None
+            else None
+        ),
         "agent_uid": str(session.agent_uid),
         "agent_name": agent_name,
         "title": session.title,
@@ -121,14 +128,17 @@ def _ensure_project_owner(project: ChatProject | None, user_uid: str) -> ChatPro
 
 async def _ensure_session_owner(
     session: ChatSession | None, user_uid: str, db: AsyncSession
-) -> tuple[ChatSession, ChatProject]:
+) -> tuple[ChatSession, ChatProject | None]:
+    """驗證 session 擁有權；回傳 session 與其所屬 project（游離 session 時 project 為 None）。"""
     if session is None:
         raise AppError(detail=SESSION_NOT_FOUND, response_code=404, status_code=404)
-    project = await chat_project_repository.get_by_uid(
-        str(session.chat_project_uid), db
-    )
-    if project is None or str(project.owner_user_uid) != user_uid:
+    if str(session.owner_user_uid) != user_uid:
         raise AppError(detail=SESSION_NOT_FOUND, response_code=404, status_code=404)
+    project: ChatProject | None = None
+    if session.chat_project_uid is not None:
+        project = await chat_project_repository.get_by_uid(
+            str(session.chat_project_uid), db
+        )
     return session, project
 
 
@@ -358,17 +368,30 @@ async def get_session(
     )
 
 
-async def create_session(
-    user_uid: str, data: ChatSessionCreateRequest, db: AsyncSession
-) -> dict:
-    project = await chat_project_repository.get_by_uid(data.chat_project_uid, db)
-    _ensure_project_owner(project, user_uid)
+async def _ensure_orphan_capacity(user_uid: str, db: AsyncSession) -> None:
+    max_orphan = await system_setting_service.get_int(
+        "chat.max_orphan_sessions_per_user",
+        DEFAULT_MAX_ORPHAN_SESSIONS_PER_USER,
+        db,
+    )
+    max_orphan = min(max_orphan, MAX_ORPHAN_SESSIONS_HARD_LIMIT)
+    current = await chat_session_repository.count_orphan_by_owner(user_uid, db)
+    if current >= max_orphan:
+        raise AppError(
+            detail=f"游離對話已達上限，admin 設定 {max_orphan}/user",
+            response_code=400,
+            status_code=400,
+        )
 
+
+async def _ensure_project_capacity(
+    chat_project_uid: str, db: AsyncSession
+) -> None:
     max_sessions = await system_setting_service.get_int(
         "chat.max_sessions_per_project", DEFAULT_MAX_SESSIONS_PER_PROJECT, db
     )
     current = await chat_session_repository.count_by_project(
-        data.chat_project_uid, db
+        chat_project_uid, db
     )
     if current >= max_sessions:
         raise AppError(
@@ -376,6 +399,19 @@ async def create_session(
             response_code=400,
             status_code=400,
         )
+
+
+async def create_session(
+    user_uid: str, data: ChatSessionCreateRequest, db: AsyncSession
+) -> dict:
+    if data.chat_project_uid is not None:
+        project = await chat_project_repository.get_by_uid(
+            data.chat_project_uid, db
+        )
+        _ensure_project_owner(project, user_uid)
+        await _ensure_project_capacity(data.chat_project_uid, db)
+    else:
+        await _ensure_orphan_capacity(user_uid, db)
 
     agent = await agent_repository.get_by_uid(data.agent_uid, db)
     if agent is None:
@@ -387,12 +423,91 @@ async def create_session(
     session = await chat_session_repository.create(
         {
             "chat_project_uid": data.chat_project_uid,
+            "owner_user_uid": user_uid,
             "agent_uid": data.agent_uid,
             "title": title,
         },
         db,
     )
     return _session_to_dict(session, agent.name, 0, None)
+
+
+async def list_orphan_sessions(
+    user_uid: str, cursor: str | None, limit: int, db: AsyncSession
+) -> dict:
+    page = await paginate(
+        db, chat_session_repository.stmt_orphan_by_owner(user_uid), cursor, limit
+    )
+    session_uids = [str(s.chat_session_uid) for s in page.items]
+    stats_map = await chat_session_repository.message_stats_map(session_uids, db)
+    agent_name_map: dict[str, str | None] = {}
+    for s in page.items:
+        agent_uid = str(s.agent_uid)
+        if agent_uid not in agent_name_map:
+            agent = await agent_repository.get_by_uid(agent_uid, db)
+            agent_name_map[agent_uid] = agent.name if agent else None
+
+    items = []
+    for s in page.items:
+        count, last_at = stats_map.get(str(s.chat_session_uid), (0, None))
+        items.append(
+            _session_to_dict(
+                s, agent_name_map.get(str(s.agent_uid)), count, last_at
+            )
+        )
+    return {
+        "items": items,
+        "next_cursor": page.next_cursor,
+        "has_next": page.has_next,
+    }
+
+
+async def move_session(
+    chat_session_uid: str,
+    user_uid: str,
+    data: ChatSessionMoveRequest,
+    db: AsyncSession,
+) -> dict:
+    """把 session 移入指定 project；chat_project_uid 傳 None 代表移出為游離。"""
+    session = await chat_session_repository.get_by_uid(chat_session_uid, db)
+    session, _current_project = await _ensure_session_owner(session, user_uid, db)
+
+    target_uid = data.chat_project_uid
+    current_uid = (
+        str(session.chat_project_uid)
+        if session.chat_project_uid is not None
+        else None
+    )
+    if target_uid == current_uid:
+        # 不變；直接回現況
+        agent = await agent_repository.get_by_uid(str(session.agent_uid), db)
+        stats_map = await chat_session_repository.message_stats_map(
+            [str(session.chat_session_uid)], db
+        )
+        count, last_at = stats_map.get(str(session.chat_session_uid), (0, None))
+        return _session_to_dict(
+            session, agent.name if agent else None, count, last_at
+        )
+
+    if target_uid is not None:
+        project = await chat_project_repository.get_by_uid(target_uid, db)
+        _ensure_project_owner(project, user_uid)
+        await _ensure_project_capacity(target_uid, db)
+    else:
+        await _ensure_orphan_capacity(user_uid, db)
+
+    await chat_session_repository.update(
+        session, {"chat_project_uid": target_uid}, db
+    )
+
+    agent = await agent_repository.get_by_uid(str(session.agent_uid), db)
+    stats_map = await chat_session_repository.message_stats_map(
+        [str(session.chat_session_uid)], db
+    )
+    count, last_at = stats_map.get(str(session.chat_session_uid), (0, None))
+    return _session_to_dict(
+        session, agent.name if agent else None, count, last_at
+    )
 
 
 async def update_session(

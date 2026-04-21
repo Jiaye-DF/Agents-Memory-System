@@ -50,7 +50,9 @@ v1.1 於此之上新增對話與記憶層，不改動既有 v1.0 資料表（僅
 
 - 每個 Agent 可裝多個 Skills（v1.0 已定）
 - **每個 `chat_session` 對應 1 個 Agent**（1:1）
-- `chat_session` 必須屬於某個 `chat_project`，不支援游離 session
+- `chat_session` **可選擇**屬於某個 `chat_project`，或不屬於任何 Project（游離對話）——v1.1.4 起
+  - 側欄採 ChatGPT 風格雙區導航：「最近對話」列游離 session、「Projects」列 project 及其 session
+  - 使用者可透過 `POST /api/v1/chat/sessions/{uid}/move` 在「某 Project」與「游離」之間搬移
 
 ### 3-2 容量上限
 
@@ -58,6 +60,7 @@ v1.1 於此之上新增對話與記憶層，不改動既有 v1.0 資料表（僅
 | --- | --- | --- | --- | --- |
 | `chat.max_sessions_per_project` | 3 | 5 | admin | 參考 ChatGPT Projects 觀察，第 4 個 Session 後響應與記憶表現下降 |
 | `chat.max_projects_per_user` | 5 | 20 | admin | 防止濫建 |
+| `chat.max_orphan_sessions_per_user` | 10 | 30 | admin | 游離對話上限；與 Project 內 Session 分開計算（v1.1.4 新增） |
 
 ### 3-3 Agentic RAG 檢索
 

@@ -13,6 +13,7 @@ from app.schemas.chat.schemas import (
     ChatProjectResponse,
     ChatProjectUpdateRequest,
     ChatSessionCreateRequest,
+    ChatSessionMoveRequest,
     ChatSessionResponse,
     ChatSessionUpdateRequest,
 )
@@ -115,6 +116,25 @@ async def list_sessions_by_project(
 
 # ---------- Sessions ----------
 
+@router.get(
+    "/sessions",
+    response_model=ApiResponse[PaginatedData[ChatSessionResponse]],
+)
+async def list_orphan_sessions(
+    current_user: TokenPayload = Depends(get_current_user),
+    orphan: bool = Query(True, description="目前僅支援 orphan=true（游離 sessions）"),
+    cursor: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """列出使用者自己的游離 sessions（不屬於任何 project）。"""
+    del orphan  # 保留參數但 v1.1.4 僅支援 orphan list
+    result = await chat_service.list_orphan_sessions(
+        current_user.user_uid, cursor, limit, db
+    )
+    return success(data=result)
+
+
 @router.post("/sessions", response_model=ApiResponse[ChatSessionResponse])
 async def create_session(
     data: ChatSessionCreateRequest,
@@ -123,6 +143,23 @@ async def create_session(
 ) -> JSONResponse:
     result = await chat_service.create_session(current_user.user_uid, data, db)
     return success(data=result, response_code=201)
+
+
+@router.post(
+    "/sessions/{chat_session_uid}/move",
+    response_model=ApiResponse[ChatSessionResponse],
+)
+async def move_session(
+    chat_session_uid: str,
+    data: ChatSessionMoveRequest,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """把 session 移入 project 或移出為游離；target uid 為 None 代表游離。"""
+    result = await chat_service.move_session(
+        chat_session_uid, current_user.user_uid, data, db
+    )
+    return success(data=result)
 
 
 @router.get(

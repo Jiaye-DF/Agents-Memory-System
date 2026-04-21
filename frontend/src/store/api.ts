@@ -49,6 +49,7 @@ export const baseApi = createApi({
     "AdminSettings",
     "ChatProjects",
     "ChatSessions",
+    "OrphanChatSessions",
     "ChatMessages",
   ],
   endpoints: () => ({}),

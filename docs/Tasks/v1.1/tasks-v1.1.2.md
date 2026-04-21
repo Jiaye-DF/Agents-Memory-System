@@ -42,7 +42,7 @@
 | 2   | Embedding 方案    | OpenRouter `openai/text-embedding-3-small`（1536 維）；欄位鎖 `vector(1536)`    |
 | 3   | 批次 Trigger        | OR 條件：每 5 則 OR idle 60 秒                                                  |
 | 4   | 預篩規則可配置      | `memory.skip_rules` 存 JSON 於 `system_setting`，admin 可調                     |
-| 5   | RAG scope（v1.1）   | 僅 session（檢索該 session 自己的 `chat_memory`）                                |
+| 5   | RAG scope（v1.1）   | 僅 session（檢索該 session 自己的 `chat_memory`）；v1.1.4 游離 session 同樣只檢索自身，不擴展跨層 |
 | 6   | Worker 部署方式      | FastAPI lifespan 啟動 asyncio task，共用同一 container（簡化部署，v1.1 足夠）    |
 | 7   | 失敗重試            | Embedding 失敗最多 3 次，超過存 `memory.dlq` Redis list 供排查                  |
 | 8   | 記憶隱私            | admin 不可讀 `chat_memory`（同訊息，僅擁有者）                                  |

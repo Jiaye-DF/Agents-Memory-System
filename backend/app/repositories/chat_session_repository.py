@@ -23,12 +23,32 @@ def stmt_by_project(chat_project_uid: str) -> Select[tuple[ChatSession]]:
     )
 
 
+def stmt_orphan_by_owner(owner_user_uid: str) -> Select[tuple[ChatSession]]:
+    return select(ChatSession).where(
+        ChatSession.is_deleted == False,
+        ChatSession.chat_project_uid.is_(None),
+        ChatSession.owner_user_uid == owner_user_uid,
+    )
+
+
 async def count_by_project(
     chat_project_uid: str, db: AsyncSession
 ) -> int:
     stmt = select(func.count()).select_from(ChatSession).where(
         ChatSession.is_deleted == False,
         ChatSession.chat_project_uid == chat_project_uid,
+    )
+    result = await db.execute(stmt)
+    return int(result.scalar_one() or 0)
+
+
+async def count_orphan_by_owner(
+    owner_user_uid: str, db: AsyncSession
+) -> int:
+    stmt = select(func.count()).select_from(ChatSession).where(
+        ChatSession.is_deleted == False,
+        ChatSession.chat_project_uid.is_(None),
+        ChatSession.owner_user_uid == owner_user_uid,
     )
     result = await db.execute(stmt)
     return int(result.scalar_one() or 0)

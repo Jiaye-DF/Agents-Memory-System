@@ -4,6 +4,7 @@ import React, { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { SidebarState } from "@/hooks/useSidebar";
+import { ChatSection } from "./ChatSection";
 
 interface SidebarItem {
   label: string;
@@ -29,18 +30,6 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
         <rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
         <rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
         <rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
-      </svg>
-    ),
-  },
-  {
-    label: "對話",
-    href: "/projects",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M3 5C3 4.44772 3.44772 4 4 4H16C16.5523 4 17 4.44772 17 5V13C17 13.5523 16.5523 14 16 14H8L5 17V14H4C3.44772 14 3 13.5523 3 13V5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-        <circle cx="7" cy="9" r="0.8" fill="currentColor" />
-        <circle cx="10" cy="9" r="0.8" fill="currentColor" />
-        <circle cx="13" cy="9" r="0.8" fill="currentColor" />
       </svg>
     ),
   },
@@ -155,6 +144,9 @@ export const Sidebar = React.memo(function Sidebar({
     return null;
   }
 
+  const showChatSection = state === "expanded" || isOverlay;
+  const handleChatSectionNavigate = isOverlay ? onClose : undefined;
+
   const sidebarContent = (
     <nav
       className={`flex h-full flex-col border-r border-border bg-sidebar-bg transition-all duration-200 ${
@@ -162,6 +154,28 @@ export const Sidebar = React.memo(function Sidebar({
       }`}
     >
       <div className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
+        {showChatSection ? (
+          <>
+            <ChatSection onNavigate={handleChatSectionNavigate} />
+            <div className="my-3 border-t border-border" />
+          </>
+        ) : (
+          <Link
+            href="/sessions/new"
+            className="flex min-h-11 items-center justify-center rounded-xl bg-primary py-2 text-white transition-colors hover:cursor-pointer hover:opacity-90"
+            title="新對話"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M10 4V16M4 10H16"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </Link>
+        )}
+
         {visibleItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
