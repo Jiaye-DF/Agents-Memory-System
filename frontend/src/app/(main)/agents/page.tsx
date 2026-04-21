@@ -25,7 +25,7 @@ import { formatDateTime } from "@/utils/datetime";
 type VisibilityFilter = "all" | "public" | "private";
 type SortOrder = "newest" | "oldest";
 
-interface AgentCardProps {
+interface AgentRowProps {
   agent: Agent;
   isOwner: boolean;
   languageLabel: string | null;
@@ -33,13 +33,13 @@ interface AgentCardProps {
   onToggleVisibility: (agentUid: string, current: string) => void;
 }
 
-const AgentCard = React.memo(function AgentCard({
+const AgentRow = React.memo(function AgentRow({
   agent,
   isOwner,
   languageLabel,
   onDelete,
   onToggleVisibility,
-}: AgentCardProps): React.ReactNode {
+}: AgentRowProps): React.ReactNode {
   const handleDelete = useCallback((): void => {
     onDelete(agent.agent_uid);
   }, [agent.agent_uid, onDelete]);
@@ -49,67 +49,63 @@ const AgentCard = React.memo(function AgentCard({
   }, [agent.agent_uid, agent.visibility, onToggleVisibility]);
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card-bg p-4 shadow-sm transition-colors hover:shadow-md">
-      <div className="flex items-start justify-between gap-2">
-        <Link
-          href={`/agents/${agent.agent_uid}`}
-          className="min-w-0 flex-1 hover:cursor-pointer"
-        >
-          <h3 className="truncate text-xl font-semibold text-foreground">
-            {agent.name}
-          </h3>
-        </Link>
-        <span
-          className={`shrink-0 rounded-xl px-2 py-0.5 text-sm font-medium ${
-            agent.visibility === "public"
-              ? "bg-info-bg text-info"
-              : "bg-muted-bg text-muted"
-          }`}
-        >
-          {agent.visibility === "public" ? "公開" : "私人"}
-        </span>
-      </div>
+    <div className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/agents/${agent.agent_uid}`}
+            className="min-w-0 hover:cursor-pointer"
+          >
+            <h3 className="truncate text-lg font-semibold text-foreground hover:text-primary">
+              {agent.name}
+            </h3>
+          </Link>
+          <span
+            className={`shrink-0 rounded-xl px-2 py-0.5 text-sm font-medium ${
+              agent.visibility === "public"
+                ? "bg-info-bg text-info"
+                : "bg-muted-bg text-muted"
+            }`}
+          >
+            {agent.visibility === "public" ? "公開" : "私人"}
+          </span>
+          {agent.owner_username && (
+            <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+              @{agent.owner_username}
+            </span>
+          )}
+        </div>
 
-      {agent.owner_username && (
-        <span className="inline-flex w-fit rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
-          @{agent.owner_username}
-        </span>
-      )}
-
-      {agent.description ? (
-        <p className="line-clamp-2 text-base text-muted">{agent.description}</p>
-      ) : (
-        <p className="text-base text-muted italic">尚無描述</p>
-      )}
-
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
-        {languageLabel && <span>語言：{languageLabel}</span>}
-        {agent.style && <span>風格：{agent.style}</span>}
-        <span>建立於 {formatDateTime(agent.created_at)}</span>
-      </div>
-
-      <div className="mt-auto flex items-center gap-2 border-t border-border pt-3">
-        <Link href={`/agents/${agent.agent_uid}`}>
-          <Button variant="ghost" size="sm">
-            檢視
-          </Button>
-        </Link>
-        {isOwner && (
-          <>
-            <Link href={`/agents/${agent.agent_uid}/edit`}>
-              <Button variant="ghost" size="sm">
-                編輯
-              </Button>
-            </Link>
-            <Button variant="secondary" size="sm" onClick={handleToggle}>
-              {agent.visibility === "public" ? "設為私人" : "設為公開"}
-            </Button>
-            <Button variant="destructive" size="sm" onClick={handleDelete}>
-              刪除
-            </Button>
-          </>
+        {agent.description ? (
+          <p className="mt-1 line-clamp-1 text-base text-muted">
+            {agent.description}
+          </p>
+        ) : (
+          <p className="mt-1 text-base text-muted italic">尚無描述</p>
         )}
+
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+          {languageLabel && <span>語言：{languageLabel}</span>}
+          {agent.style && <span>風格：{agent.style}</span>}
+          <span>建立於 {formatDateTime(agent.created_at)}</span>
+        </div>
       </div>
+
+      {isOwner && (
+        <div className="flex shrink-0 items-center gap-2 md:ml-auto">
+          <Link href={`/agents/${agent.agent_uid}/edit`}>
+            <Button size="sm" variant="ghost">
+              編輯
+            </Button>
+          </Link>
+          <Button size="sm" variant="secondary" onClick={handleToggle}>
+            {agent.visibility === "public" ? "設為私人" : "設為公開"}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={handleDelete}>
+            刪除
+          </Button>
+        </div>
+      )}
     </div>
   );
 });
@@ -320,7 +316,7 @@ export default function AgentsPage(): React.ReactNode {
         )}
       </div>
 
-      <div className="rounded-xl bg-card-bg p-6 shadow-sm">
+      <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
         {isLoading || isFetching ? (
           <PageLoading />
         ) : agents.length === 0 ? (
@@ -332,9 +328,9 @@ export default function AgentsPage(): React.ReactNode {
             沒有符合條件的 Agents
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="divide-y divide-border">
             {filteredAgents.map((agent) => (
-              <AgentCard
+              <AgentRow
                 key={agent.agent_uid}
                 agent={agent}
                 isOwner={agent.owner_uid === userUid}
