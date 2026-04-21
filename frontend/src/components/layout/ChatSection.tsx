@@ -49,24 +49,29 @@ export const ChatSection = React.memo(function ChatSection({
       <Link
         href="/sessions/new"
         onClick={onNavigate}
-        className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-base font-medium text-white transition-colors hover:cursor-pointer hover:opacity-90"
+        className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-base font-medium leading-none text-white transition-colors hover:cursor-pointer hover:opacity-90"
       >
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+        <svg
+          className="shrink-0"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+        >
           <path
-            d="M10 4V16M4 10H16"
+            d="M8 3V13M3 8H13"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.8"
             strokeLinecap="round"
           />
         </svg>
-        新對話
+        <span>新對話</span>
       </Link>
 
       <section className="mt-3">
         <div className="flex items-center justify-between px-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
-            最近對話
-          </h3>
+          <h3 className="text-sm font-semibold text-muted">最近對話</h3>
           <Link
             href="/sessions"
             onClick={onNavigate}
@@ -77,7 +82,7 @@ export const ChatSection = React.memo(function ChatSection({
         </div>
         <div className="mt-1 flex flex-col gap-0.5">
           {orphanSessions.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-muted italic">尚無游離對話</p>
+            <p className="px-3 py-2 text-sm text-muted italic">尚無對話</p>
           ) : (
             orphanSessions.map((s) => (
               <Link
@@ -100,9 +105,7 @@ export const ChatSection = React.memo(function ChatSection({
 
       <section className="mt-4">
         <div className="flex items-center justify-between px-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
-            Projects
-          </h3>
+          <h3 className="text-sm font-semibold text-muted">最近專案</h3>
           <Link
             href="/projects"
             onClick={onNavigate}
@@ -113,7 +116,7 @@ export const ChatSection = React.memo(function ChatSection({
         </div>
         <div className="mt-1 flex flex-col gap-0.5">
           {projects.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-muted italic">尚無 Project</p>
+            <p className="px-3 py-2 text-sm text-muted italic">尚無專案</p>
           ) : (
             projects.map((p) => (
               <Link

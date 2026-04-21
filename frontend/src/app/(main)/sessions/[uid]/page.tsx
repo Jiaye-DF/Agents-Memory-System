@@ -16,12 +16,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { useChatStream } from "@/hooks/useChatStream";
 import { useDialog } from "@/hooks/useDialog";
 import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
+import { useGetAgentQuery } from "@/store/agentsApi";
 import {
   useGetSessionQuery,
   useListMessagesQuery,
   useListProjectsQuery,
   useListSessionMemoriesQuery,
   useMoveChatSessionMutation,
+  useUpdateSessionMutation,
   chatApi,
 } from "@/store/chatApi";
 import type { AppDispatch } from "@/store/store";
@@ -104,7 +106,7 @@ function MoveSessionModal({
   const [target, setTarget] = useState<string>(currentProjectUid ?? "");
 
   const { data: projectsData, isLoading: projectsLoading } = useListProjectsQuery({
-    limit: 100,
+    limit: 50,
     cursor: null,
   });
   const projects = useMemo(() => projectsData?.items ?? [], [projectsData]);
@@ -129,8 +131,8 @@ function MoveSessionModal({
       {
         successTitle: "移動成功",
         successMessage: targetUid
-          ? "對話已移至指定 Project。"
-          : "對話已設為游離。",
+          ? "對話已移至指定專案。"
+          : "對話已設為獨立。",
         errorMessage: "移動失敗，請稍後再試",
         onSuccess: onClose,
       },
@@ -140,10 +142,10 @@ function MoveSessionModal({
   const isSame = target === (currentProjectUid ?? "");
 
   return (
-    <ModalDialog title="移動對話至 Project" onClose={onClose} size="md">
+    <ModalDialog title="移動對話至專案" onClose={onClose} size="md">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted">
-          選擇要移入的 Project，或選「（無，設為游離）」把對話移出。
+          選擇要移入的專案，或選「（無，設為獨立對話）」把對話移出。
         </p>
 
         <div>
@@ -160,10 +162,10 @@ function MoveSessionModal({
             disabled={projectsLoading || moving}
             className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <option value="">（無，設為游離）</option>
+            <option value="">（無，設為獨立對話）</option>
             {projects.map((p) => (
               <option key={p.chat_project_uid} value={p.chat_project_uid}>
-                {p.name}（{p.session_count} sessions）
+                {p.name}（{p.session_count} 則對話）
               </option>
             ))}
           </select>
@@ -231,11 +233,21 @@ export default function SessionChatPage(): React.ReactNode {
     [messagesData],
   );
 
+  const { data: agent } = useGetAgentQuery(session?.agent_uid ?? "", {
+    skip: !session?.agent_uid,
+  });
+
   const [input, setInput] = useState<string>("");
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [streaming, setStreaming] = useState<StreamingBubble | null>(null);
   const [memoryOpen, setMemoryOpen] = useState<boolean>(false);
   const [moveOpen, setMoveOpen] = useState<boolean>(false);
+  const [titleDraft, setTitleDraft] = useState<string>("");
+  const [titleEditing, setTitleEditing] = useState<boolean>(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  const [updateSession] = useUpdateSessionMutation();
+  const runUpdateSession = useMutationWithDialog(updateSession);
 
   const {
     data: memoriesData,
@@ -280,6 +292,69 @@ export default function SessionChatPage(): React.ReactNode {
   const handleCloseMove = useCallback((): void => {
     setMoveOpen(false);
   }, []);
+
+  const handleStartEditTitle = useCallback((): void => {
+    if (!session) return;
+    setTitleDraft(session.title ?? "");
+    setTitleEditing(true);
+    // 下一個 tick 才聚焦，避免 input 還沒 mount
+    setTimeout(() => {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    }, 0);
+  }, [session]);
+
+  const handleCancelEditTitle = useCallback((): void => {
+    setTitleEditing(false);
+    setTitleDraft("");
+  }, []);
+
+  const handleCommitTitle = useCallback((): void => {
+    if (!session) {
+      setTitleEditing(false);
+      return;
+    }
+    const trimmed = titleDraft.trim();
+    if (!trimmed || trimmed === (session.title ?? "")) {
+      // 空白或未修改 → 直接退出不送 API
+      setTitleEditing(false);
+      setTitleDraft("");
+      return;
+    }
+    void runUpdateSession(
+      {
+        sessionUid,
+        body: { title: trimmed },
+      },
+      {
+        errorMessage: "更名失敗，請稍後再試",
+        onSuccess: () => {
+          setTitleEditing(false);
+          setTitleDraft("");
+        },
+      },
+    );
+  }, [session, titleDraft, runUpdateSession, sessionUid]);
+
+  const handleTitleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>): void => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleCommitTitle();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        handleCancelEditTitle();
+      }
+    },
+    [handleCommitTitle, handleCancelEditTitle],
+  );
+
+  const handleTitleDraftChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>): void => {
+      setTitleDraft(e.target.value);
+    },
+    [],
+  );
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
@@ -355,13 +430,13 @@ export default function SessionChatPage(): React.ReactNode {
       <div>
         <h1 className="mb-4 text-3xl font-bold text-foreground">對話</h1>
         <div className="rounded-xl bg-card-bg p-6 text-center shadow-sm">
-          <p className="text-muted">找不到指定的 Session。</p>
+          <p className="text-muted">找不到指定的對話。</p>
           <Button
             className="mt-4"
             variant="secondary"
-            onClick={() => router.push("/projects")}
+            onClick={() => router.push("/sessions")}
           >
-            返回列表
+            返回對話列表
           </Button>
         </div>
       </div>
@@ -372,9 +447,46 @@ export default function SessionChatPage(): React.ReactNode {
     <div className="flex h-[calc(100vh-8rem)] flex-col">
       <div className="mb-3 flex shrink-0 items-start justify-between gap-2">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold text-foreground">
-            {session.title || "（未命名對話）"}
-          </h1>
+          {titleEditing ? (
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={titleDraft}
+              onChange={handleTitleDraftChange}
+              onKeyDown={handleTitleKeyDown}
+              onBlur={handleCommitTitle}
+              maxLength={200}
+              placeholder="輸入對話標題"
+              className="w-full rounded-md border border-input-border bg-input-bg px-2 py-0.5 text-2xl font-bold text-foreground focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={handleStartEditTitle}
+              className="group flex min-w-0 max-w-full items-center gap-2 rounded-md px-2 py-0.5 -mx-2 text-left transition-colors hover:cursor-pointer hover:bg-muted-bg/60"
+              title="點擊以重新命名"
+            >
+              <span className="truncate text-2xl font-bold text-foreground">
+                {session.title || "（未命名對話）"}
+              </span>
+              <svg
+                className="shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M11 2.5L13.5 5M2.5 13.5L3 11L11.5 2.5C12 2 12.5 2 13 2.5L13.5 3C14 3.5 14 4 13.5 4.5L5 13L2.5 13.5Z"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          )}
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
             {session.agent_name && <span>Agent：{session.agent_name}</span>}
             <span>訊息數：{session.message_count}</span>
@@ -391,10 +503,10 @@ export default function SessionChatPage(): React.ReactNode {
             記憶 {memories.length > 0 ? `(${memories.length})` : ""}
           </Button>
           <Button variant="secondary" onClick={handleOpenMove}>
-            {session.chat_project_uid ? "更換 Project" : "移至 Project"}
+            {session.chat_project_uid ? "更換專案" : "移至專案"}
           </Button>
           <Button variant="secondary" onClick={handleBack}>
-            {session.chat_project_uid ? "返回 Project" : "返回對話列表"}
+            {session.chat_project_uid ? "返回專案" : "返回對話列表"}
           </Button>
         </div>
       </div>
@@ -417,11 +529,16 @@ export default function SessionChatPage(): React.ReactNode {
             <PageLoading />
           ) : (
             <div className="flex flex-col gap-3">
-              {messages.length === 0 && !pendingUser && (
-                <div className="py-12 text-center text-muted">
-                  尚無對話，試著輸入第一則訊息。
-                </div>
+              {messages.length === 0 && !pendingUser && agent?.greeting && (
+                <MessageBubble role="assistant" content={agent.greeting} />
               )}
+              {messages.length === 0 &&
+                !pendingUser &&
+                !agent?.greeting && (
+                  <div className="py-12 text-center text-muted">
+                    尚無對話，試著輸入第一則訊息。
+                  </div>
+                )}
 
               {messages.map((msg) => {
                 const hasMeta =

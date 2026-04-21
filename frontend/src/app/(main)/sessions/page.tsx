@@ -41,7 +41,7 @@ const SessionRow = React.memo(function SessionRow({
             </h3>
           </Link>
           <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
-            {session.message_count} 則
+            {session.message_count} 則訊息
           </span>
         </div>
 
@@ -124,7 +124,7 @@ export default function OrphanSessionsPage(): React.ReactNode {
         <div>
           <h1 className="text-3xl font-bold text-foreground">最近對話</h1>
           <p className="mt-1 text-base text-muted">
-            不屬於任何 Project 的游離對話；可在詳情頁把對話移入 Project。
+            不屬於任何專案的獨立對話；可在詳情頁把對話移入專案。
           </p>
         </div>
         <Link href="/sessions/new">
@@ -137,7 +137,7 @@ export default function OrphanSessionsPage(): React.ReactNode {
           <PageLoading />
         ) : sessions.length === 0 ? (
           <div className="py-12 text-center text-muted">
-            尚無游離對話，點擊右上角「新對話」開始。
+            尚無對話，點擊右上角「新對話」開始。
           </div>
         ) : (
           <div className="divide-y divide-border">

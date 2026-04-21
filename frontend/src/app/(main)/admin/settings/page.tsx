@@ -54,16 +54,16 @@ const SETTING_META: Record<string, SettingMeta> = {
     hint: "防止單一 Agent 掛載過多 Skills 造成 system prompt token 爆掉；建議 5 ~ 15。",
   },
   "chat.max_sessions_per_project": {
-    label: "每個 Project 可建立的 Session 上限",
-    hint: "參考 ChatGPT Projects 觀察，超過 5 個 session 後記憶與回覆品質下降；建議 3 ~ 5。",
+    label: "每個專案可建立的對話上限",
+    hint: "參考 ChatGPT Projects 觀察，超過 5 個對話後記憶與回覆品質下降；建議 3 ~ 5。",
   },
   "chat.max_projects_per_user": {
-    label: "每位使用者可建立的 Project 上限",
+    label: "每位使用者可建立的專案上限",
     hint: "防止濫建；預設 5、最大建議 20。",
   },
   "chat.max_orphan_sessions_per_user": {
-    label: "每位使用者可建立的游離對話上限",
-    hint: "不屬於任何 Project 的 Session 數量上限；預設 10、硬上限 30。與 Project 內的 Session 分開計算。",
+    label: "每位使用者可建立的獨立對話上限",
+    hint: "不屬於任何專案的對話數量上限；預設 10、硬上限 30。與專案內的對話分開計算。",
   },
   "memory.extractor_model": {
     label: "記憶摘要用的 LLM 模型",
@@ -109,8 +109,8 @@ const GROUP_META: Record<string, GroupMeta> = {
     description: "Agent 建立與掛載限制",
   },
   chat: {
-    title: "對話 / Projects",
-    description: "Project 與 Session 的建立上限",
+    title: "對話 / 專案",
+    description: "專案與對話的建立上限",
   },
   memory: {
     title: "記憶抽取",
@@ -213,7 +213,10 @@ const SettingFormDialog = React.memo(function SettingFormDialog({
   );
 
   const valueBoolean = value.toLowerCase() === "true";
-  const modalTitle = setting.description || "編輯系統設定";
+  const modalTitle =
+    SETTING_META[setting.key]?.label ||
+    setting.description ||
+    "編輯系統設定";
 
   return (
     <ModalDialog title={modalTitle} onClose={onClose}>

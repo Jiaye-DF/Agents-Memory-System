@@ -17,25 +17,29 @@ OPENROUTER_EMBEDDINGS_URL = "https://openrouter.ai/api/v1/embeddings"
 EMBEDDING_MODEL = "openai/text-embedding-3-small"
 EMBEDDING_DIMENSIONS = 1536
 
+# Anthropic 的 structured output 不支援 maxItems / maxLength，
+# 故 schema 只宣告型別；數量與長度上限在 prompt 指示並於 parse 後強制截斷
 MEMORY_EXTRACT_JSON_SCHEMA = {
     "type": "object",
     "properties": {
         "keywords": {
             "type": "array",
             "items": {"type": "string"},
-            "maxItems": 20,
         },
         "entities": {
             "type": "array",
             "items": {"type": "string"},
-            "maxItems": 20,
         },
-        "topic": {"type": "string", "maxLength": 200},
+        "topic": {"type": "string"},
         "is_actionable": {"type": "boolean"},
     },
     "required": ["keywords", "entities", "topic", "is_actionable"],
     "additionalProperties": False,
 }
+
+MEMORY_MAX_KEYWORDS = 20
+MEMORY_MAX_ENTITIES = 20
+MEMORY_MAX_TOPIC_LEN = 200
 
 MEMORY_EXTRACT_SYSTEM_PROMPT = (
     "你是對話記憶抽取器。請從以下對話片段中擷取關鍵資訊，"
@@ -302,6 +306,15 @@ async def extract_memory(
 
     try:
         data = json.loads(content) if isinstance(content, str) else content
+        # 部分供應商（如 Anthropic）不支援 schema 層級 maxItems/maxLength，
+        # 於此強制截斷，確保不超過 Pydantic model 的 max_length 限制
+        if isinstance(data, dict):
+            if isinstance(data.get("keywords"), list):
+                data["keywords"] = data["keywords"][:MEMORY_MAX_KEYWORDS]
+            if isinstance(data.get("entities"), list):
+                data["entities"] = data["entities"][:MEMORY_MAX_ENTITIES]
+            if isinstance(data.get("topic"), str):
+                data["topic"] = data["topic"][:MEMORY_MAX_TOPIC_LEN]
         return MemoryExtractResult.model_validate(data)
     except Exception as exc:
         logger.warning(

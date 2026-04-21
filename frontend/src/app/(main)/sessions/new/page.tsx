@@ -2,6 +2,7 @@
 
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AgentSelect } from "@/components/ui/AgentSelect";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PageLoading } from "@/components/ui/Loading";
@@ -12,26 +13,23 @@ import { useListAgentsQuery } from "@/store/agentsApi";
 
 export default function NewOrphanSessionPage(): React.ReactNode {
   const router = useRouter();
-  const { isLoading: authLoading } = useAuth();
+  const { isLoading: authLoading, userUid } = useAuth();
   const { showDialog } = useDialog();
 
   const [agentUid, setAgentUid] = useState<string>("");
   const [title, setTitle] = useState<string>("");
 
   const { data: agentsData, isLoading: agentsLoading } = useListAgentsQuery(
-    { limit: 100, cursor: null },
+    { limit: 50, cursor: null },
     { skip: authLoading },
   );
   const [createSession, { isLoading: creating }] = useCreateSessionMutation();
 
   const agents = useMemo(() => agentsData?.items ?? [], [agentsData]);
 
-  const handleAgentChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>): void => {
-      setAgentUid(e.target.value);
-    },
-    [],
-  );
+  const handleAgentChange = useCallback((next: string): void => {
+    setAgentUid(next);
+  }, []);
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -74,7 +72,7 @@ export default function NewOrphanSessionPage(): React.ReactNode {
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-2 text-3xl font-bold text-foreground">新對話</h1>
       <p className="mb-6 text-base text-muted">
-        建立一個不屬於任何 Project 的對話；若要分類可稍後再移入 Project。
+        建立一個不屬於任何專案的獨立對話；若要分類可稍後再移入專案。
       </p>
 
       <div className="flex flex-col gap-4 rounded-xl bg-card-bg p-6 shadow-sm">
@@ -85,21 +83,18 @@ export default function NewOrphanSessionPage(): React.ReactNode {
           >
             Agent<span className="ml-0.5 text-destructive">*</span>
           </label>
-          <select
-            id="session-agent"
+          <AgentSelect
+            agents={agents}
             value={agentUid}
             onChange={handleAgentChange}
+            userUid={userUid}
             disabled={agentsLoading}
-            className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <option value="">請選擇 Agent</option>
-            {agents.map((agent) => (
-              <option key={agent.agent_uid} value={agent.agent_uid}>
-                {agent.name}
-                {agent.owner_username ? ` (@${agent.owner_username})` : ""}
-              </option>
-            ))}
-          </select>
+          />
+          {!agentsLoading && agents.length === 0 && (
+            <p className="mt-1 text-sm text-muted">
+              尚無可用的 Agent，請先到「Agent 管理」建立或啟用公開。
+            </p>
+          )}
         </div>
 
         <Input

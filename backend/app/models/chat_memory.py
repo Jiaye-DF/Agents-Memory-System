@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text, Uuid, func
+from sqlalchemy import BigInteger, DateTime, String, Text, Uuid, func
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -24,9 +24,8 @@ class ChatMemory(MemoryBase):
     chat_memory_uid: Mapped[uuid.UUID] = mapped_column(
         Uuid, default=uuid.uuid4, nullable=False
     )
-    chat_session_uid: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("chat_session.chat_session_uid"), nullable=False
-    )
+    # 不使用 Python 層 FK：ChatMemory 與 ChatSession 屬不同 DeclarativeBase，FK 由 DB migration 保證
+    chat_session_uid: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
     source_chat_message_uids: Mapped[list[uuid.UUID]] = mapped_column(
         ARRAY(Uuid), nullable=False
     )

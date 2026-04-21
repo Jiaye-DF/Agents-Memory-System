@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, Uuid, func
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, Numeric, String, Text, Uuid, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -24,9 +24,9 @@ class ChatMessage(MessageBase):
     chat_message_uid: Mapped[uuid.UUID] = mapped_column(
         Uuid, default=uuid.uuid4, nullable=False
     )
-    chat_session_uid: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("chat_session.chat_session_uid"), nullable=False
-    )
+    # 不使用 Python 層 FK：ChatMessage 與 ChatSession 屬不同 DeclarativeBase
+    # （為了排除 updated_at / is_deleted），FK 仍由 DB migration 保證
+    chat_session_uid: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     token_in: Mapped[int | None] = mapped_column(Integer, nullable=True)

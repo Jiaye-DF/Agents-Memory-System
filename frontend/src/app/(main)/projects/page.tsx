@@ -44,7 +44,7 @@ const ProjectCard = React.memo(function ProjectCard({
           </h3>
         </Link>
         <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
-          {project.session_count} sessions
+          {project.session_count} 則對話
         </span>
       </div>
 
@@ -109,14 +109,14 @@ function CreateProjectModal({
         description: description.trim() || null,
       },
       {
-        errorMessage: "建立 Project 失敗，請稍後再試",
+        errorMessage: "建立專案失敗，請稍後再試",
         onSuccess: onClose,
       },
     );
   }, [name, description, runCreate, onClose]);
 
   return (
-    <ModalDialog title="新增 Project" onClose={onClose} size="md">
+    <ModalDialog title="新增專案" onClose={onClose} size="md">
       <div className="flex flex-col gap-4">
         <Input
           label="名稱"
@@ -183,10 +183,10 @@ export default function ProjectsPage(): React.ReactNode {
 
   const deleteOptions = useMemo(
     () => ({
-      title: "刪除 Project",
-      message: "確定要刪除此 Project 嗎？其下所有 Session 也會一併停用。",
+      title: "刪除專案",
+      message: "確定要刪除此專案嗎？其下所有對話也會一併停用。",
       successTitle: "刪除成功",
-      successMessage: "Project 已成功刪除。",
+      successMessage: "專案已成功刪除。",
       errorMessage: "刪除失敗，請稍後再試",
     }),
     [],
@@ -219,8 +219,8 @@ export default function ProjectsPage(): React.ReactNode {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">對話 Projects</h1>
-        <Button onClick={handleOpenCreate}>新增 Project</Button>
+        <h1 className="text-3xl font-bold text-foreground">專案管理</h1>
+        <Button onClick={handleOpenCreate}>新增專案</Button>
       </div>
 
       <div className="rounded-xl bg-card-bg p-6 shadow-sm">
@@ -228,7 +228,7 @@ export default function ProjectsPage(): React.ReactNode {
           <PageLoading />
         ) : projects.length === 0 ? (
           <div className="py-12 text-center text-muted">
-            尚未建立任何 Project，點擊右上角新增。
+            尚未建立任何專案，點擊右上角新增。
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

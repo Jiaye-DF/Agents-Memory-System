@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { AgentSelect } from "@/components/ui/AgentSelect";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PageLoading } from "@/components/ui/Loading";
@@ -47,7 +48,7 @@ const SessionCard = React.memo(function SessionCard({
           </h3>
         </Link>
         <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
-          {session.message_count} 則
+          {session.message_count} 則訊息
         </span>
       </div>
 
@@ -90,8 +91,9 @@ function CreateSessionModal({
   const [agentUid, setAgentUid] = useState<string>("");
   const [title, setTitle] = useState<string>("");
 
+  const { userUid } = useAuth();
   const { data: agentsData, isLoading: agentsLoading } = useListAgentsQuery({
-    limit: 100,
+    limit: 50,
     cursor: null,
   });
 
@@ -100,12 +102,9 @@ function CreateSessionModal({
 
   const agents = useMemo(() => agentsData?.items ?? [], [agentsData]);
 
-  const handleAgentChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>): void => {
-      setAgentUid(e.target.value);
-    },
-    [],
-  );
+  const handleAgentChange = useCallback((next: string): void => {
+    setAgentUid(next);
+  }, []);
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -125,7 +124,7 @@ function CreateSessionModal({
         }).unwrap();
         onCreated(result.chat_session_uid);
       } catch (err: unknown) {
-        const message = typeof err === "string" ? err : "建立 Session 失敗，請稍後再試";
+        const message = typeof err === "string" ? err : "建立對話失敗，請稍後再試";
         showDialog({
           type: "error",
           title: "操作失敗",
@@ -136,7 +135,7 @@ function CreateSessionModal({
   }, [agentUid, title, projectUid, createSession, onCreated, showDialog]);
 
   return (
-    <ModalDialog title="新增 Session" onClose={onClose} size="md">
+    <ModalDialog title="新增對話" onClose={onClose} size="md">
       <div className="flex flex-col gap-4">
         <div>
           <label
@@ -145,25 +144,22 @@ function CreateSessionModal({
           >
             Agent<span className="ml-0.5 text-destructive">*</span>
           </label>
-          <select
-            id="session-agent"
+          <AgentSelect
+            agents={agents}
             value={agentUid}
             onChange={handleAgentChange}
+            userUid={userUid ?? null}
             disabled={agentsLoading}
-            className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <option value="">請選擇 Agent</option>
-            {agents.map((agent) => (
-              <option key={agent.agent_uid} value={agent.agent_uid}>
-                {agent.name}
-                {agent.owner_username ? ` (@${agent.owner_username})` : ""}
-              </option>
-            ))}
-          </select>
+          />
+          {!agentsLoading && agents.length === 0 && (
+            <p className="mt-1 text-sm text-muted">
+              尚無可用的 Agent，請先到「Agent 管理」建立或啟用公開。
+            </p>
+          )}
         </div>
 
         <Input
-          label="Session 標題（選填）"
+          label="對話標題（選填）"
           placeholder="未填則由首則訊息自動帶入"
           value={title}
           onChange={handleTitleChange}
@@ -224,10 +220,10 @@ export default function ProjectDetailPage(): React.ReactNode {
 
   const deleteOptions = useMemo(
     () => ({
-      title: "刪除 Session",
-      message: "確定要刪除此 Session 嗎？訊息歷史會保留但不可再進入。",
+      title: "刪除對話",
+      message: "確定要刪除此對話嗎？訊息歷史會保留但不可再進入。",
       successTitle: "刪除成功",
-      successMessage: "Session 已成功刪除。",
+      successMessage: "對話已成功刪除。",
       errorMessage: "刪除失敗，請稍後再試",
     }),
     [],
@@ -272,9 +268,9 @@ export default function ProjectDetailPage(): React.ReactNode {
   if (projectError || !project) {
     return (
       <div>
-        <h1 className="mb-4 text-3xl font-bold text-foreground">Project 詳情</h1>
+        <h1 className="mb-4 text-3xl font-bold text-foreground">專案詳情</h1>
         <div className="rounded-xl bg-card-bg p-6 text-center shadow-sm">
-          <p className="text-muted">找不到指定的 Project。</p>
+          <p className="text-muted">找不到指定的專案。</p>
           <Button className="mt-4" variant="secondary" onClick={handleBack}>
             返回列表
           </Button>
@@ -298,12 +294,12 @@ export default function ProjectDetailPage(): React.ReactNode {
           <Button variant="secondary" onClick={handleBack}>
             返回列表
           </Button>
-          <Button onClick={handleOpenCreate}>新增 Session</Button>
+          <Button onClick={handleOpenCreate}>新增對話</Button>
         </div>
       </div>
 
       <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-        <span>Session 總數：{project.session_count}</span>
+        <span>對話總數：{project.session_count}</span>
         <span>建立於 {formatDateTime(project.created_at)}</span>
         <span>更新於 {formatDateTime(project.updated_at)}</span>
       </div>
@@ -313,7 +309,7 @@ export default function ProjectDetailPage(): React.ReactNode {
           <PageLoading />
         ) : sessions.length === 0 ? (
           <div className="py-12 text-center text-muted">
-            尚未建立任何 Session，點擊右上角新增。
+            尚未建立任何對話，點擊右上角新增。
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

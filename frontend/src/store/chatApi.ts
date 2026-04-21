@@ -184,7 +184,7 @@ export const chatApi = baseApi.injectEndpoints({
         path: `/chat/sessions/${sessionUid}`,
         body,
       }),
-      invalidatesTags: ["ChatSessions"],
+      invalidatesTags: ["ChatSessions", "OrphanChatSessions"],
     }),
 
     deleteSession: builder.mutation<null, string>({
