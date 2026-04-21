@@ -31,6 +31,17 @@ Claude Code 在任何專案共用的基本規範。專案特定設計請參考 [
 - FastAPI：初始化時明確指定 `docs_url="/api/docs"`。
 - 新增或修改 API 時，須同步維護 Request / Response Schema 與欄位說明。
 
+## 任務文件回填
+
+`docs/Tasks/` 下的 `tasks-v*.md` 是實作前規格，完成後**必須**回填才能反映真實進度：
+
+- 任一 phase 項目實作完成 → 該項 `[ ]` 改 `[x]`。
+- 規格在實作中被推翻或調整 → 保留該項 checkbox，後方補 `—（已改為 xxx，見 commit yyy）`。
+- 某版本全部完成 → 在檔案頂部加狀態標題：`> **狀態：已完成（commit xxx, YYYY-MM-DD）**`。
+- 部分完成 → 狀態標題改為 `進行中（已完成 Phase N, 剩 ...）`。
+
+commit message 是事件紀錄，task doc 是階段真相來源；兩者不可只維護其一。
+
 ## Git 工作流程
 
 - 主分支 `main`，新功能從 `main` 切出 feature branch。

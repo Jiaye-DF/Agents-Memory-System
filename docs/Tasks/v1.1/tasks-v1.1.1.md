@@ -1,5 +1,7 @@
 # v1.1.1 任務規格：對話 + Session / Project 基礎
 
+> **狀態：已完成（commit 37aa3ba, 2026-04-21）**
+
 ## 版本目標
 
 建立對話功能的資料基底與最小可用流程：`chat_project` 容器、`chat_session` 對話區、`chat_message` 訊息表；支援單一 Session 與單一 Agent 的 SSE streaming 對話，對話歷史持久化至 PG。
@@ -52,7 +54,7 @@
 
 ### 1-1 Migration
 
-- [ ] **V18**：`create_chat_project_table.sql`
+- [x] **V18**：`create_chat_project_table.sql`
   - `pid bigserial PK`、`chat_project_uid uuid default gen_random_uuid() UNIQUE`
   - `owner_user_uid uuid NOT NULL REFERENCES user(user_uid)`
   - `name varchar(100) NOT NULL`、`description text NULL`
@@ -62,12 +64,12 @@
   - Index：`idx_chat_project_owner_user_uid`、`uq_chat_project_uid`
   - `COMMENT ON COLUMN` 全部欄位
 
-- [ ] **V19**：`create_chat_session_table.sql`
+- [x] **V19**：`create_chat_session_table.sql`
   - `pid`、`chat_session_uid`、`chat_project_uid FK`、`agent_uid FK`
   - `title varchar(200)`、`is_active`、`is_deleted`、`created_at` / `updated_at` + Trigger
   - Index：`idx_chat_session_project_uid`、`idx_chat_session_agent_uid`、`uq_chat_session_uid`
 
-- [ ] **V20**：`create_chat_message_table.sql`
+- [x] **V20**：`create_chat_message_table.sql`
   - `pid`、`chat_message_uid`、`chat_session_uid FK`
   - `role varchar(20) NOT NULL CHECK (role IN ('user','assistant','system','tool'))`
   - `content text NOT NULL`
@@ -77,32 +79,32 @@
   - **不加 `is_deleted` / `updated_at`**（訊息不可編輯、不軟刪除）
   - Index：`idx_chat_message_session_uid_created_at`（session 內時序查詢）、`uq_chat_message_uid`
 
-- [ ] **V21**：`seed_chat_system_settings.sql`
+- [x] **V21**：`seed_chat_system_settings.sql`
   - `chat.max_sessions_per_project` = `3`
   - `chat.max_projects_per_user` = `5`
 
 ### 1-2 Model
 
-- [ ] `app/models/chat_project.py`：`ChatProject`（繼承 `Base`，`chat_project_uid` / `owner_uid` / `name` / `description`；`relationship("User")` 可選）
-- [ ] `app/models/chat_session.py`：`ChatSession`（`chat_session_uid` / `chat_project_uid` / `agent_uid` / `title`）
-- [ ] `app/models/chat_message.py`：`ChatMessage`（自訂 base，**不繼承** `app/models/base.py`，因為沒有 `updated_at` / `is_deleted`）
+- [x] `app/models/chat_project.py`：`ChatProject`（繼承 `Base`，`chat_project_uid` / `owner_uid` / `name` / `description`；`relationship("User")` 可選）
+- [x] `app/models/chat_session.py`：`ChatSession`（`chat_session_uid` / `chat_project_uid` / `agent_uid` / `title`）
+- [x] `app/models/chat_message.py`：`ChatMessage`（自訂 base，**不繼承** `app/models/base.py`，因為沒有 `updated_at` / `is_deleted`）
 
 ### 1-3 Schema（`app/schemas/chat/schemas.py`）
 
-- [ ] `ChatProjectCreateRequest`：`name`（必填 1-100）、`description`（可選）
-- [ ] `ChatProjectUpdateRequest`：`name` / `description` 皆可選
-- [ ] `ChatProjectResponse`：完整欄位 + `session_count`（聚合）
-- [ ] `ChatSessionCreateRequest`：`chat_project_uid`、`agent_uid`、`title`（可選，空則用首則訊息填）
-- [ ] `ChatSessionUpdateRequest`：`title` 可選（允許改名）
-- [ ] `ChatSessionResponse`：完整欄位 + `agent_name`、`last_message_at`、`message_count`
-- [ ] `ChatMessageCreateRequest`：`content`（必填，1-10000 字）、`role` 固定 `user`（後端強制）
-- [ ] `ChatMessageResponse`：完整欄位
+- [x] `ChatProjectCreateRequest`：`name`（必填 1-100）、`description`（可選）
+- [x] `ChatProjectUpdateRequest`：`name` / `description` 皆可選
+- [x] `ChatProjectResponse`：完整欄位 + `session_count`（聚合）
+- [x] `ChatSessionCreateRequest`：`chat_project_uid`、`agent_uid`、`title`（可選，空則用首則訊息填）
+- [x] `ChatSessionUpdateRequest`：`title` 可選（允許改名）
+- [x] `ChatSessionResponse`：完整欄位 + `agent_name`、`last_message_at`、`message_count`
+- [x] `ChatMessageCreateRequest`：`content`（必填，1-10000 字）、`role` 固定 `user`（後端強制）
+- [x] `ChatMessageResponse`：完整欄位
 
 ### 1-4 Repository
 
-- [ ] `chat_project_repository.py`：`list_by_owner`、`get_by_uid`、`create`、`update`、`soft_delete`、`count_by_owner`
-- [ ] `chat_session_repository.py`：`list_by_project`、`get_by_uid`、`create`、`update`、`soft_delete`、`count_by_project`
-- [ ] `chat_message_repository.py`：`list_by_session(cursor, limit)`（cursor-based，按 `pid ASC`）、`get_by_uid`、`create`、`get_last_n(session_uid, n)`（組 prompt 用）、`sum_tokens_cost(session_uid)`（聚合）
+- [x] `chat_project_repository.py`：`list_by_owner`、`get_by_uid`、`create`、`update`、`soft_delete`、`count_by_owner`
+- [x] `chat_session_repository.py`：`list_by_project`、`get_by_uid`、`create`、`update`、`soft_delete`、`count_by_project`
+- [x] `chat_message_repository.py`：`list_by_session(cursor, limit)`（cursor-based，按 `pid ASC`）、`get_by_uid`、`create`、`get_last_n(session_uid, n)`（組 prompt 用）、`sum_tokens_cost(session_uid)`（聚合）
 
 所有 `create` / `update` flush 後 `await db.refresh(obj)`（沿用 v1.0 慣例）。
 
@@ -110,7 +112,7 @@
 
 於 `app/clients/openrouter.py` 新增：
 
-- [ ] `async def stream_chat_completion(messages: list[dict], model: str, temperature: float | None, max_tokens: int | None) -> AsyncIterator[dict]`
+- [x] `async def stream_chat_completion(messages: list[dict], model: str, temperature: float | None, max_tokens: int | None) -> AsyncIterator[dict]`
   - 呼叫 `POST https://openrouter.ai/api/v1/chat/completions`，`stream=true`
   - Header：`Authorization: Bearer {OPENROUTER_API_KEY}`、`HTTP-Referer` / `X-Title`（可選）
   - yield 每個 SSE event 的 delta chunk（`{role?, content?}` + 結尾 `usage` 區塊）
@@ -118,17 +120,17 @@
 
 ### 1-6 Service：`chat_service.py`
 
-- [ ] `list_projects(user_uid, cursor, limit, db)` / `get_project(...)` / `create_project(...)` / `update_project(...)` / `delete_project(...)`
+- [x] `list_projects(user_uid, cursor, limit, db)` / `get_project(...)` / `create_project(...)` / `update_project(...)` / `delete_project(...)`
   - `create_project` 前檢查 `chat.max_projects_per_user` 上限（透過 `system_setting_service`）
 
-- [ ] `list_sessions(project_uid, user_uid, cursor, limit, db)` / `get_session(...)` / `create_session(...)` / `update_session(...)` / `delete_session(...)`
+- [x] `list_sessions(project_uid, user_uid, cursor, limit, db)` / `get_session(...)` / `create_session(...)` / `update_session(...)` / `delete_session(...)`
   - `create_session` 前檢查 `chat.max_sessions_per_project` 上限
   - 驗證 `agent_uid` 存在且使用者可見（owner or public）
 
-- [ ] `list_messages(session_uid, user_uid, cursor, limit, db)`
+- [x] `list_messages(session_uid, user_uid, cursor, limit, db)`
   - 存取權限：僅 session 擁有者可讀（admin **不能**讀，對應 propose §3-5）
 
-- [ ] `async def send_message(session_uid, user_uid, content, db) -> AsyncIterator[dict]`
+- [x] `async def send_message(session_uid, user_uid, content, db) -> AsyncIterator[dict]`
   - 流程：
     1. 驗證 session 擁有權
     2. 寫 user message（同步）
@@ -141,7 +143,7 @@
     9. （記憶 worker enqueue 留 v1.1.2）
   - 錯誤：呼叫失敗重試 2 次（指數 backoff），仍失敗則 **不寫 assistant message**，yield 錯誤 event 後關閉
 
-- [ ] `_build_system_prompt(agent, skills) -> str`：
+- [x] `_build_system_prompt(agent, skills) -> str`：
   ```
   [Agent: {name}]
   {agent.role_prompt or identity}
@@ -153,7 +155,7 @@
   {for each skill: 取 skill 的 zip 內 README.md / skill.md，若無則僅列名稱與描述}
   ```
 
-- [ ] `_auto_title_from_first_message(content) -> str`：截斷前 30 字，去除換行，作為 session 初始 title
+- [x] `_auto_title_from_first_message(content) -> str`：截斷前 30 字，去除換行，作為 session 初始 title
 
 ### 1-7 Router：`app/api/v1/chat/router.py`
 
@@ -172,10 +174,10 @@
 | GET    | `/api/v1/chat/sessions/{uid}/messages`                            | 訊息歷史（cursor 分頁）              |
 | POST   | `/api/v1/chat/sessions/{uid}/messages`                            | **SSE streaming** 回應；body 傳 `content` |
 
-- [ ] 全部端點掛 `get_current_user`
-- [ ] 存取權限：僅 owner 可操作；admin **不可**讀訊息內容（對應 propose §3-5）
-- [ ] `POST sessions/{uid}/messages` 回傳 `StreamingResponse(media_type="text/event-stream")`
-- [ ] 註冊 `chat_router` 於 `api/v1/router.py`
+- [x] 全部端點掛 `get_current_user`
+- [x] 存取權限：僅 owner 可操作；admin **不可**讀訊息內容（對應 propose §3-5）
+- [x] `POST sessions/{uid}/messages` 回傳 `StreamingResponse(media_type="text/event-stream")`
+- [x] 註冊 `chat_router` 於 `api/v1/router.py`
 
 ### 1-8 錯誤格式
 
@@ -188,27 +190,27 @@
 
 ### 2-1 型別（`types/chat.ts` + `types/index.ts` re-export）
 
-- [ ] `ChatProject` / `ChatProjectCreateRequest` / `ChatProjectUpdateRequest`
-- [ ] `ChatSession` / `ChatSessionCreateRequest` / `ChatSessionUpdateRequest`
-- [ ] `ChatMessage`（含 `token_in/out`、`cost_usd`、`model`）
+- [x] `ChatProject` / `ChatProjectCreateRequest` / `ChatProjectUpdateRequest`
+- [x] `ChatSession` / `ChatSessionCreateRequest` / `ChatSessionUpdateRequest`
+- [x] `ChatMessage`（含 `token_in/out`、`cost_usd`、`model`）
 
 ### 2-2 RTK Query（`store/chatApi.ts`）
 
-- [ ] `useListProjectsQuery({ cursor, limit })`
-- [ ] `useGetProjectQuery(uid)`
-- [ ] `useCreateProjectMutation` / `useUpdateProjectMutation` / `useDeleteProjectMutation`
-- [ ] `useListSessionsQuery({ projectUid, cursor, limit })`
-- [ ] `useGetSessionQuery(uid)`
-- [ ] `useCreateSessionMutation` / `useUpdateSessionMutation` / `useDeleteSessionMutation`
-- [ ] `useListMessagesQuery({ sessionUid, cursor, limit })`
-- [ ] Streaming 送訊息**不走 RTK Query**，自建 `fetch` + `ReadableStream` 解析 SSE（見 2-4）
-- [ ] `tagTypes` 加入 `ChatProjects` / `ChatSessions` / `ChatMessages`
+- [x] `useListProjectsQuery({ cursor, limit })`
+- [x] `useGetProjectQuery(uid)`
+- [x] `useCreateProjectMutation` / `useUpdateProjectMutation` / `useDeleteProjectMutation`
+- [x] `useListSessionsQuery({ projectUid, cursor, limit })`
+- [x] `useGetSessionQuery(uid)`
+- [x] `useCreateSessionMutation` / `useUpdateSessionMutation` / `useDeleteSessionMutation`
+- [x] `useListMessagesQuery({ sessionUid, cursor, limit })`
+- [x] Streaming 送訊息**不走 RTK Query**，自建 `fetch` + `ReadableStream` 解析 SSE（見 2-4）
+- [x] `tagTypes` 加入 `ChatProjects` / `ChatSessions` / `ChatMessages`
 
 ### 2-3 頁面
 
-- [ ] `/projects/page.tsx`：Project 卡片列表 + 「新增 Project」
-- [ ] `/projects/[uid]/page.tsx`：Project 詳情 + Session 列表 + 「新增 Session」（開 modal，選 Agent）
-- [ ] `/sessions/[uid]/page.tsx`：對話畫面
+- [x] `/projects/page.tsx`：Project 卡片列表 + 「新增 Project」
+- [x] `/projects/[uid]/page.tsx`：Project 詳情 + Session 列表 + 「新增 Session」（開 modal，選 Agent）
+- [x] `/sessions/[uid]/page.tsx`：對話畫面
   - 左側（可收合）：session 列表或 Project 導航
   - 主區：訊息氣泡（user / assistant 區分）+ 輸入框
   - 訊息用 `react-markdown` 渲染（沿用 v1.0.2 Agent 系統提示預覽套件）
@@ -216,7 +218,7 @@
 
 ### 2-4 SSE 消費 hook（`hooks/useChatStream.ts`）
 
-- [ ] `sendMessage(sessionUid, content, onDelta, onDone, onError)`
+- [x] `sendMessage(sessionUid, content, onDelta, onDone, onError)`
   - `fetch('/api/v1/chat/sessions/{uid}/messages', { method: 'POST', body: JSON.stringify({ content }), headers: { Authorization, Content-Type }})`
   - 讀 `response.body.getReader()`，解析 SSE 區塊 (`data: ...\n\n`)
   - 累積 assistant 內容，呼叫 `onDelta(partial)`
@@ -225,24 +227,24 @@
 
 ### 2-5 Sidebar 入口
 
-- [ ] `components/layout/Sidebar.tsx` 追加：
+- [x] `components/layout/Sidebar.tsx` 追加：
   - `{ label: "對話", href: "/projects", icon: <svg ... /> }`（放 Dashboard 下方、Agent 上方）
 
 ### 2-6 路由守衛
 
-- [ ] 全部 `/projects` / `/sessions` 頁面：登入即可，無需 admin
+- [x] 全部 `/projects` / `/sessions` 頁面：登入即可，無需 admin
 
 ---
 
 ## Phase 3：驗收
 
-- [ ] 新 migration 套用後，三張表均存在且 COMMENT 齊全
-- [ ] member 可建立 project → session → 開啟對話，assistant 回應以 streaming 逐字顯示
-- [ ] 訊息歷史正確持久化（F5 重整後可載回）
-- [ ] 容量上限生效：超過 `chat.max_sessions_per_project` 或 `chat.max_projects_per_user` 時回 400
-- [ ] admin 呼叫 `GET /api/v1/chat/sessions/{uid}/messages` 會被擋（權限 403）
-- [ ] `chat_message.token_in/out/cost_usd/model` 有值
-- [ ] session title 在首則訊息送出後自動帶入截斷前 30 字
-- [ ] 對話首字延遲 P95 < 2s（本機測量）
-- [ ] Swagger `/api/docs` 顯示所有 `/api/v1/chat/*` 端點
-- [ ] Sidebar「對話」入口可見且導向 `/projects`
+- [x] 新 migration 套用後，三張表均存在且 COMMENT 齊全
+- [x] member 可建立 project → session → 開啟對話，assistant 回應以 streaming 逐字顯示
+- [x] 訊息歷史正確持久化（F5 重整後可載回）
+- [x] 容量上限生效：超過 `chat.max_sessions_per_project` 或 `chat.max_projects_per_user` 時回 400
+- [x] admin 呼叫 `GET /api/v1/chat/sessions/{uid}/messages` 會被擋（權限 403）
+- [x] `chat_message.token_in/out/cost_usd/model` 有值
+- [x] session title 在首則訊息送出後自動帶入截斷前 30 字
+- [x] 對話首字延遲 P95 < 2s（本機測量）
+- [x] Swagger `/api/docs` 顯示所有 `/api/v1/chat/*` 端點
+- [x] Sidebar「對話」入口可見且導向 `/projects`
