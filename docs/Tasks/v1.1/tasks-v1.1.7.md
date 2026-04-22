@@ -1,7 +1,8 @@
 # v1.1.7 任務規格：Agentic Skill 工廠 PoC
 
-> 前置：[propose-v1.1-extended.md §5](propose-v1.1-extended.md)
+> **狀態：已完成（待 commit, 2026-04-22）** — 後端 analyzer / generator / approve-reject 流程、前端側邊欄與觀察性 log 皆實作完畢；依賴 Redis 執行環境與對話累積才能完整驗收。
 >
+> 前置：[propose-v1.1-extended.md §5](propose-v1.1-extended.md)。
 > 最終目標：驗證 Agentic loop 最小閉環 — 系統從 chat_memory 自學 Skill，使用者審核後入庫供 Agent 掛載。
 
 ## 版本目標
@@ -57,7 +58,7 @@
 
 ## Phase 0：Seed
 
-- [ ] **V32**：`seed_agentic_skill_factory_settings.sql`
+- [x] **V32**：`seed_agentic_skill_factory_settings.sql`
   - `agentic.skill_factory.enabled` = `true`
   - `agentic.skill_factory.min_memory_count` = `10`
   - `agentic.skill_factory.topic_concentration` = `0.3`
@@ -70,14 +71,14 @@
 
 ### 1-1 OpenRouter Client
 
-- [ ] `clients/openrouter/client.py` 新增 `generate_skill_suggestion(memories_payload, model) -> dict`：
+- [x] `clients/openrouter/client.py` 新增 `generate_skill_suggestion(memories_payload, model) -> dict`：
   - 固定 JSON schema：`{ name, description, system_prompt, confidence, source_memory_uids }`
   - 對齊 `extract_memory` 的 structured output 模式（structured output + post-parse 截斷防禦，見 [fixed.md #3](fixed.md)）
   - `confidence` 0-1 float，`name` <= 50 字元、`description` <= 200 字元
 
 ### 1-2 Skill Factory Service
 
-- [ ] `app/services/skill_factory_service.py`（新檔）：
+- [x] `app/services/skill_factory_service.py`（新檔）：
   - `analyze_session(session_uid, user_uid, db) -> list[dict] | None`
     - 取 `chat_memory_repository.list_by_session(session_uid)`
     - Rule 檢查：memory 數量 / 主題聚焦度
@@ -98,24 +99,24 @@
 
 ### 1-3 Skill Factory Worker
 
-- [ ] `app/workers/skill_factory_worker.py`（新檔）：
+- [x] `app/workers/skill_factory_worker.py`（新檔）：
   - 主迴圈消費 Redis queue `skill_factory_queue`，內容 `{ user_uid, session_uid }`
   - 呼叫 `analyze_session`；失敗記 log 不阻塞
   - Cooldown / enabled=false 時跳過
-- [ ] `memory_worker.py`：寫完 chat_memory 後，額外 `lpush skill_factory_queue`（一行幾 byte，影響極小）
-- [ ] `main.py::lifespan`：啟動 skill_factory_worker（仿 memory_worker 模式）
+- [x] `memory_worker.py`：寫完 chat_memory 後，額外 `lpush skill_factory_queue`（一行幾 byte，影響極小）
+- [x] `main.py::lifespan`：啟動 skill_factory_worker（仿 memory_worker 模式）
 
 ### 1-4 API Router
 
-- [ ] `app/api/v1/chat/router.py` 新增：
+- [x] `app/api/v1/chat/router.py` 新增：
   - `GET /chat/sessions/{uid}/skill-suggestions` → 回 Redis 候選清單（含 idx + status）
   - `POST /chat/sessions/{uid}/skill-suggestions/{idx}/approve` → 回建立的 Skill 資訊
   - `POST /chat/sessions/{uid}/skill-suggestions/{idx}/reject`
-- [ ] 所有端點驗證 session 擁有者
+- [x] 所有端點驗證 session 擁有者
 
 ### 1-5 Schema
 
-- [ ] `app/schemas/chat/skill_suggestion_schemas.py`（新檔）：
+- [x] `app/schemas/chat/skill_suggestion_schemas.py`（新檔）：
   - `SkillSuggestionItem { idx; name; description; system_prompt; confidence; source_memory_uids; status; created_skill_uid | None }`
   - `SkillSuggestionListData`
 
@@ -125,30 +126,30 @@
 
 ### 2-1 型別
 
-- [ ] `types/chat.ts::SkillSuggestion`
+- [x] `types/chat.ts::SkillSuggestion`
 
 ### 2-2 RTK Query
 
-- [ ] `store/chatApi.ts`：
+- [x] `store/chatApi.ts`：
   - `listSkillSuggestions` query（providesTags `SkillSuggestions-{sessionUid}`）
   - `approveSkillSuggestion` mutation（invalidates `SkillSuggestions-{sessionUid}` + `Skills`）
   - `rejectSkillSuggestion` mutation（invalidates `SkillSuggestions-{sessionUid}`）
 
 ### 2-3 Session 頁面側邊欄
 
-- [ ] [sessions/[uid]/page.tsx](../../../frontend/src/app/(main)/sessions/[uid]/page.tsx) 新增「建議 Skill」側邊欄：
+- [x] [sessions/[uid]/page.tsx](../../../frontend/src/app/(main)/sessions/[uid]/page.tsx) 新增「建議 Skill」側邊欄：
   - 位置：與「記憶」抽屜**並列**或下方獨立抽屜（不重疊）
   - 頂部切換按鈕（類似「記憶」按鈕風格），預設收起
   - 內容：每項 suggestion 顯示 name + description + confidence 徽章 + 來源 memory 摘要
   - 按鈕：✅「建立」→ approve；❌「拒絕」→ reject
   - approve 成功後顯示 Dialog：「已建立 skill。要立即掛到目前 Agent 嗎？」→ Yes 則自動呼叫 `updateAgent` 將該 skill_uid 加入
-- [ ] 空狀態：「對話累積一段時間後會出現建議的 Skills。現有 N 則記憶（達到 M 則且主題聚焦即可觸發）」
+- [x] 空狀態：「對話累積一段時間後會出現建議的 Skills。現有 N 則記憶（達到 M 則且主題聚焦即可觸發）」
 
 ### 2-4 視覺
 
-- [ ] Confidence 徽章：0.8+ 綠、0.6-0.8 黃、< 0.6 灰
-- [ ] 所有元素 `hover:cursor-pointer`、`rounded-xl`（11-ui-ux 規範）
-- [ ] **禁止**顯示任何 uid（suggestion idx 也不顯示，內部使用）— 遵循 [10-frontend.md § 識別碼顯示](../../Design-Base/10-frontend.md)
+- [x] Confidence 徽章：0.8+ 綠、0.6-0.8 黃、< 0.6 灰
+- [x] 所有元素 `hover:cursor-pointer`、`rounded-xl`（11-ui-ux 規範）
+- [x] **禁止**顯示任何 uid（suggestion idx 也不顯示，內部使用）— 遵循 [10-frontend.md § 識別碼顯示](../../Design-Base/10-frontend.md)
 
 ---
 
@@ -156,22 +157,22 @@
 
 這是 PoC 的**主要學習產物**，不是附屬功能。
 
-- [ ] worker log 使用 `logger.info`（非 debug），格式化：
+- [x] worker log 使用 `logger.info`（非 debug），格式化：
   - `skill_factory: analyze session_uid=X memory_count=Y topic_concentration=Z decision={triggered|skipped:reason}`
   - `skill_factory: llm_input memories={...} model=X`
   - `skill_factory: llm_output suggestions={...}`
-- [ ] `agentic:skill:log` Redis stream 結構：
+- [x] `agentic:skill:log` Redis stream 結構：
   - `{ ts, user_uid, session_uid, type: "generated|approved|rejected", signature, suggestion_snapshot, source_memory_uids }`
-  - TTL 30 天（Redis stream MAXLEN 或 XADD 限制）
-- [ ] 預留**簡易查詢 API**：`GET /api/v1/admin/debug/skill-factory/recent?limit=50` 讀 stream，方便開發者觀察（admin-only）
+  - TTL 30 天（以 XADD MAXLEN~10000 近似，足以覆蓋 PoC 規模的 30 天事件量）
+- [x] 預留**簡易查詢 API**：`GET /api/v1/admin/debug/skill-factory/recent?limit=50` 讀 stream，方便開發者觀察（admin-only）
 
 ---
 
 ## Phase 4：文件
 
-- [ ] [propose-v1.1-extended.md §5](propose-v1.1-extended.md) 實作完回填狀態標題
-- [ ] [propose-v1.2.0.md §2-8](../v1.2/propose-v1.2.0.md) 加一行「承接 v1.1.7 commit xxx 的 PoC，approve/reject 訊號可用於 threshold 調校」
-- [ ] `docs/Tasks/v1.1/fixed.md`：驗收期 bug 記錄
+- [x] [propose-v1.1-extended.md §5](propose-v1.1-extended.md) 實作完回填狀態標題
+- [x] [propose-v1.2.0.md §2-8](../v1.2/propose-v1.2.0.md) 加一行「承接 v1.1.7 commit xxx 的 PoC，approve/reject 訊號可用於 threshold 調校」
+- [ ] `docs/Tasks/v1.1/fixed.md`：驗收期 bug 記錄 —（無驗收 bug 可紀錄，留空待驗收期填入）
 
 ---
 

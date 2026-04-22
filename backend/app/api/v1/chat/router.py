@@ -17,8 +17,12 @@ from app.schemas.chat.schemas import (
     ChatSessionResponse,
     ChatSessionUpdateRequest,
 )
+from app.schemas.chat.skill_suggestion_schemas import (
+    SkillSuggestionApproveData,
+    SkillSuggestionListData,
+)
 from app.schemas.response import ApiResponse, MessageData, PaginatedData
-from app.services import chat_service
+from app.services import chat_service, skill_factory_service
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -244,6 +248,59 @@ async def list_session_memories(
         chat_session_uid, current_user.user_uid, db
     )
     return success(data=result)
+
+
+# ---------- Skill Suggestions (v1.1.7 Agentic PoC) ----------
+
+
+@router.get(
+    "/sessions/{chat_session_uid}/skill-suggestions",
+    response_model=ApiResponse[SkillSuggestionListData],
+)
+async def list_skill_suggestions(
+    chat_session_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """列出該 session 目前的 Skill 候選（僅 session 擁有者可見）。"""
+    result = await skill_factory_service.list_suggestions(
+        current_user.user_uid, chat_session_uid, db
+    )
+    return success(data=result)
+
+
+@router.post(
+    "/sessions/{chat_session_uid}/skill-suggestions/{idx}/approve",
+    response_model=ApiResponse[SkillSuggestionApproveData],
+)
+async def approve_skill_suggestion(
+    chat_session_uid: str,
+    idx: int,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """核准 Skill 候選並沿用 POST /skills 流程建立私人 skill。"""
+    result = await skill_factory_service.approve_suggestion(
+        current_user.user_uid, chat_session_uid, idx, db
+    )
+    return success(data=result, response_code=201)
+
+
+@router.post(
+    "/sessions/{chat_session_uid}/skill-suggestions/{idx}/reject",
+    response_model=ApiResponse[MessageData],
+)
+async def reject_skill_suggestion(
+    chat_session_uid: str,
+    idx: int,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """拒絕 Skill 候選（標記為 rejected，保留在 Redis 供事後分析）。"""
+    await skill_factory_service.reject_suggestion(
+        current_user.user_uid, chat_session_uid, idx, db
+    )
+    return success(data={"message": "已拒絕該 Skill 候選"})
 
 
 @router.post("/sessions/{chat_session_uid}/messages")

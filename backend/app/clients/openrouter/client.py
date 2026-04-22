@@ -52,6 +52,185 @@ MEMORY_EXTRACT_SYSTEM_PROMPT = (
 )
 
 
+# v1.1.7 Skill Factory：與 MemoryExtract 同樣策略 — schema 不宣告 maxLength，
+# 由 prompt 指示 + post-parse 強制截斷，確保供應商相容
+SKILL_SUGGESTION_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "system_prompt": {"type": "string"},
+        "confidence": {"type": "number"},
+        "source_memory_uids": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+    },
+    "required": [
+        "name",
+        "description",
+        "system_prompt",
+        "confidence",
+        "source_memory_uids",
+    ],
+    "additionalProperties": False,
+}
+
+SKILL_SUGGESTION_NAME_MAX_LEN = 50
+SKILL_SUGGESTION_DESC_MAX_LEN = 200
+SKILL_SUGGESTION_PROMPT_MAX_LEN = 8000
+SKILL_SUGGESTION_MAX_SOURCE = 50
+
+SKILL_SUGGESTION_SYSTEM_PROMPT = (
+    "你是 Skill 候選生成器。輸入為單一 session 的記憶摘要清單，"
+    "請評估是否有明顯的重複使用模式，若有則產出一個可重用的 Skill 草稿，"
+    "以嚴格的 JSON 物件回覆，欄位為："
+    "name（Skill 名稱，繁體中文，最多 50 字元）、"
+    "description（Skill 用途描述，繁體中文，最多 200 字元）、"
+    "system_prompt（以第二人稱『你』撰寫的 system prompt，指導未來 Agent 如何協助使用者重現該模式，最多 8000 字元）、"
+    "confidence（0.0 ~ 1.0 的浮點數，表示此建議值得採納的信心分數）、"
+    "source_memory_uids（本次主要參考的 memory uid 清單）。"
+    "若資料不足以歸納明顯模式，仍須回傳合法 JSON 但 confidence 調低。"
+    "不要加任何額外文字或 markdown。"
+)
+
+
+async def generate_skill_suggestion(
+    memories_payload: str,
+    model: str,
+) -> dict:
+    """
+    呼叫 OpenRouter 小模型，以 JSON schema 結構化輸出產出單一 Skill 候選。
+    memories_payload 為已序列化的記憶摘要字串（由 skill_factory_service 組好）。
+    失敗直接拋 AppError，由 worker 端記錄並跳過。
+    """
+    if not settings.OPENROUTER_API_KEY:
+        raise AppError(
+            detail="OPENROUTER_API_KEY 未設定，無法呼叫 Skill 生成 API",
+            response_code=500,
+            status_code=500,
+        )
+
+    headers = {
+        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": settings.OPENROUTER_HTTP_REFERER,
+        "X-Title": settings.OPENROUTER_APP_TITLE,
+    }
+
+    payload_messages: list[dict] = [
+        {"role": "system", "content": SKILL_SUGGESTION_SYSTEM_PROMPT},
+        {"role": "user", "content": memories_payload},
+    ]
+
+    body: dict = {
+        "model": model,
+        "messages": payload_messages,
+        "stream": False,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "SkillSuggestion",
+                "strict": True,
+                "schema": SKILL_SUGGESTION_JSON_SCHEMA,
+            },
+        },
+    }
+
+    timeout = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(
+                OPENROUTER_CHAT_URL, headers=headers, json=body
+            )
+            if resp.status_code >= 400:
+                logger.warning(
+                    "OpenRouter generate_skill_suggestion 回應錯誤 %s: %s",
+                    resp.status_code,
+                    resp.text[:500],
+                )
+                raise AppError(
+                    detail=f"Skill 生成 API 失敗（HTTP {resp.status_code}）",
+                    response_code=502,
+                    status_code=502,
+                )
+            payload = resp.json()
+    except AppError:
+        raise
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "OpenRouter generate_skill_suggestion 連線失敗: %s", exc
+        )
+        raise AppError(
+            detail="無法連線至 OpenRouter（Skill 生成）",
+            response_code=502,
+            status_code=502,
+        ) from exc
+
+    try:
+        content = payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        logger.warning(
+            "OpenRouter generate_skill_suggestion 回應格式異常: %s", payload
+        )
+        raise AppError(
+            detail="Skill 生成回應格式異常",
+            response_code=502,
+            status_code=502,
+        ) from exc
+
+    try:
+        data = json.loads(content) if isinstance(content, str) else content
+    except Exception as exc:
+        logger.warning(
+            "OpenRouter generate_skill_suggestion JSON 解析失敗: %s / 原文: %s",
+            exc,
+            str(content)[:500],
+        )
+        raise AppError(
+            detail="Skill 生成 JSON 解析失敗",
+            response_code=502,
+            status_code=502,
+        ) from exc
+
+    if not isinstance(data, dict):
+        raise AppError(
+            detail="Skill 生成回應非 JSON 物件",
+            response_code=502,
+            status_code=502,
+        )
+
+    # post-parse 強制截斷（對齊 extract_memory 策略，避免供應商不支援 maxLength）
+    name = str(data.get("name") or "").strip()[:SKILL_SUGGESTION_NAME_MAX_LEN]
+    description = str(data.get("description") or "").strip()[
+        :SKILL_SUGGESTION_DESC_MAX_LEN
+    ]
+    system_prompt = str(data.get("system_prompt") or "").strip()[
+        :SKILL_SUGGESTION_PROMPT_MAX_LEN
+    ]
+    try:
+        confidence = float(data.get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        confidence = 0.0
+    confidence = max(0.0, min(1.0, confidence))
+
+    raw_source = data.get("source_memory_uids") or []
+    if not isinstance(raw_source, list):
+        raw_source = []
+    source_memory_uids = [
+        str(x) for x in raw_source if isinstance(x, (str, int))
+    ][:SKILL_SUGGESTION_MAX_SOURCE]
+
+    return {
+        "name": name,
+        "description": description,
+        "system_prompt": system_prompt,
+        "confidence": confidence,
+        "source_memory_uids": source_memory_uids,
+    }
+
+
 async def fetch_model_ids() -> set[str]:
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:

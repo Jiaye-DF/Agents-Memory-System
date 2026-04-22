@@ -168,6 +168,8 @@ SSE 連線斷開時（網路抖動、反向代理超時）前端自動 fallback 
 
 ### 2-8 Agentic Skill 工廠正式版（承接 v1.1.7 PoC）
 
+> 承接 v1.1.7 commit（待回填） 的 PoC：Redis `agentic:skill:log` stream 累積的 approve/reject 訊號可用於本版 threshold（`min_memory_count` / `topic_concentration` / confidence 下限）的實測調校。
+
 v1.1.7 PoC 以**單一 session** chat_memory 為樣本、人工審核入庫。本版升級兩個面向：
 
 #### 升級 A：消費跨層記憶

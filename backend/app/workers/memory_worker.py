@@ -172,6 +172,33 @@ async def _process_batch(
                 session_uid,
                 len(kept),
             )
+            # v1.1.7：觸發 Skill 工廠（不阻塞；由 skill_factory_worker 獨立消費）
+            try:
+                from app.repositories import chat_session_repository
+
+                session_obj = await chat_session_repository.get_by_uid(
+                    session_uid, db
+                )
+                owner_uid = (
+                    str(session_obj.owner_user_uid) if session_obj else None
+                )
+                if owner_uid:
+                    redis = get_redis()
+                    await redis.lpush(
+                        "skill_factory_queue",
+                        json.dumps(
+                            {
+                                "user_uid": owner_uid,
+                                "session_uid": session_uid,
+                            }
+                        ),
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "memory_worker 推入 skill_factory_queue 失敗 session=%s: %s",
+                    session_uid,
+                    exc,
+                )
             return
         except Exception as exc:
             last_err = exc

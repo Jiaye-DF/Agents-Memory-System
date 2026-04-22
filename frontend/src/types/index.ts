@@ -60,4 +60,7 @@ export type {
   ChatMessage,
   ChatMessageRole,
   ChatMemory,
+  SkillSuggestion,
+  SkillSuggestionStatus,
+  SkillSuggestionApproveResult,
 } from "./chat";

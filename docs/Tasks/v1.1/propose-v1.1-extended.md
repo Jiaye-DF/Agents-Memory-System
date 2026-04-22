@@ -140,6 +140,8 @@ CREATE TABLE chat_attachment (
 
 ## 5. v1.1.7 — Agentic Skill 工廠 PoC
 
+> **狀態：已完成（待 commit, 2026-04-22）** — analyzer / generator / approve / reject 流程、觀察性 Redis stream、admin debug 端點與前端側邊欄均已實作。
+
 ### 目標
 
 驗證 Agentic loop 最小閉環：

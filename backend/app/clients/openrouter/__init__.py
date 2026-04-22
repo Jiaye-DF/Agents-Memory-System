@@ -4,6 +4,7 @@ from app.clients.openrouter.client import (
     embed,
     extract_memory,
     fetch_model_ids,
+    generate_skill_suggestion,
     stream_chat_completion,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "embed",
     "extract_memory",
     "fetch_model_ids",
+    "generate_skill_suggestion",
     "stream_chat_completion",
 ]

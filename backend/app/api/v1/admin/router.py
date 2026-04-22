@@ -36,6 +36,7 @@ from app.services import (
     agent_language_service,
     agent_template_service,
     llm_model_service,
+    skill_factory_service,
     system_setting_service,
 )
 
@@ -46,6 +47,16 @@ class RolesListData(BaseModel):
 
 class SystemSettingListData(BaseModel):
     items: list[SystemSettingResponse]
+
+
+class SkillFactoryLogItem(BaseModel):
+    id: str
+    ts: str | None = None
+    event: dict
+
+
+class SkillFactoryLogListData(BaseModel):
+    items: list[SkillFactoryLogItem]
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -356,3 +367,21 @@ async def delete_agent_template(
 ) -> JSONResponse:
     await agent_template_service.delete_template(agent_template_uid, db)
     return success(data={"message": "範本已刪除"})
+
+
+# ============================================================
+# v1.1.7 Skill 工廠觀察性：admin debug 端點
+# ============================================================
+
+
+@router.get(
+    "/debug/skill-factory/recent",
+    response_model=ApiResponse[SkillFactoryLogListData],
+)
+async def get_skill_factory_recent_logs(
+    _current_user: TokenPayload = require_role("admin"),
+    limit: int = Query(50, ge=1, le=200),
+) -> JSONResponse:
+    """讀取 agentic:skill:log Redis stream 最近 N 筆事件（開發者觀察用）。"""
+    result = await skill_factory_service.list_recent_logs(limit)
+    return success(data=result)
