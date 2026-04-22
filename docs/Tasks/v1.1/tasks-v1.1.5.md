@@ -1,5 +1,7 @@
 # v1.1.5 任務規格：UX Pack（輸入框、Copy、截斷 badge）
 
+> **狀態：已完成（commit 待補, 2026-04-22）**
+>
 > 前置：[propose-v1.1-extended.md §3](propose-v1.1-extended.md)
 >
 > 最終目標：降低輸入門檻 + 讓使用者看到 LLM 截斷現象。
@@ -53,7 +55,7 @@
 
 ## Phase 0：Migration
 
-- [ ] **V28**：`add_chat_message_finish_reason.sql`
+- [x] **V28**：`add_chat_message_finish_reason.sql`
   - `ALTER TABLE chat_message ADD COLUMN IF NOT EXISTS finish_reason VARCHAR(20) NULL;`
   - `COMMENT ON COLUMN chat_message.finish_reason IS 'OpenRouter finish_reason（stop / length / tool_calls 等；NULL 代表歷史訊息或非 assistant 角色）';`
 
@@ -63,23 +65,24 @@
 
 ### 1-1 Model
 
-- [ ] `app/models/chat_message.py`：新增 `finish_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)`
+- [x] `app/models/chat_message.py`：新增 `finish_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)`
 
 ### 1-2 Schema
 
-- [ ] `app/schemas/chat/schemas.py::ChatMessageResponse`：新增 `finish_reason: str | None = None`
+- [x] `app/schemas/chat/schemas.py::ChatMessageResponse`：新增 `finish_reason: str | None = None`
 
 ### 1-3 Service
 
-- [ ] `chat_service._message_to_dict`：output 多一個 `"finish_reason": message.finish_reason`
-- [ ] `chat_service.send_message`：
+- [x] `chat_service._message_to_dict`：output 多一個 `"finish_reason": message.finish_reason`
+- [x] `chat_service.send_message`：
   - 新增 helper `_extract_finish_reason(chunk) -> str | None`（參考 `_extract_usage` 寫法，從 `chunk["choices"][0].get("finish_reason")` 抽）
   - streaming loop 內更新 `finish_reason` 變數（取最後一個非 None 值）
   - 寫 assistant message 時把 `finish_reason` 帶入 `chat_message_repository.create` 的 payload
+  - `done` SSE event payload 同步帶上 `finish_reason`
 
 ### 1-4 Repository
 
-- [ ] `chat_message_repository.create`：支援 `finish_reason` 欄位寫入（若用 `**data` 傳入，通常自動支援，確認即可）
+- [x] `chat_message_repository.create`：支援 `finish_reason` 欄位寫入（若用 `**data` 傳入，通常自動支援，確認即可）—（既有 `ChatMessage(**message_data)` 自動吃新欄位，無需改碼）
 
 ---
 
@@ -87,38 +90,38 @@
 
 ### 2-1 型別
 
-- [ ] `types/chat.ts::ChatMessage`：新增 `finish_reason: string | null`
+- [x] `types/chat.ts::ChatMessage`：新增 `finish_reason: string | null`
 
 ### 2-2 輸入框 auto-resize
 
-- [ ] [sessions/[uid]/page.tsx](../../../frontend/src/app/(main)/sessions/[uid]/page.tsx) 的 textarea：
-  - 加 `onInput` handler：`el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, MAX_PX) + 'px'`
+- [x] [sessions/[uid]/page.tsx](../../../frontend/src/app/(main)/sessions/[uid]/page.tsx) 的 textarea：
+  - 加 `onInput` handler：`el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, MAX_PX) + 'px'`—（實作用 `onChange` 內呼叫 `resizeTextarea()`，效果等同）
   - `MAX_PX` 設常數（10 行約 240px，依實際 line-height 確定）
   - 送出訊息後重置高度為 auto（避免保持最後的大高度）
-  - 確保觸控 / 手機 virtual keyboard 下表現正常（實測）
+  - 確保觸控 / 手機 virtual keyboard 下表現正常（實測）—（CSS `max-h-60` + `overflow-y-auto` + JS 同步高度，使用者實測驗收）
 
 ### 2-3 Copy 按鈕
 
-- [ ] 每則 assistant message 區塊 hover 顯示 Copy 按鈕：
-  - 位置：訊息右上或底部，跟既有 metadata 區對齊
+- [x] 每則 assistant message 區塊 hover 顯示 Copy 按鈕：
+  - 位置：訊息右上或底部，跟既有 metadata 區對齊—（採右上 absolute 位置，與訊息區共用 `group` hover）
   - 樣式：`hover:cursor-pointer`、`rounded-xl`（11-ui-ux 規範）
   - onClick：`navigator.clipboard.writeText(message.content)` → setCopiedUid 狀態 → 2 秒後清除
-  - 複製中顯示 ✓ + 「已複製」；使用者 keyboard focus 也能觸發（無障礙）
-- [ ] User message 不加 Copy（避免混淆使用者自己的輸入）
+  - 複製中顯示 ✓ + 「已複製」；使用者 keyboard focus 也能觸發（無障礙）—（`focus:opacity-100` 已支援）
+- [x] User message 不加 Copy（避免混淆使用者自己的輸入）
 
 ### 2-4 截斷 badge
 
-- [ ] 判斷：`message.role === 'assistant' && message.finish_reason === 'length'`
-- [ ] 位置：訊息 metadata 區（`model`、`tokens`、`cost` 旁）
-- [ ] 樣式：紅或橘背景 + ⚠ + 「回覆被截斷」文字，`hover` tooltip「LLM 達到 max_tokens 上限。建議在 Agent 設定提高 max_tokens 或清空此欄位」
-- [ ] 使用 CSS variable 色彩（`--color-warning-bg` / `--color-warning`），**禁止**寫死 hex（11-ui-ux 規範）
+- [x] 判斷：`message.role === 'assistant' && message.finish_reason === 'length'`
+- [x] 位置：訊息 metadata 區（`model`、`tokens`、`cost` 旁）
+- [x] 樣式：紅或橘背景 + ⚠ + 「回覆被截斷」文字，`hover` tooltip「LLM 達到 max_tokens 上限。建議在 Agent 設定提高 max_tokens 或清空此欄位」
+- [x] 使用 CSS variable 色彩（`--color-warning-bg` / `--color-warning`），**禁止**寫死 hex（11-ui-ux 規範）—（使用 Tailwind `bg-warning-bg text-warning`，透過既有 `@theme inline` 對應 CSS variable）
 
 ---
 
 ## Phase 3：文件
 
-- [ ] `propose-v1.1-extended.md §3`：實作完回填狀態標題 `> **狀態：已完成（commit xxx, YYYY-MM-DD）**`
-- [ ] `docs/Tasks/v1.1/fixed.md`：若驗收期間發現 bug，記錄問題 + 修法
+- [x] `propose-v1.1-extended.md §3`：實作完回填狀態標題 `> **狀態：已完成（commit xxx, YYYY-MM-DD）**`
+- [ ] `docs/Tasks/v1.1/fixed.md`：若驗收期間發現 bug，記錄問題 + 修法—（驗收後視實際情況補）
 
 ---
 

@@ -48,6 +48,8 @@ v1.1.7 明確為 **PoC**，目的是自行設計一遍 Agentic loop 理解架構
 
 ## 3. v1.1.5 — UX Pack
 
+> **狀態：已完成（commit 待補, 2026-04-22）**
+
 ### 範圍內
 
 - **輸入框 auto-resize**：`textarea` 依內容行數 auto-grow（上限 10 行，超出啟動 scroll）

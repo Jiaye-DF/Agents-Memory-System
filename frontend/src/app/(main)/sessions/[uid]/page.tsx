@@ -34,16 +34,25 @@ interface StreamingBubble {
   content: string;
 }
 
+// textarea auto-resize 上限（約 10 行，line-height 以目前 text-base 估算）
+const TEXTAREA_MAX_PX = 240;
+
 interface MessageBubbleProps {
   role: ChatMessageRole;
   content: string;
   footer?: React.ReactNode;
+  copyable?: boolean;
+  copied?: boolean;
+  onCopy?: () => void;
 }
 
 const MessageBubble = React.memo(function MessageBubble({
   role,
   content,
   footer,
+  copyable,
+  copied,
+  onCopy,
 }: MessageBubbleProps): React.ReactNode {
   const isUser = role === "user";
   const isSystem = role === "system" || role === "tool";
@@ -63,7 +72,7 @@ const MessageBubble = React.memo(function MessageBubble({
       className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}
     >
       <div
-        className={`max-w-[80%] rounded-xl px-4 py-3 shadow-sm ${
+        className={`group relative max-w-[80%] rounded-xl px-4 py-3 shadow-sm ${
           isUser
             ? "bg-primary text-white"
             : "border border-border bg-card-bg text-foreground"
@@ -76,6 +85,17 @@ const MessageBubble = React.memo(function MessageBubble({
         >
           {content}
         </pre>
+        {copyable && onCopy && (
+          <button
+            type="button"
+            onClick={onCopy}
+            aria-label={copied ? "已複製" : "複製訊息"}
+            title={copied ? "已複製" : "複製"}
+            className="absolute right-2 top-2 rounded-xl border border-border bg-card-bg px-2 py-0.5 text-xs text-muted opacity-0 shadow-sm transition-opacity hover:cursor-pointer hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-input-focus/30 group-hover:opacity-100"
+          >
+            {copied ? "✓ 已複製" : "複製"}
+          </button>
+        )}
         {footer && (
           <div
             className={`mt-2 border-t pt-1 text-sm ${
@@ -194,12 +214,22 @@ function buildAssistantFooter(message: ChatMessage): React.ReactNode {
   if (message.token_in !== null) tokenParts.push(`in ${message.token_in}`);
   if (message.token_out !== null) tokenParts.push(`out ${message.token_out}`);
   const tokenText = tokenParts.length > 0 ? tokenParts.join(" / ") : null;
+  const truncated = message.finish_reason === "length";
   return (
-    <div className="flex flex-wrap gap-x-3">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       {message.model && <span>model: {message.model}</span>}
       {tokenText && <span>tokens: {tokenText}</span>}
       {message.cost_usd !== null && (
         <span>cost: {formatCost(message.cost_usd)}</span>
+      )}
+      {truncated && (
+        <span
+          title="LLM 達到 max_tokens 上限。建議在 Agent 設定提高 max_tokens 或清空此欄位"
+          className="inline-flex items-center gap-1 rounded-xl bg-warning-bg px-2 py-0.5 text-xs font-medium text-warning"
+        >
+          <span aria-hidden="true">⚠</span>
+          <span>回覆被截斷</span>
+        </span>
       )}
     </div>
   );
@@ -244,7 +274,9 @@ export default function SessionChatPage(): React.ReactNode {
   const [moveOpen, setMoveOpen] = useState<boolean>(false);
   const [titleDraft, setTitleDraft] = useState<string>("");
   const [titleEditing, setTitleEditing] = useState<boolean>(false);
+  const [copiedUid, setCopiedUid] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [updateSession] = useUpdateSessionMutation();
   const runUpdateSession = useMutationWithDialog(updateSession);
@@ -362,18 +394,71 @@ export default function SessionChatPage(): React.ReactNode {
     [],
   );
 
+  const resizeTextarea = useCallback((): void => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const next = Math.min(el.scrollHeight, TEXTAREA_MAX_PX);
+    el.style.height = `${next}px`;
+  }, []);
+
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
       setInput(e.target.value);
+      resizeTextarea();
     },
-    [],
+    [resizeTextarea],
   );
+
+  const handleCopyMessage = useCallback(
+    (messageUid: string, content: string): void => {
+      const writer =
+        typeof navigator !== "undefined" &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === "function"
+          ? navigator.clipboard.writeText(content)
+          : Promise.reject(new Error("clipboard unavailable"));
+
+      void writer
+        .then(() => {
+          setCopiedUid(messageUid);
+          if (copyTimerRef.current) {
+            clearTimeout(copyTimerRef.current);
+          }
+          copyTimerRef.current = setTimeout(() => {
+            setCopiedUid((prev) => (prev === messageUid ? null : prev));
+            copyTimerRef.current = null;
+          }, 2000);
+        })
+        .catch(() => {
+          showDialog({
+            type: "error",
+            title: "複製失敗",
+            message: "瀏覽器不支援自動複製，請手動框選內容。",
+          });
+        });
+    },
+    [showDialog],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) {
+        clearTimeout(copyTimerRef.current);
+        copyTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const handleSend = useCallback((): void => {
     const content = input.trim();
     if (!content || isStreaming) return;
 
     setInput("");
+    // 清空後把 textarea 高度重置，避免保持最後的大高度
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
     setPendingUser(content);
     setStreaming({ content: "" });
 
@@ -552,13 +637,26 @@ export default function SessionChatPage(): React.ReactNode {
                   (msg.token_in !== null ||
                     msg.token_out !== null ||
                     msg.cost_usd !== null ||
-                    msg.model !== null);
+                    msg.model !== null ||
+                    msg.finish_reason === "length");
+                const isAssistant = msg.role === "assistant";
                 return (
                   <MessageBubble
                     key={msg.chat_message_uid}
                     role={msg.role}
                     content={msg.content}
                     footer={hasMeta ? buildAssistantFooter(msg) : undefined}
+                    copyable={isAssistant}
+                    copied={copiedUid === msg.chat_message_uid}
+                    onCopy={
+                      isAssistant
+                        ? () =>
+                            handleCopyMessage(
+                              msg.chat_message_uid,
+                              msg.content,
+                            )
+                        : undefined
+                    }
                   />
                 );
               })}
@@ -597,7 +695,7 @@ export default function SessionChatPage(): React.ReactNode {
                   ? "回應生成中…"
                   : "輸入訊息，Enter 送出，Shift+Enter 換行"
               }
-              className="min-h-11 max-h-40 flex-1 resize-y rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-11 max-h-60 flex-1 resize-none overflow-y-auto rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
             />
             <Button
               onClick={handleSend}

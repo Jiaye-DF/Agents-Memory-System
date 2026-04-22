@@ -114,6 +114,7 @@ def _message_to_dict(message: ChatMessage) -> dict:
         "token_out": message.token_out,
         "cost_usd": float(message.cost_usd) if message.cost_usd is not None else None,
         "model": message.model,
+        "finish_reason": message.finish_reason,
         "created_at": to_taipei_iso(message.created_at),
     }
 
@@ -599,6 +600,16 @@ def _extract_usage(chunk: dict) -> dict | None:
     return None
 
 
+def _extract_finish_reason(chunk: dict) -> str | None:
+    choices = chunk.get("choices") if isinstance(chunk, dict) else None
+    if not choices:
+        return None
+    reason = choices[0].get("finish_reason")
+    if isinstance(reason, str) and reason:
+        return reason
+    return None
+
+
 def _extract_delta_content(chunk: dict) -> str | None:
     choices = chunk.get("choices") if isinstance(chunk, dict) else None
     if not choices:
@@ -683,12 +694,14 @@ async def send_message(
     # 6. 呼叫 LLM（帶重試）
     accumulated = ""
     usage: dict | None = None
+    finish_reason: str | None = None
     last_error: str | None = None
     success_stream = False
 
     for attempt in range(MAX_RETRIES + 1):
         accumulated = ""
         usage = None
+        finish_reason = None
         try:
             async for chunk in stream_chat_completion(
                 messages=messages,
@@ -706,6 +719,9 @@ async def send_message(
                 u = _extract_usage(chunk)
                 if u is not None:
                     usage = u
+                fr = _extract_finish_reason(chunk)
+                if fr is not None:
+                    finish_reason = fr
             success_stream = True
             break
         except AppError as exc:
@@ -757,6 +773,7 @@ async def send_message(
                 "token_out": token_out,
                 "cost_usd": cost_usd,
                 "model": model,
+                "finish_reason": finish_reason,
             },
             db,
         )
@@ -787,5 +804,5 @@ async def send_message(
 
     yield (
         f"event: done\ndata: "
-        f"{json.dumps({'message_uid': str(assistant_msg.chat_message_uid), 'token_in': token_in, 'token_out': token_out, 'cost_usd': cost_usd, 'model': model})}\n\n"
+        f"{json.dumps({'message_uid': str(assistant_msg.chat_message_uid), 'token_in': token_in, 'token_out': token_out, 'cost_usd': cost_usd, 'model': model, 'finish_reason': finish_reason})}\n\n"
     )
