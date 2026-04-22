@@ -16,13 +16,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { useChatStream } from "@/hooks/useChatStream";
 import { useDialog } from "@/hooks/useDialog";
 import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
-import { useGetAgentQuery } from "@/store/agentsApi";
+import { useGetAgentQuery, useUpdateAgentMutation } from "@/store/agentsApi";
 import {
+  useApproveSkillSuggestionMutation,
   useGetSessionQuery,
   useListMessagesQuery,
   useListProjectsQuery,
   useListSessionMemoriesQuery,
+  useListSkillSuggestionsQuery,
   useMoveChatSessionMutation,
+  useRejectSkillSuggestionMutation,
   useUpdateSessionMutation,
   useUploadAttachmentsMutation,
   chatApi,
@@ -32,6 +35,7 @@ import type {
   ChatAttachment,
   ChatMessage,
   ChatMessageRole,
+  SkillSuggestion,
 } from "@/types";
 import { formatDateTime } from "@/utils/datetime";
 
@@ -377,6 +381,7 @@ export default function SessionChatPage(): React.ReactNode {
   >([]);
   const [streaming, setStreaming] = useState<StreamingBubble | null>(null);
   const [memoryOpen, setMemoryOpen] = useState<boolean>(false);
+  const [suggestionsOpen, setSuggestionsOpen] = useState<boolean>(false);
   const [moveOpen, setMoveOpen] = useState<boolean>(false);
   const [titleDraft, setTitleDraft] = useState<string>("");
   const [titleEditing, setTitleEditing] = useState<boolean>(false);
@@ -409,6 +414,111 @@ export default function SessionChatPage(): React.ReactNode {
       void refetchMemories();
     }
   }, [memoryOpen, refetchMemories]);
+
+  const {
+    data: suggestionsData,
+    isFetching: suggestionsFetching,
+    refetch: refetchSuggestions,
+  } = useListSkillSuggestionsQuery(
+    { sessionUid },
+    { skip: authLoading || !session },
+  );
+  const suggestions = useMemo(
+    (): SkillSuggestion[] => suggestionsData?.items ?? [],
+    [suggestionsData],
+  );
+  const pendingSuggestionCount = useMemo(
+    (): number => suggestions.filter((s) => s.status === "pending").length,
+    [suggestions],
+  );
+
+  useEffect(() => {
+    if (suggestionsOpen) {
+      void refetchSuggestions();
+    }
+  }, [suggestionsOpen, refetchSuggestions]);
+
+  const [approveSuggestion, { isLoading: approvingSuggestion }] =
+    useApproveSkillSuggestionMutation();
+  const [rejectSuggestion, { isLoading: rejectingSuggestion }] =
+    useRejectSkillSuggestionMutation();
+  const [updateAgent] = useUpdateAgentMutation();
+  const runUpdateAgent = useMutationWithDialog(updateAgent);
+  const runApproveSuggestion = useMutationWithDialog(approveSuggestion);
+  const runRejectSuggestion = useMutationWithDialog(rejectSuggestion);
+
+  const handleApproveSuggestion = useCallback(
+    (idx: number): void => {
+      void (async () => {
+        let approvedSkillUid: string | null = null;
+        await runApproveSuggestion(
+          { sessionUid, idx },
+          {
+            successTitle: "已建立 Skill",
+            errorMessage: "建立 Skill 失敗，請稍後再試",
+            onSuccess: () => {
+              // noop；unwrap 會在下方取得 skill_uid
+            },
+          },
+        );
+        // 再抓一次最新狀態取 created_skill_uid（invalidatesTags 已觸發 refetch）
+        try {
+          const refreshed = await refetchSuggestions();
+          const latest = refreshed.data?.items ?? [];
+          const target = latest.find((s) => s.idx === idx);
+          approvedSkillUid = target?.created_skill_uid ?? null;
+        } catch {
+          approvedSkillUid = null;
+        }
+
+        if (!approvedSkillUid || !session || !agent) return;
+
+        showDialog({
+          type: "warning",
+          title: "建立完成",
+          message: `已建立新的 Skill。要立即掛到目前 Agent「${
+            agent.name
+          }」嗎？`,
+          onConfirm: () => {
+            const currentUids = agent.skill_uids ?? [];
+            if (currentUids.includes(approvedSkillUid!)) return;
+            void runUpdateAgent(
+              {
+                agentUid: agent.agent_uid,
+                body: { skill_uids: [...currentUids, approvedSkillUid!] },
+              },
+              {
+                successTitle: "掛載成功",
+                successMessage: "Skill 已掛到 Agent，下次對話生效。",
+                errorMessage: "掛載失敗，稍後可到 Agent 設定頁手動加入。",
+              },
+            );
+          },
+        });
+      })();
+    },
+    [
+      runApproveSuggestion,
+      sessionUid,
+      refetchSuggestions,
+      session,
+      agent,
+      showDialog,
+      runUpdateAgent,
+    ],
+  );
+
+  const handleRejectSuggestion = useCallback(
+    (idx: number): void => {
+      void runRejectSuggestion(
+        { sessionUid, idx },
+        {
+          errorMessage: "拒絕失敗，請稍後再試",
+        },
+      );
+    },
+    [runRejectSuggestion, sessionUid],
+  );
 
   const { isStreaming, sendMessage } = useChatStream(sessionUid);
 
@@ -736,6 +846,8 @@ export default function SessionChatPage(): React.ReactNode {
         dispatch(chatApi.util.invalidateTags(["ChatSessions"]));
         // 重抓記憶（非同步 worker 可能有新增）
         void refetchMemories();
+        // v1.1.7：重抓 Skill 候選（skill_factory_worker 可能有新增）
+        void refetchSuggestions();
         // 聚焦輸入框
         textareaRef.current?.focus();
       },
@@ -760,6 +872,7 @@ export default function SessionChatPage(): React.ReactNode {
     sendMessage,
     refetchMessages,
     refetchMemories,
+    refetchSuggestions,
     dispatch,
     showDialog,
     releasePendingPreviews,
@@ -855,6 +968,13 @@ export default function SessionChatPage(): React.ReactNode {
             onClick={() => setMemoryOpen((v) => !v)}
           >
             記憶 {memories.length > 0 ? `(${memories.length})` : ""}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setSuggestionsOpen((v) => !v)}
+          >
+            建議 Skill{" "}
+            {pendingSuggestionCount > 0 ? `(${pendingSuggestionCount})` : ""}
           </Button>
           <Button variant="secondary" onClick={handleOpenMove}>
             {session.chat_project_uid ? "更換專案" : "移至專案"}
@@ -1120,7 +1240,143 @@ export default function SessionChatPage(): React.ReactNode {
             </div>
           </aside>
         )}
+
+        {suggestionsOpen && (
+          <aside className="flex w-80 shrink-0 flex-col rounded-xl bg-card-bg shadow-sm">
+            <div className="flex shrink-0 items-center justify-between border-b border-border p-3">
+              <h2 className="text-base font-semibold text-foreground">
+                建議 Skill
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void refetchSuggestions()}
+                  disabled={suggestionsFetching}
+                  className="text-sm text-muted hover:cursor-pointer hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="重新整理建議 Skill"
+                  title="重新整理"
+                >
+                  {suggestionsFetching ? "⟳" : "🔄"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSuggestionsOpen(false)}
+                  className="text-sm text-muted hover:cursor-pointer hover:text-foreground"
+                  aria-label="關閉建議 Skill 抽屜"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {suggestionsFetching && suggestions.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted">
+                  載入中…
+                </div>
+              ) : suggestions.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted">
+                  對話累積一段時間後會出現建議的 Skills。
+                  <div className="mt-2">
+                    現有 {memories.length} 則記憶（達到約 10 則且主題聚焦即可觸發）。
+                  </div>
+                </div>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {suggestions.map((item) => (
+                    <SkillSuggestionCard
+                      key={`suggestion-${item.idx}`}
+                      item={item}
+                      disabled={approvingSuggestion || rejectingSuggestion}
+                      onApprove={handleApproveSuggestion}
+                      onReject={handleRejectSuggestion}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+          </aside>
+        )}
       </div>
     </div>
+  );
+}
+
+interface SkillSuggestionCardProps {
+  item: SkillSuggestion;
+  disabled: boolean;
+  onApprove: (idx: number) => void;
+  onReject: (idx: number) => void;
+}
+
+function SkillSuggestionCard({
+  item,
+  disabled,
+  onApprove,
+  onReject,
+}: SkillSuggestionCardProps): React.ReactNode {
+  const confidencePct = Math.round(item.confidence * 100);
+  // confidence 徽章色：以 CSS variable 對應的 Tailwind class 呈現，
+  // 切換規則：0.8+ 綠（success）、0.6-0.8 黃（warning）、< 0.6 灰（muted）
+  let badgeClass = "bg-muted-bg text-muted";
+  if (item.confidence >= 0.8) {
+    badgeClass = "bg-[color:var(--color-success-bg,#dcfce7)] text-[color:var(--color-success,#15803d)]";
+  } else if (item.confidence >= 0.6) {
+    badgeClass = "bg-[color:var(--color-warning-bg,#fef9c3)] text-[color:var(--color-warning,#a16207)]";
+  }
+
+  const isHandled = item.status !== "pending";
+
+  return (
+    <li className="rounded-xl border border-border bg-input-bg p-3">
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+          {item.name || "（未命名建議）"}
+        </div>
+        <span
+          className={`shrink-0 rounded-xl px-2 py-0.5 text-xs font-medium ${badgeClass}`}
+          title="模型對此建議的信心分數"
+        >
+          {confidencePct}%
+        </span>
+      </div>
+      {item.description && (
+        <p className="mb-2 text-xs text-muted">{item.description}</p>
+      )}
+      {item.source_memory_uids.length > 0 && (
+        <div className="mb-2 text-xs text-muted">
+          參考 {item.source_memory_uids.length} 則記憶
+        </div>
+      )}
+      {item.status === "approved" && (
+        <div className="mb-2 rounded-md bg-muted-bg px-2 py-1 text-xs text-muted">
+          已建立 Skill
+        </div>
+      )}
+      {item.status === "rejected" && (
+        <div className="mb-2 rounded-md bg-muted-bg px-2 py-1 text-xs text-muted">
+          已拒絕
+        </div>
+      )}
+      {!isHandled && (
+        <div className="flex items-center justify-end gap-2 border-t border-border pt-2">
+          <button
+            type="button"
+            onClick={() => onReject(item.idx)}
+            disabled={disabled}
+            className="rounded-xl border border-border bg-card-bg px-3 py-1 text-xs text-foreground transition-colors hover:cursor-pointer hover:bg-muted-bg disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            拒絕
+          </button>
+          <button
+            type="button"
+            onClick={() => onApprove(item.idx)}
+            disabled={disabled}
+            className="rounded-xl bg-primary px-3 py-1 text-xs text-white transition-colors hover:cursor-pointer hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            建立
+          </button>
+        </div>
+      )}
+    </li>
   );
 }

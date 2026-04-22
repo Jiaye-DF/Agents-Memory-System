@@ -12,6 +12,8 @@ import type {
   ChatMemory,
   ChatAttachment,
   ChatAttachmentListData,
+  SkillSuggestion,
+  SkillSuggestionApproveResult,
 } from "@/types";
 
 interface ListProjectsParams {
@@ -42,6 +44,19 @@ interface ListSessionMemoriesParams {
 
 interface SessionMemoriesData {
   items: ChatMemory[];
+}
+
+interface ListSkillSuggestionsParams {
+  sessionUid: string;
+}
+
+interface SkillSuggestionListData {
+  items: SkillSuggestion[];
+}
+
+interface SkillSuggestionMutationParams {
+  sessionUid: string;
+  idx: number;
 }
 
 export const chatApi = baseApi.injectEndpoints({
@@ -246,6 +261,47 @@ export const chatApi = baseApi.injectEndpoints({
         };
       },
     }),
+
+    // ===== SkillSuggestion (v1.1.7) =====
+    listSkillSuggestions: builder.query<
+      SkillSuggestionListData,
+      ListSkillSuggestionsParams
+    >({
+      query: ({ sessionUid }) => ({
+        method: "get",
+        path: `/chat/sessions/${sessionUid}/skill-suggestions`,
+      }),
+      providesTags: (_result, _error, { sessionUid }) => [
+        { type: "SkillSuggestions", id: sessionUid },
+      ],
+    }),
+
+    approveSkillSuggestion: builder.mutation<
+      SkillSuggestionApproveResult,
+      SkillSuggestionMutationParams
+    >({
+      query: ({ sessionUid, idx }) => ({
+        method: "post",
+        path: `/chat/sessions/${sessionUid}/skill-suggestions/${idx}/approve`,
+      }),
+      invalidatesTags: (_result, _error, { sessionUid }) => [
+        { type: "SkillSuggestions", id: sessionUid },
+        "Skills",
+      ],
+    }),
+
+    rejectSkillSuggestion: builder.mutation<
+      null,
+      SkillSuggestionMutationParams
+    >({
+      query: ({ sessionUid, idx }) => ({
+        method: "post",
+        path: `/chat/sessions/${sessionUid}/skill-suggestions/${idx}/reject`,
+      }),
+      invalidatesTags: (_result, _error, { sessionUid }) => [
+        { type: "SkillSuggestions", id: sessionUid },
+      ],
+    }),
   }),
 });
 
@@ -267,4 +323,7 @@ export const {
   useListMessagesQuery,
   useListSessionMemoriesQuery,
   useUploadAttachmentsMutation,
+  useListSkillSuggestionsQuery,
+  useApproveSkillSuggestionMutation,
+  useRejectSkillSuggestionMutation,
 } = chatApi;

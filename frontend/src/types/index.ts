@@ -62,4 +62,7 @@ export type {
   ChatMemory,
   ChatAttachment,
   ChatAttachmentListData,
+  SkillSuggestion,
+  SkillSuggestionStatus,
+  SkillSuggestionApproveResult,
 } from "./chat";

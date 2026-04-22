@@ -10,7 +10,7 @@ from app.api.v1.router import v1_router
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.redis import close_redis, init_redis
-from app.workers import memory_worker
+from app.workers import memory_worker, skill_factory_worker
 
 logger = logging.getLogger(__name__)
 
@@ -18,18 +18,24 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await init_redis()
-    worker_task: asyncio.Task | None = None
+    worker_tasks: list[asyncio.Task] = []
     try:
-        worker_task = asyncio.create_task(memory_worker.run())
+        worker_tasks.append(asyncio.create_task(memory_worker.run()))
     except Exception as exc:
         logger.warning("memory_worker 啟動失敗: %s", exc)
     try:
+        worker_tasks.append(asyncio.create_task(skill_factory_worker.run()))
+    except Exception as exc:
+        logger.warning("skill_factory_worker 啟動失敗: %s", exc)
+    try:
         yield
     finally:
-        if worker_task is not None and not worker_task.done():
-            worker_task.cancel()
+        for task in worker_tasks:
+            if not task.done():
+                task.cancel()
+        for task in worker_tasks:
             try:
-                await worker_task
+                await task
             except (asyncio.CancelledError, Exception):
                 pass
         await close_redis()

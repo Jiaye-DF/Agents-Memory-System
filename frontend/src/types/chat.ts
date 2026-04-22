@@ -85,3 +85,23 @@ export interface ChatMemory {
   topic: string | null;
   created_at: string;
 }
+
+export type SkillSuggestionStatus = "pending" | "approved" | "rejected";
+
+export interface SkillSuggestion {
+  idx: number;
+  name: string;
+  description: string;
+  system_prompt: string;
+  confidence: number;
+  source_memory_uids: string[];
+  status: SkillSuggestionStatus;
+  created_skill_uid: string | null;
+  created_at: string | null;
+}
+
+export interface SkillSuggestionApproveResult {
+  skill_uid: string;
+  name: string;
+  description: string;
+}

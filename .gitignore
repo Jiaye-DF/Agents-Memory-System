@@ -45,3 +45,4 @@ data/
 # Logs
 *.log
 logs/
+.claude/worktrees/

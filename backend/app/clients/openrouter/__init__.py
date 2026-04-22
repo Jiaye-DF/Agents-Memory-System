@@ -7,6 +7,7 @@ from app.clients.openrouter.client import (
     fetch_model_ids,
     image_bytes_to_data_url,
     model_supports_vision,
+    generate_skill_suggestion,
     stream_chat_completion,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "fetch_model_ids",
     "image_bytes_to_data_url",
     "model_supports_vision",
+    "generate_skill_suggestion",
     "stream_chat_completion",
 ]
