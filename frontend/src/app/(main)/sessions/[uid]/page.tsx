@@ -24,10 +24,15 @@ import {
   useListSessionMemoriesQuery,
   useMoveChatSessionMutation,
   useUpdateSessionMutation,
+  useUploadAttachmentsMutation,
   chatApi,
 } from "@/store/chatApi";
 import type { AppDispatch } from "@/store/store";
-import type { ChatMessage, ChatMessageRole } from "@/types";
+import type {
+  ChatAttachment,
+  ChatMessage,
+  ChatMessageRole,
+} from "@/types";
 import { formatDateTime } from "@/utils/datetime";
 
 interface StreamingBubble {
@@ -36,6 +41,86 @@ interface StreamingBubble {
 
 // textarea auto-resize 上限（約 10 行，line-height 以目前 text-base 估算）
 const TEXTAREA_MAX_PX = 240;
+const IMAGE_MIME_PREFIX = "image/";
+const ALLOWED_EXTENSIONS = [
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".pdf",
+  ".md",
+  ".txt",
+  ".json",
+  ".csv",
+];
+const MAX_ATTACHMENTS_PER_MESSAGE = 5;
+const MAX_ATTACHMENT_SIZE_MB = 10;
+
+interface PendingAttachment {
+  chat_attachment_uid: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  preview_url: string | null;
+}
+
+function isImageMime(mime: string | null | undefined): boolean {
+  return !!mime && mime.toLowerCase().startsWith(IMAGE_MIME_PREFIX);
+}
+
+function isExtensionAllowed(name: string): boolean {
+  const lower = name.toLowerCase();
+  return ALLOWED_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function attachmentDownloadPath(attachmentUid: string): string {
+  return `/chat/attachments/${attachmentUid}`;
+}
+
+interface AttachmentThumbProps {
+  attachment: ChatAttachment;
+  previewUrl?: string | null;
+}
+
+const AttachmentThumb = React.memo(function AttachmentThumb({
+  attachment,
+  previewUrl,
+}: AttachmentThumbProps): React.ReactNode {
+  const isImage = isImageMime(attachment.file_type);
+
+  // 歷史訊息 render：沒有 previewUrl 時 img 直接打 API（fetch 會走 cookie + 401 refresh？
+  // 這邊 API 其實只吃 Authorization header；歷史訊息的圖片在 v1.1.6 僅顯示檔名 chip，
+  // 點擊後於新分頁開啟 inline 預覽（瀏覽器亦無 header）。
+  // 為支援 auth 下的預覽縮圖，送出當下用 previewUrl；歷史訊息走檔名 chip + 新分頁。
+  if (isImage && previewUrl) {
+    return (
+      <div className="relative h-20 w-20 overflow-hidden rounded-lg border border-border bg-muted-bg">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={previewUrl}
+          alt={attachment.file_name}
+          className="h-full w-full object-cover"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-border bg-muted-bg px-2 py-1.5 text-sm">
+      <span aria-hidden="true">{isImage ? "🖼️" : "📄"}</span>
+      <span className="max-w-[140px] truncate">{attachment.file_name}</span>
+      <span className="text-xs text-muted">
+        {formatFileSize(attachment.file_size)}
+      </span>
+    </div>
+  );
+});
 
 interface MessageBubbleProps {
   role: ChatMessageRole;
@@ -44,6 +129,7 @@ interface MessageBubbleProps {
   copyable?: boolean;
   copied?: boolean;
   onCopy?: () => void;
+  attachments?: ChatAttachment[] | null;
 }
 
 const MessageBubble = React.memo(function MessageBubble({
@@ -53,6 +139,7 @@ const MessageBubble = React.memo(function MessageBubble({
   copyable,
   copied,
   onCopy,
+  attachments,
 }: MessageBubbleProps): React.ReactNode {
   const isUser = role === "user";
   const isSystem = role === "system" || role === "tool";
@@ -95,6 +182,22 @@ const MessageBubble = React.memo(function MessageBubble({
           >
             {copied ? "✓ 已複製" : "複製"}
           </button>
+        )}
+        {attachments && attachments.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {attachments.map((a) => (
+              <a
+                key={a.chat_attachment_uid}
+                href={`${process.env.NEXT_PUBLIC_API_URL ?? ""}${attachmentDownloadPath(a.chat_attachment_uid)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={a.file_name}
+                className="hover:cursor-pointer"
+              >
+                <AttachmentThumb attachment={a} />
+              </a>
+            ))}
+          </div>
         )}
         {footer && (
           <div
@@ -269,6 +372,9 @@ export default function SessionChatPage(): React.ReactNode {
 
   const [input, setInput] = useState<string>("");
   const [pendingUser, setPendingUser] = useState<string | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<
+    PendingAttachment[]
+  >([]);
   const [streaming, setStreaming] = useState<StreamingBubble | null>(null);
   const [memoryOpen, setMemoryOpen] = useState<boolean>(false);
   const [moveOpen, setMoveOpen] = useState<boolean>(false);
@@ -277,6 +383,10 @@ export default function SessionChatPage(): React.ReactNode {
   const [copiedUid, setCopiedUid] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [uploading, setUploading] = useState<boolean>(false);
+  const [dragOver, setDragOver] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadAttachments] = useUploadAttachmentsMutation();
 
   const [updateSession] = useUpdateSessionMutation();
   const runUpdateSession = useMutationWithDialog(updateSession);
@@ -450,9 +560,155 @@ export default function SessionChatPage(): React.ReactNode {
     };
   }, []);
 
+  const releasePendingPreviews = useCallback(
+    (items: PendingAttachment[]): void => {
+      items.forEach((a) => {
+        if (a.preview_url) URL.revokeObjectURL(a.preview_url);
+      });
+    },
+    [],
+  );
+
+  const pendingAttachmentsRef = useRef<PendingAttachment[]>([]);
+  useEffect(() => {
+    pendingAttachmentsRef.current = pendingAttachments;
+  }, [pendingAttachments]);
+  useEffect(() => {
+    return () => {
+      releasePendingPreviews(pendingAttachmentsRef.current);
+    };
+  }, [releasePendingPreviews]);
+
+  const validateFiles = useCallback(
+    (files: File[]): string | null => {
+      const remaining = MAX_ATTACHMENTS_PER_MESSAGE - pendingAttachments.length;
+      if (files.length === 0) return null;
+      if (files.length > remaining) {
+        return `單則訊息最多 ${MAX_ATTACHMENTS_PER_MESSAGE} 個附件（目前剩餘 ${remaining} 個）`;
+      }
+      for (const f of files) {
+        if (!isExtensionAllowed(f.name)) {
+          return `不允許的檔案類型：${f.name}（允許：${ALLOWED_EXTENSIONS.join(", ")}）`;
+        }
+        if (f.size > MAX_ATTACHMENT_SIZE_MB * 1024 * 1024) {
+          return `檔案超過 ${MAX_ATTACHMENT_SIZE_MB} MB 上限：${f.name}`;
+        }
+      }
+      return null;
+    },
+    [pendingAttachments.length],
+  );
+
+  const handleUploadFiles = useCallback(
+    async (files: File[]): Promise<void> => {
+      if (files.length === 0) return;
+      const err = validateFiles(files);
+      if (err) {
+        showDialog({ type: "error", title: "附件錯誤", message: err });
+        return;
+      }
+
+      setUploading(true);
+      try {
+        const resp = await uploadAttachments({
+          sessionUid,
+          files,
+        }).unwrap();
+
+        const items = resp.items ?? [];
+        const previews: PendingAttachment[] = items.map((a, idx) => {
+          const originalFile = files[idx];
+          const url =
+            originalFile && isImageMime(a.file_type)
+              ? URL.createObjectURL(originalFile)
+              : null;
+          return {
+            chat_attachment_uid: a.chat_attachment_uid,
+            file_name: a.file_name,
+            file_type: a.file_type,
+            file_size: a.file_size,
+            preview_url: url,
+          };
+        });
+        setPendingAttachments((prev) => [...prev, ...previews]);
+      } catch (e: unknown) {
+        const message =
+          typeof e === "string"
+            ? e
+            : e instanceof Error
+              ? e.message
+              : "附件上傳失敗";
+        showDialog({ type: "error", title: "附件上傳失敗", message });
+      } finally {
+        setUploading(false);
+      }
+    },
+    [sessionUid, uploadAttachments, validateFiles, showDialog],
+  );
+
+  const handlePickFiles = useCallback((): void => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>): void => {
+      const list = e.target.files;
+      if (!list) return;
+      const files = Array.from(list);
+      e.target.value = "";
+      void handleUploadFiles(files);
+    },
+    [handleUploadFiles],
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>): void => {
+      e.preventDefault();
+      setDragOver(false);
+      const files = Array.from(e.dataTransfer.files ?? []);
+      if (files.length === 0) return;
+      void handleUploadFiles(files);
+    },
+    [handleUploadFiles],
+  );
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent<HTMLDivElement>): void => {
+      e.preventDefault();
+      setDragOver(true);
+    },
+    [],
+  );
+
+  const handleDragLeave = useCallback(
+    (e: React.DragEvent<HTMLDivElement>): void => {
+      e.preventDefault();
+      setDragOver(false);
+    },
+    [],
+  );
+
+  const handleRemovePending = useCallback(
+    (uid: string): void => {
+      setPendingAttachments((prev) => {
+        const target = prev.find((a) => a.chat_attachment_uid === uid);
+        if (target?.preview_url) {
+          URL.revokeObjectURL(target.preview_url);
+        }
+        return prev.filter((a) => a.chat_attachment_uid !== uid);
+      });
+    },
+    [],
+  );
+
   const handleSend = useCallback((): void => {
     const content = input.trim();
-    if (!content || isStreaming) return;
+    if (!content || isStreaming || uploading) return;
+
+    const attachmentUids = pendingAttachments.map(
+      (a) => a.chat_attachment_uid,
+    );
+    const snapshot = pendingAttachments;
 
     setInput("");
     // 清空後把 textarea 高度重置，避免保持最後的大高度
@@ -460,6 +716,7 @@ export default function SessionChatPage(): React.ReactNode {
       textareaRef.current.style.height = "auto";
     }
     setPendingUser(content);
+    setPendingAttachments([]);
     setStreaming({ content: "" });
 
     void sendMessage(
@@ -472,6 +729,7 @@ export default function SessionChatPage(): React.ReactNode {
       () => {
         setPendingUser(null);
         setStreaming(null);
+        releasePendingPreviews(snapshot);
         // 串流完成後重抓歷史，取得完整 token / cost / uid
         void refetchMessages();
         // 同時 invalidate session 讓 message_count / last_message_at 更新
@@ -484,6 +742,7 @@ export default function SessionChatPage(): React.ReactNode {
       (detail) => {
         setPendingUser(null);
         setStreaming(null);
+        releasePendingPreviews(snapshot);
         showDialog({
           type: "error",
           title: "對話失敗",
@@ -491,15 +750,19 @@ export default function SessionChatPage(): React.ReactNode {
         });
         textareaRef.current?.focus();
       },
+      attachmentUids.length > 0 ? { attachmentUids } : undefined,
     );
   }, [
     input,
     isStreaming,
+    uploading,
+    pendingAttachments,
     sendMessage,
     refetchMessages,
     refetchMemories,
     dispatch,
     showDialog,
+    releasePendingPreviews,
   ]);
 
   const handleKeyDown = useCallback(
@@ -657,6 +920,7 @@ export default function SessionChatPage(): React.ReactNode {
                             )
                         : undefined
                     }
+                    attachments={msg.attachments}
                   />
                 );
               })}
@@ -681,8 +945,76 @@ export default function SessionChatPage(): React.ReactNode {
           )}
         </div>
 
-        <div className="shrink-0 border-t border-border p-3">
+        <div
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          className={`shrink-0 border-t border-border p-3 transition-colors ${
+            dragOver ? "bg-primary/5" : ""
+          }`}
+        >
+          {pendingAttachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {pendingAttachments.map((a) => (
+                <div
+                  key={a.chat_attachment_uid}
+                  className="relative"
+                  title={a.file_name}
+                >
+                  {a.preview_url ? (
+                    <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-border bg-muted-bg">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={a.preview_url}
+                        alt={a.file_name}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex h-16 max-w-[180px] items-center gap-2 rounded-lg border border-border bg-muted-bg px-2 py-1 text-sm">
+                      <span aria-hidden="true">📄</span>
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="truncate">{a.file_name}</span>
+                        <span className="text-xs text-muted">
+                          {formatFileSize(a.file_size)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePending(a.chat_attachment_uid)}
+                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card-bg text-xs text-foreground shadow-sm hover:cursor-pointer hover:bg-muted-bg"
+                    aria-label={`移除附件 ${a.file_name}`}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-end gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={ALLOWED_EXTENSIONS.join(",")}
+              className="hidden"
+              onChange={handleFileInputChange}
+              aria-label="附件檔案選擇"
+              title="附件檔案選擇"
+            />
+            <button
+              type="button"
+              onClick={handlePickFiles}
+              disabled={isStreaming || uploading}
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border bg-card-bg text-lg text-foreground transition-colors hover:cursor-pointer hover:bg-muted-bg disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="加入附件"
+              title="加入附件（圖片 / 文字檔）"
+            >
+              {uploading ? <Spinner size="sm" /> : "📎"}
+            </button>
             <textarea
               ref={textareaRef}
               value={input}
@@ -693,14 +1025,16 @@ export default function SessionChatPage(): React.ReactNode {
               placeholder={
                 isStreaming
                   ? "回應生成中…"
-                  : "輸入訊息，Enter 送出，Shift+Enter 換行"
+                  : dragOver
+                    ? "放開以加入附件…"
+                    : "輸入訊息，Enter 送出，Shift+Enter 換行"
               }
               className="min-h-11 max-h-60 flex-1 resize-none overflow-y-auto rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
             />
             <Button
               onClick={handleSend}
               loading={isStreaming}
-              disabled={!input.trim() || isStreaming}
+              disabled={!input.trim() || isStreaming || uploading}
             >
               送出
             </Button>

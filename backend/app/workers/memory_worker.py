@@ -1,16 +1,20 @@
 import asyncio
+import base64
 import json
 import logging
 import time
+from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.clients.openrouter import describe_image
 from app.clients.openrouter import embed as openrouter_embed
 from app.clients.openrouter import extract_memory
 from app.core.database import AsyncSessionLocal
 from app.core.redis import get_redis
 from app.models.chat_message import ChatMessage
 from app.repositories import (
+    chat_attachment_repository,
     chat_memory_repository,
     chat_message_repository,
 )
@@ -23,6 +27,7 @@ DLQ_KEY = "chat:memory:dlq"
 BRPOP_TIMEOUT = 5
 MAX_RETRY = 3
 DEFAULT_EXTRACTOR_MODEL = "anthropic/claude-haiku-4-5"
+DEFAULT_IMAGE_DESCRIBE_MODEL = "anthropic/claude-haiku-4-5"
 DEFAULT_BATCH_SIZE = 5
 DEFAULT_IDLE_SECONDS = 60
 DEFAULT_SKIP_RULES: dict = {
@@ -103,6 +108,55 @@ async def run() -> None:
             last_seen.pop(sid, None)
 
 
+async def _describe_image_attachments(
+    message: ChatMessage,
+    model: str,
+    db: AsyncSession,
+) -> str:
+    """
+    對訊息帶的圖片附件各產一句中文描述；
+    單張失敗不影響其他張，整體失敗時回空字串（由呼叫端 fallback）。
+    """
+    raw_uids = message.attachment_uids
+    if not raw_uids:
+        return ""
+    uids = [str(u) for u in raw_uids]
+
+    try:
+        attachments = await chat_attachment_repository.list_by_uids(uids, db)
+    except Exception as exc:
+        logger.warning(
+            "memory_worker 讀附件失敗 message=%s: %s",
+            message.chat_message_uid,
+            exc,
+        )
+        return ""
+
+    descriptions: list[str] = []
+    for a in attachments:
+        mime = (a.file_type or "").lower()
+        if not mime.startswith("image/"):
+            continue
+        try:
+            path = Path(a.file_path)
+            if not path.exists():
+                continue
+            raw = path.read_bytes()
+            b64 = base64.b64encode(raw).decode("ascii")
+            data_url = f"data:{mime};base64,{b64}"
+            desc = await describe_image(data_url, model=model)
+            if desc:
+                descriptions.append(f"{a.file_name}：{desc}")
+        except Exception as exc:
+            logger.warning(
+                "memory_worker 產生圖片描述失敗 attachment=%s: %s",
+                a.chat_attachment_uid,
+                exc,
+            )
+            continue
+    return " / ".join(descriptions)
+
+
 async def _process_batch(
     session_uid: str, message_uids: list[str], db: AsyncSession
 ) -> None:
@@ -118,6 +172,11 @@ async def _process_batch(
     )
     if not model:
         model = DEFAULT_EXTRACTOR_MODEL
+    image_describe_model = await system_setting_service.get(
+        "memory.image_describe_model", DEFAULT_IMAGE_DESCRIBE_MODEL, db
+    )
+    if not image_describe_model:
+        image_describe_model = DEFAULT_IMAGE_DESCRIBE_MODEL
 
     # 讀訊息
     messages: list[ChatMessage] = []
@@ -133,11 +192,18 @@ async def _process_batch(
         logger.debug("memory_worker 全數被預篩掉 session=%s", session_uid)
         return
 
-    # 組送給小模型的 messages
+    # 組送給小模型的 messages；若 user 訊息帶圖片附件，先用 vision model 產描述
+    # 文字檔 / PDF 的 filename 標記已由 chat_service 拼入訊息 content，此處不再重複處理
     combined_lines: list[str] = []
     for m in kept:
         text = memory_prefilter.truncate_for_extraction(m.content, max_tokens)
-        combined_lines.append(f"[{m.role}] {text}")
+        image_desc = await _describe_image_attachments(
+            m, image_describe_model, db
+        )
+        merged = text
+        if image_desc:
+            merged = f"{text}\n[圖片描述] {image_desc}" if text else image_desc
+        combined_lines.append(f"[{m.role}] {merged}")
     combined = "\n".join(combined_lines)
     combined = memory_prefilter.truncate_for_extraction(combined, max_tokens)
 

@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     SKILLS_UPLOAD_DIR: str = "data/skills"
     SKILLS_MAX_FILE_SIZE: int = 50 * 1024 * 1024
 
+    ATTACHMENTS_UPLOAD_DIR: str = "data/attachments"
+
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_HTTP_REFERER: str = "http://localhost:3000"
     OPENROUTER_APP_TITLE: str = "Agents Memory System"

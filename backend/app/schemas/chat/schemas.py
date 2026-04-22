@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, field_validator
 
+from app.schemas.chat.attachment_schemas import ChatAttachmentResponse
+
 
 class ChatProjectCreateRequest(BaseModel):
     name: str
@@ -111,6 +113,7 @@ class ChatSessionResponse(BaseModel):
 
 class ChatMessageCreateRequest(BaseModel):
     content: str
+    attachment_uids: list[str] | None = None
 
     @field_validator("content")
     @classmethod
@@ -121,6 +124,16 @@ class ChatMessageCreateRequest(BaseModel):
         if len(value) > 10000:
             raise ValueError("內容不可超過 10000 字元")
         return value
+
+    @field_validator("attachment_uids")
+    @classmethod
+    def validate_attachment_uids(
+        cls, value: list[str] | None
+    ) -> list[str] | None:
+        if value is None:
+            return None
+        cleaned = [x for x in value if isinstance(x, str) and x.strip()]
+        return cleaned or None
 
 
 class ChatMessageResponse(BaseModel):
@@ -134,3 +147,6 @@ class ChatMessageResponse(BaseModel):
     model: str | None
     finish_reason: str | None = None
     created_at: str
+    # 遵循 20-backend.md § 關聯資源回應：同時回 uid 陣列與 {uid, name, ...} 物件陣列
+    attachment_uids: list[str] | None = None
+    attachments: list[ChatAttachmentResponse] | None = None

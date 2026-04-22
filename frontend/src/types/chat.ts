@@ -48,6 +48,19 @@ export interface ChatSessionMoveRequest {
 
 export type ChatMessageRole = "user" | "assistant" | "system" | "tool";
 
+export interface ChatAttachment {
+  chat_attachment_uid: string;
+  chat_session_uid: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  created_at: string;
+}
+
+export interface ChatAttachmentListData {
+  items: ChatAttachment[];
+}
+
 export interface ChatMessage {
   chat_message_uid: string;
   chat_session_uid: string;
@@ -59,6 +72,8 @@ export interface ChatMessage {
   model: string | null;
   finish_reason: string | null;
   created_at: string;
+  attachment_uids: string[] | null;
+  attachments: ChatAttachment[] | null;
 }
 
 export interface ChatMemory {

@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -16,6 +17,39 @@ OPENROUTER_EMBEDDINGS_URL = "https://openrouter.ai/api/v1/embeddings"
 
 EMBEDDING_MODEL = "openai/text-embedding-3-small"
 EMBEDDING_DIMENSIONS = 1536
+
+# 已知支援 vision 的 OpenRouter model id 前綴（未被 llm_model.capabilities 標記時的 fallback）
+VISION_MODEL_PREFIXES: tuple[str, ...] = (
+    "anthropic/claude-3",
+    "anthropic/claude-haiku",
+    "anthropic/claude-opus",
+    "anthropic/claude-sonnet",
+    "anthropic/claude-4",
+    "anthropic/claude-5",
+    "openai/gpt-4o",
+    "openai/gpt-4.1",
+    "openai/chatgpt-4o",
+    "openai/o3",
+    "openai/o4",
+    "google/gemini-1.5",
+    "google/gemini-2",
+    "google/gemini-pro-vision",
+    "x-ai/grok-vision",
+    "x-ai/grok-2-vision",
+)
+
+
+def model_supports_vision(model: str | None) -> bool:
+    """判定 model id 是否支援 multimodal vision 輸入。"""
+    if not model:
+        return False
+    m = model.lower().strip()
+    return any(m.startswith(p) for p in VISION_MODEL_PREFIXES)
+
+
+def image_bytes_to_data_url(raw: bytes, mime: str) -> str:
+    b64 = base64.b64encode(raw).decode("ascii")
+    return f"data:{mime};base64,{b64}"
 
 # Anthropic 的 structured output 不支援 maxItems / maxLength，
 # 故 schema 只宣告型別；數量與長度上限在 prompt 指示並於 parse 後強制截斷
@@ -83,6 +117,12 @@ async def stream_chat_completion(
     """
     呼叫 OpenRouter Chat Completions 的 SSE streaming 端點，逐個 yield chunk。
     最後一個 chunk 可能帶 usage 資訊。
+
+    `messages[].content` 可為字串（text-only）或 multimodal 陣列，例：
+        [
+            {"type": "text", "text": "..."},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}},
+        ]
     """
     if not settings.OPENROUTER_API_KEY:
         raise AppError(
@@ -327,3 +367,93 @@ async def extract_memory(
             response_code=502,
             status_code=502,
         ) from exc
+
+
+async def describe_image(image_data_url: str, model: str) -> str:
+    """
+    以 vision model 對單張圖片產生 1-2 句中文描述，供記憶層使用。
+
+    image_data_url：`data:image/png;base64,...` 格式。
+    失敗直接拋 AppError，由呼叫端決定 fallback。
+    """
+    if not settings.OPENROUTER_API_KEY:
+        raise AppError(
+            detail="OPENROUTER_API_KEY 未設定，無法呼叫圖片描述 API",
+            response_code=500,
+            status_code=500,
+        )
+
+    headers = {
+        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": settings.OPENROUTER_HTTP_REFERER,
+        "X-Title": settings.OPENROUTER_APP_TITLE,
+    }
+
+    system = (
+        "你是圖片描述器。請用 1-2 句繁體中文描述圖片重點內容（主體、場景、文字），"
+        "不加任何前綴、引號或 markdown。"
+    )
+    user_content = [
+        {"type": "text", "text": "請描述這張圖片。"},
+        {"type": "image_url", "image_url": {"url": image_data_url}},
+    ]
+    body: dict = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_content},
+        ],
+        "stream": False,
+        "max_tokens": 120,
+    }
+
+    timeout = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(
+                OPENROUTER_CHAT_URL, headers=headers, json=body
+            )
+            if resp.status_code >= 400:
+                logger.warning(
+                    "OpenRouter describe_image 回應錯誤 %s: %s",
+                    resp.status_code,
+                    resp.text[:500],
+                )
+                raise AppError(
+                    detail=f"圖片描述失敗（HTTP {resp.status_code}）",
+                    response_code=502,
+                    status_code=502,
+                )
+            payload = resp.json()
+    except AppError:
+        raise
+    except httpx.HTTPError as exc:
+        logger.warning("OpenRouter describe_image 連線失敗: %s", exc)
+        raise AppError(
+            detail="無法連線至 OpenRouter（圖片描述）",
+            response_code=502,
+            status_code=502,
+        ) from exc
+
+    try:
+        text = payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        logger.warning("OpenRouter describe_image 回應格式異常: %s", payload)
+        raise AppError(
+            detail="圖片描述回應格式異常",
+            response_code=502,
+            status_code=502,
+        ) from exc
+
+    if isinstance(text, list):
+        # 部分 provider 會回 content 陣列
+        text = "".join(
+            seg.get("text", "")
+            for seg in text
+            if isinstance(seg, dict) and seg.get("type") == "text"
+        )
+    if not isinstance(text, str):
+        text = str(text)
+    return text.strip()

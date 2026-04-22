@@ -10,6 +10,8 @@ import type {
   ChatSessionUpdateRequest,
   ChatMessage,
   ChatMemory,
+  ChatAttachment,
+  ChatAttachmentListData,
 } from "@/types";
 
 interface ListProjectsParams {
@@ -228,8 +230,26 @@ export const chatApi = baseApi.injectEndpoints({
         { type: "ChatMessages", id: `memories-${sessionUid}` },
       ],
     }),
+
+    // ===== ChatAttachment（上傳；下載走 <a href> 直連） =====
+    uploadAttachments: builder.mutation<
+      ChatAttachmentListData,
+      { sessionUid: string; files: File[] }
+    >({
+      query: ({ sessionUid, files }) => {
+        const formData = new FormData();
+        files.forEach((f) => formData.append("files", f, f.name));
+        return {
+          method: "post",
+          path: `/chat/sessions/${sessionUid}/attachments`,
+          formData,
+        };
+      },
+    }),
   }),
 });
+
+export type UploadedAttachment = ChatAttachment;
 
 export const {
   useListProjectsQuery,
@@ -246,4 +266,5 @@ export const {
   useMoveChatSessionMutation,
   useListMessagesQuery,
   useListSessionMemoriesQuery,
+  useUploadAttachmentsMutation,
 } = chatApi;

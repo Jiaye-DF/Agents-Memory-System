@@ -80,6 +80,8 @@ v1.1.7 明確為 **PoC**，目的是自行設計一遍 Agentic loop 理解架構
 
 ## 4. v1.1.6 — 附件系統
 
+> **狀態：已完成（commit pending, 2026-04-22；見 tasks-v1.1.6.md）**
+
 ### 範圍內
 
 - `chat_attachment` 表 + local volume 儲存（未來改 S3 只需改 `file_path` 語意）
