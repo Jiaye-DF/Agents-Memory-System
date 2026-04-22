@@ -23,10 +23,20 @@ frontend/src/
 │       │   └── page.tsx        # Agent 管理
 │       ├── skills/
 │       │   └── page.tsx        # Skills 管理
-│       ├── memories/
-│       │   └── page.tsx        # 記憶管理
-│       └── conversations/
-│           └── page.tsx        # 對話管理
+│       ├── projects/
+│       │   ├── page.tsx        # Project 列表（對話 Project 容器）
+│       │   └── [uid]/page.tsx  # Project 詳情（含 sessions 列表）
+│       ├── sessions/
+│       │   ├── page.tsx        # 游離 Session 列表
+│       │   ├── new/page.tsx    # 新建游離 Session
+│       │   └── [uid]/page.tsx  # Session 對話頁
+│       ├── admin/              # admin 專屬路由群組
+│       │   ├── users/
+│       │   ├── models/
+│       │   ├── agent-languages/
+│       │   ├── agent-templates/
+│       │   └── settings/
+│       └── 403/                # 權限不足頁
 ├── components/                 # 共用 UI 元件
 │   ├── ui/                     # 基礎元件（Button、Input、Dialog 等）
 │   └── layout/                 # 佈局元件（Header、Sidebar 等）
@@ -48,6 +58,7 @@ frontend/src/
 - `(auth)` — 未登入狀態。`page.tsx` 掛載於 `/`，即首頁直接顯示登入表單，**不設獨立 `/login` 路徑**
 - `(main)` — 登入後功能區。共用含 Header / Sidebar 的佈局，未登入時重導至 `/`
 - 兩個群組使用 Next.js Route Group（括號目錄），不影響 URL 結構
+- admin 路由群組由 `useAdminGuard` 守衛，非 admin 自動導向 `/403`
 
 ---
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { getAccessToken } from "@/lib/api/client";
+import { openStream } from "@/lib/api/stream";
 
 interface UseChatStreamResult {
   isStreaming: boolean;
@@ -43,22 +43,12 @@ export function useChatStream(sessionUid: string): UseChatStreamResult {
       onDone: (finalUid: string) => void,
       onError: (detail: string) => void,
     ): Promise<void> => {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-      const token = getAccessToken();
       setIsStreaming(true);
 
       try {
-        const resp = await fetch(
-          `${baseUrl}/chat/sessions/${sessionUid}/messages`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            credentials: "include",
-            body: JSON.stringify({ content }),
-          },
+        const resp = await openStream(
+          `/chat/sessions/${sessionUid}/messages`,
+          { method: "POST", body: { content } },
         );
 
         if (!resp.ok || !resp.body) {

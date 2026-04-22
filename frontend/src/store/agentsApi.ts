@@ -83,22 +83,12 @@ export const agentsApi = baseApi.injectEndpoints({
     downloadAgent: builder.query<string, string>({
       queryFn: async (agentUid) => {
         try {
-          const { getAccessToken } = await import("@/lib/api/client");
-          const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-          const token = getAccessToken();
-          const headers: Record<string, string> = {};
-          if (token) {
-            headers["Authorization"] = `Bearer ${token}`;
-          }
-          const response = await fetch(
-            `${baseUrl}/agents/${agentUid}/download`,
-            { headers, credentials: "include" }
-          );
-          if (!response.ok) {
+          const { downloadText } = await import("@/lib/api/download");
+          const result = await downloadText(`/agents/${agentUid}/download`);
+          if (!result.ok || result.text === undefined) {
             return { error: "下載失敗" };
           }
-          const text = await response.text();
-          return { data: text };
+          return { data: result.text };
         } catch {
           return { error: "下載失敗" };
         }

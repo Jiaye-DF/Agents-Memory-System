@@ -19,7 +19,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 COOKIE_KEY = "refresh_token"
 COOKIE_PATH = "/api/v1/auth"
 COOKIE_MAX_AGE = settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400
-COOKIE_SECURE = settings.CORS_ORIGINS != ["http://localhost:3000"]
+COOKIE_SECURE = settings.APP_ENV == "production"
 
 
 def _set_refresh_cookie(response: JSONResponse, refresh_token: str) -> None:

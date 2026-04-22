@@ -98,7 +98,7 @@
 
 ### 1-4 API Router
 
-- [x] `GET /api/v1/chat/sessions?orphan=true`
+- [x] `GET /api/v1/chat/sessions?orphan=true` —（實作僅支援 orphan=true；無 orphan 列全部 sessions 的需求留至 v1.2）
   - 擁有者讀自己的游離 sessions（cursor 分頁）
   - 不帶 `orphan` 時維持既有行為（列全部自己的 sessions，含 project 內 + 游離）
 - [x] `POST /api/v1/chat/sessions`

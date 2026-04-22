@@ -15,8 +15,8 @@ backend/app/
 │       ├── router.py       # v1 總路由（掛載各資源路由）
 │       ├── agents/         # Agent 管理
 │       ├── skills/         # Skills 管理
-│       ├── memories/       # 記憶管理
-│       ├── conversations/  # 對話管理
+│       ├── chat/           # 對話領域（projects / sessions / messages / memories）
+│       ├── admin/          # admin 專屬（users / roles / llm-models / settings 等）
 │       ├── auth/           # 登入驗證
 │       └── health.py       # 健康檢查
 ├── core/
@@ -29,8 +29,8 @@ backend/app/
 ├── schemas/                # Pydantic Request / Response Schema（結構對映 api/v1/）
 │   ├── agents/
 │   ├── skills/
-│   ├── memories/
-│   ├── conversations/
+│   ├── chat/
+│   ├── admin/
 │   ├── auth/
 │   └── response.py         # ApiResponse 共用 Schema
 ├── services/               # 業務邏輯
@@ -39,7 +39,8 @@ backend/app/
 │   ├── openrouter/
 │   ├── line/
 │   └── telegram/
-└── engine/                 # Agent 引擎 / RAG Pipeline
+├── engine/                 # Agent 引擎 / RAG Pipeline
+└── workers/                # 非同步任務 worker（Redis queue 消費者，由 lifespan 啟動）
 ```
 
 ### 分層呼叫規則
@@ -52,6 +53,12 @@ api → services → repositories → models
 
 - **禁止**跨層呼叫（如 api 層直接呼叫 repositories、services 直接操作 ORM model 的 query）
 - `clients/` 只由 `services` 層呼叫
+
+### 非同步 Worker
+
+- `workers/` 由 FastAPI `lifespan` 啟動為 `asyncio.Task`，從 Redis queue 消費任務
+- worker 可直接使用 `repositories`（自建 `AsyncSession`），但**禁止**反向被 `api` / `services` 呼叫
+- 任務失敗須走重試 + DLQ（死信佇列），不阻塞使用者請求
 
 ---
 
@@ -68,6 +75,12 @@ api → services → repositories → models
 # 錯誤
 @router.get("/api/v1/agent/{id}")
 ```
+
+### 多層資源
+
+- 多層資源以巢狀 kebab-case 複數表達，例：`/api/v1/chat/projects`、`/api/v1/chat/sessions/{chat_session_uid}/messages`
+- 前綴 `chat/` 為領域命名空間（對話領域），內部資源仍維持 kebab-case 複數（`projects`、`sessions`、`messages`、`memories`）
+- 動作型端點可用動詞後綴，例：`POST /api/v1/chat/sessions/{uid}/move`（移動 session 至 project / 設為游離）
 
 ---
 
@@ -179,6 +192,12 @@ app = FastAPI(lifespan=lifespan, docs_url="/api/docs", redoc_url=None)
 - Token、密碼、API Key
 
 未預期錯誤一律回傳通用訊息（如 `"伺服器發生錯誤，請稍後再試"`），原始錯誤詳情僅記錄於 log。
+
+### 豁免端點
+
+- **SSE 串流端點**（`text/event-stream`，例 `POST /chat/sessions/{uid}/messages`）豁免 `ApiResponse` 包裝；錯誤以 `event: error\ndata: {...}\n\n` 事件回報，連線建立前的錯誤仍走標準 HTTP status code + `ApiResponse`
+- **檔案下載端點**（非 JSON body，例 `GET /agents/{uid}/download`）豁免 `ApiResponse` 包裝，使用 `StreamingResponse` / `Response` 直接回 body；錯誤走標準 HTTP status code + `ApiResponse`
+- 豁免僅適用於上述類別，其他端點**禁止**自行豁免
 
 ---
 

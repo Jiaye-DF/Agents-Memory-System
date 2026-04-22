@@ -8,6 +8,8 @@ class Settings(BaseSettings):
         case_sensitive=True,
     )
 
+    APP_ENV: str = "development"
+
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str

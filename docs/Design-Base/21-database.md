@@ -36,6 +36,15 @@
 
 每個欄位**必須**使用 `COMMENT ON COLUMN` 加上中文說明，**禁止**省略。
 
+### 審計表豁免（純 append-only / 快照）
+
+少數「寫入即不可變」的表允許豁免部分必備欄位：
+
+- 純 append-only 審計表（不編輯、不軟刪除）可省略 `updated_at`、`is_deleted`，例：`chat_message`（對話訊息，審計用）
+- 一次寫入的記憶快照表（內容不更新、整筆跟隨父資源硬刪）可再省略 `is_active`，例：`chat_memory`（Session 隨 Session 軟刪時一併刪除）
+- 豁免表**仍必須**保留 `pid`、`{表}_uid`、`created_at`，並於 `COMMENT ON TABLE` 中註明為「審計用 / 快照」
+- 其他業務表**無**豁免
+
 ```sql
 -- 範例：agent 資料表
 CREATE TABLE agent (
@@ -175,11 +184,12 @@ CREATE INDEX idx_memory_embedding ON memory
 ```text
 migrations/sql/
 ├── V1__create_extension_pgvector.sql
-├── V2__create_user_table.sql
-├── V3__create_agent_table.sql
-├── V4__create_skill_table.sql
-├── V5__create_memory_table.sql
-└── V6__create_conversation_table.sql
+├── V2__create_updated_at_function.sql
+├── V3__create_user_role_table.sql
+├── V4__create_user_table.sql
+├── V5__create_agent_table.sql
+├── V6__create_agent_skill_table.sql
+└── V7__create_skill_table.sql
 ```
 
 - 每個 Migration 檔案只做一件事（建表、加欄位、建索引等）
@@ -207,3 +217,9 @@ class Base(DeclarativeBase):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 ```
+
+### 審計表獨立 DeclarativeBase 豁免
+
+- 審計表（§ 必備欄位 § 審計表豁免）允許使用獨立 `DeclarativeBase`（例 `MessageBase`、`MemoryBase`），以排除 `updated_at` / `is_deleted` 等欄位
+- 跨 base 的外鍵**僅**在 DB migration 層以 `FOREIGN KEY` constraint 保證；Python 層**禁止**使用 `ForeignKey(...)` 標記（跨 metadata 會在 `flush()` 時拋 `NoReferencedTableError`）
+- 獨立 base 的 ORM 關係（如 `relationship`）亦不可跨 base，需要關聯時改用顯式 query

@@ -122,7 +122,10 @@ async def list_sessions_by_project(
 )
 async def list_orphan_sessions(
     current_user: TokenPayload = Depends(get_current_user),
-    orphan: bool = Query(True, description="目前僅支援 orphan=true（游離 sessions）"),
+    orphan: bool = Query(
+        True,
+        description="v1.1.4 僅支援 orphan=true；傳其他值亦以游離 sessions 回傳",
+    ),
     cursor: str | None = Query(None),
     limit: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),

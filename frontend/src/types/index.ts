@@ -54,6 +54,7 @@ export type {
   ChatProjectUpdateRequest,
   ChatSession,
   ChatSessionCreateRequest,
+  ChatSessionMoveRequest,
   ChatSessionUpdateRequest,
   ChatMessage,
   ChatMessageRole,
