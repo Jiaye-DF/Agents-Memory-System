@@ -14,6 +14,7 @@ v1.1 已完成並作為基線：
 - Project / Session / Message / session_memory 資料表
 - Session scope 的 Agentic RAG
 - `system_setting` 已包含 `rag.scopes` / `rag.top_k` / `rag.min_score`
+- **v1.1 延伸**（見 [propose-v1.1-extended.md](../v1.1/propose-v1.1-extended.md)）：附件系統（圖片 + 文字檔）、Agentic Skill 工廠 PoC（session scope）
 
 ---
 
@@ -23,6 +24,7 @@ v1.1 已完成並作為基線：
 2. **分層 Model Classifier**：前置 classifier 判斷訊息是否需要送大模型，降低成本
 3. **User / Project 層記憶**：跨 Session 記憶聚合與檢索
 4. **記憶 / LLM 輸出的可觀察性**：pipeline 可追蹤、截斷可偵測、UI 即時性可保證
+5. **Agentic Skill 工廠正式版**：承接 v1.1.7 PoC（session scope）→ 升級跨 session 消費 `user_memory` / `project_memory`
 
 ### 範圍內
 
@@ -50,6 +52,7 @@ v1.1 已完成並作為基線：
 - **順序**：多 Agent 回應是串行（A → B）還是並行（同時跑取 best）？
 - **對話歷史歸屬**：一則 assistant 訊息綁一個 Agent，前端顯示誰說的
 - **Schema 變更**：`session_agent` 中介表（session_uid, agent_uid, role），取代 v1.1 的 `session.agent_uid`
+- **Skill 自動推薦**：由 §2-8 Skill 工廠提供候選 Skills，依訊息意圖自動套用到合適 Agent（承 v1.1.7 PoC 人工審核 → 本版改自動推薦 + 使用者隨時關閉）
 
 ### 2-2 分層 Model Classifier
 
@@ -58,6 +61,7 @@ v1.1 已完成並作為基線：
   1. 無需回覆（系統訊息、純表情） → 不呼叫 LLM
   2. 簡單問答 → cheap LLM（haiku / deepseek）
   3. 複雜推理 → 主 LLM
+- **Multimodal 強制路由**（承 v1.1.6）：訊息含圖片附件時**必走** vision model（跳過 classifier 的文字分流），避免圖片被誤判為「無需回覆」
 - **設定 key**：`classifier.enabled` / `classifier.model` / `classifier.thresholds`
 - **量測指標**：classifier 誤判率、整體成本下降百分比
 
@@ -162,6 +166,50 @@ SSE 連線斷開時（網路抖動、反向代理超時）前端自動 fallback 
 - SSE 無法傳 HTTP header 以外的 auth，需要以 cookie / query string 傳 access token。建議 query string `?token=xxx`，後端 SSE handler 自行驗證。
 - 瀏覽器對單一 domain SSE 連線有上限（通常 6 條），多分頁開多 session 可能撞到。短期不處理，監控若發生再降級為 polling。
 
+### 2-8 Agentic Skill 工廠正式版（承接 v1.1.7 PoC）
+
+v1.1.7 PoC 以**單一 session** chat_memory 為樣本、人工審核入庫。本版升級兩個面向：
+
+#### 升級 A：消費跨層記憶
+
+- Analyzer 的輸入從 `chat_memory`（session scope）擴大為 `project_memory`（§2-3）與 `user_memory`（§2-3）
+- 三層樣本數遞增，可識別「跨 session 重複的使用習慣 / 領域偏好」（例：使用者在 5 個 session 都要求「用學術風格改寫」→ 跨 session pattern 足夠 strong 才生 Skill，避免 PoC 階段的 false positive）
+- 新增觸發條件：`user_memory` 有 >= N 筆 + 同主題占比 >= M%（比 session scope 嚴）
+
+#### 升級 B：Skill 自動推薦給 Agent
+
+- v1.1.7 是「生 Skill → 使用者手動掛到某 Agent」
+- 本版加 recommender：訊息送達某 Agent 時，若該使用者有未掛載的高 confidence Skill 符合意圖，**提示使用者**（非自動掛，避免權限膨脹）
+- 使用者一鍵掛載後，Skill 加入該 Agent 的 skill_uids
+
+#### Schema 影響
+
+- 新增 `agentic_skill_suggestion` 表（取代 v1.1.7 的 Redis 暫存），保留 30 天供事後分析：
+
+```sql
+CREATE TABLE agentic_skill_suggestion (
+    pid, agentic_skill_suggestion_uid,
+    owner_user_uid, scope VARCHAR(20),          -- 'session' / 'project' / 'user'
+    scope_uid UUID,                             -- 對應 scope 的資源 UID
+    name, description, system_prompt,
+    confidence NUMERIC(4, 3),
+    source_memory_uids UUID[],
+    status VARCHAR(20) DEFAULT 'pending',       -- pending / approved / rejected / expired
+    created_skill_uid UUID,                     -- 若 approved，連到產生的 skill
+    is_active, is_deleted, created_at, updated_at
+);
+```
+
+#### 前置依賴
+
+- §2-3 `user_memory` / `project_memory` 實作完成
+- v1.1.7 PoC 運作一段時間，累積足夠的「哪些建議使用者會 approve」訊號用於調校 threshold
+
+#### 非目標
+
+- 不做「Skill 自動入庫」— 審核流程保留（v1.1.7 人工審核 + v1.2 增推薦提示，但不跳過 approve）
+- 不做跨使用者共享 Skill（v1.3 公開 API 再談）
+
 ---
 
 ## 3. 下一步
@@ -174,8 +222,16 @@ SSE 連線斷開時（網路抖動、反向代理超時）前端自動 fallback 
 | --- | --- | --- |
 | `tasks-v1.2.1.md` | 記憶 / LLM 可觀察性（§2-4 層 1 + §2-5 A+B + §2-6） | 無依賴，可優先 |
 | `tasks-v1.2.2.md` | 記憶 UI 即時性（§2-7） | 依賴 2.1 的 worker log 基礎 |
-| `tasks-v1.2.3.md` | 多 Agent 對話（§2-1） | 需要 §2-5 C 的 template 預設 |
-| `tasks-v1.2.4.md` | 分層 Model Classifier（§2-2） | 依賴 2.3 的 session_agent schema |
+| `tasks-v1.2.3.md` | 多 Agent 對話（§2-1） | 需要 §2-5 C 的 template 預設；§2-8 建議入口由此整合 |
+| `tasks-v1.2.4.md` | 分層 Model Classifier（§2-2） | 依賴 2.3 的 session_agent schema；multimodal 路由依賴 v1.1.6 附件系統 |
 | `tasks-v1.2.5.md` | User / Project 記憶（§2-3） | 依賴 2.1 可觀察性、§2-3 生命週期設計 |
+| `tasks-v1.2.6.md` | Agentic Skill 工廠正式版（§2-8） | 依賴 2.5 跨層記憶 + v1.1.7 PoC 實測數據 |
 
 v1.2.1 是**最低風險高投資報酬**的起點：做完後，其他 task 若出問題都能靠它 debug。
+
+### 與 v1.1 延伸的關係
+
+v1.2 假設 v1.1.6 附件系統與 v1.1.7 Skill PoC 皆已完成。若兩者尚未 release：
+
+- §2-2 multimodal 路由可延後（跟 v1.1.6 同批做）
+- §2-8 Skill 工廠正式版**必須**等 v1.1.7 PoC 先跑一段時間累積 approve / reject 訊號
