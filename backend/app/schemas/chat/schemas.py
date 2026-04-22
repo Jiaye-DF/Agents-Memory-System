@@ -132,4 +132,5 @@ class ChatMessageResponse(BaseModel):
     token_out: int | None
     cost_usd: float | None
     model: str | None
+    finish_reason: str | None = None
     created_at: str

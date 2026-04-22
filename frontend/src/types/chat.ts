@@ -57,6 +57,7 @@ export interface ChatMessage {
   token_out: number | null;
   cost_usd: number | null;
   model: string | null;
+  finish_reason: string | null;
   created_at: string;
 }
 
