@@ -1,3 +1,8 @@
+export interface AgentSkillSummary {
+  skill_uid: string;
+  name: string;
+}
+
 export interface Agent {
   agent_uid: string;
   owner_uid: string;
@@ -17,6 +22,7 @@ export interface Agent {
   visibility: "public" | "private";
   is_active: boolean;
   skill_uids: string[];
+  skills: AgentSkillSummary[];
   created_at: string;
   updated_at: string;
 }

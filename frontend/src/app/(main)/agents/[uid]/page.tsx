@@ -146,15 +146,16 @@ export default function AgentDetailPage(): React.ReactNode {
             <h2 className="mb-2 text-base font-semibold text-muted">
               關聯 Skills
             </h2>
-            {agent.skill_uids.length > 0 ? (
+            {agent.skills.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {agent.skill_uids.map((uid) => (
-                  <span
-                    key={uid}
-                    className="rounded-xl bg-muted-bg px-3 py-1 text-base text-foreground"
+                {agent.skills.map((s) => (
+                  <Link
+                    key={s.skill_uid}
+                    href={`/skills/${s.skill_uid}`}
+                    className="rounded-xl bg-muted-bg px-3 py-1 text-base text-foreground hover:cursor-pointer hover:bg-sidebar-hover"
                   >
-                    {uid}
-                  </span>
+                    {s.name}
+                  </Link>
                 ))}
               </div>
             ) : (

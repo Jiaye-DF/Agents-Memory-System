@@ -63,6 +63,11 @@ class AgentUpdateRequest(BaseModel):
         return value
 
 
+class AgentSkillSummary(BaseModel):
+    skill_uid: str
+    name: str
+
+
 class AgentResponse(BaseModel):
     agent_uid: str
     owner_uid: str
@@ -82,6 +87,7 @@ class AgentResponse(BaseModel):
     visibility: str
     is_active: bool
     skill_uids: list[str]
+    skills: list[AgentSkillSummary]
     created_at: datetime
     updated_at: datetime
 

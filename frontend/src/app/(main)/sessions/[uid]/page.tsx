@@ -262,6 +262,12 @@ export default function SessionChatPage(): React.ReactNode {
     [memoriesData],
   );
 
+  useEffect(() => {
+    if (memoryOpen) {
+      void refetchMemories();
+    }
+  }, [memoryOpen, refetchMemories]);
+
   const { isStreaming, sendMessage } = useChatStream(sessionUid);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -608,14 +614,26 @@ export default function SessionChatPage(): React.ReactNode {
           <aside className="flex w-72 shrink-0 flex-col rounded-xl bg-card-bg shadow-sm">
             <div className="flex shrink-0 items-center justify-between border-b border-border p-3">
               <h2 className="text-base font-semibold text-foreground">記憶</h2>
-              <button
-                type="button"
-                onClick={() => setMemoryOpen(false)}
-                className="text-sm text-muted hover:text-foreground"
-                aria-label="關閉記憶抽屜"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void refetchMemories()}
+                  disabled={memoriesFetching}
+                  className="text-sm text-muted hover:cursor-pointer hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="重新整理記憶"
+                  title="重新整理"
+                >
+                  {memoriesFetching ? "⟳" : "🔄"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMemoryOpen(false)}
+                  className="text-sm text-muted hover:cursor-pointer hover:text-foreground"
+                  aria-label="關閉記憶抽屜"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-3">
               {memoriesFetching && memories.length === 0 ? (

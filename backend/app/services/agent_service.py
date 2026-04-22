@@ -14,7 +14,7 @@ DEFAULT_MAX_SKILLS = 10
 NOT_FOUND_DETAIL = "找不到指定的 Agent"
 
 
-def _agent_to_dict(agent: Agent, skill_uids: list[str]) -> dict:
+def _agent_to_dict(agent: Agent, skills: list[dict]) -> dict:
     return {
         "agent_uid": str(agent.agent_uid),
         "owner_uid": str(agent.owner_uid),
@@ -33,7 +33,8 @@ def _agent_to_dict(agent: Agent, skill_uids: list[str]) -> dict:
         "response_format_example": agent.response_format_example,
         "visibility": agent.visibility,
         "is_active": agent.is_active,
-        "skill_uids": skill_uids,
+        "skill_uids": [s["skill_uid"] for s in skills],
+        "skills": skills,
         "created_at": to_taipei_iso(agent.created_at),
         "updated_at": to_taipei_iso(agent.updated_at),
     }
@@ -93,14 +94,15 @@ async def create_agent(
         db,
     )
 
-    skill_uids: list[str] = []
     if data.skill_uids:
         await agent_repository.set_skill_uids(
             str(agent.agent_uid), data.skill_uids, db
         )
-        skill_uids = data.skill_uids
 
-    return _agent_to_dict(agent, skill_uids)
+    skills = await agent_repository.get_skills_summary(
+        str(agent.agent_uid), db
+    )
+    return _agent_to_dict(agent, skills)
 
 
 async def get_agent(
@@ -110,8 +112,8 @@ async def get_agent(
     ensure_readable(agent, user_uid, role, NOT_FOUND_DETAIL)
     assert agent is not None
 
-    skill_uids = await agent_repository.get_skill_uids(agent_uid, db)
-    return _agent_to_dict(agent, skill_uids)
+    skills = await agent_repository.get_skills_summary(agent_uid, db)
+    return _agent_to_dict(agent, skills)
 
 
 async def list_agents(
@@ -121,13 +123,13 @@ async def list_agents(
         db, agent_repository.stmt_visible_to_user(user_uid), cursor, limit
     )
 
-    skill_map = await agent_repository.get_skill_uids_map(
+    skills_map = await agent_repository.get_skills_summary_map(
         [str(a.agent_uid) for a in page.items], db
     )
 
     return {
         "items": [
-            _agent_to_dict(a, skill_map.get(str(a.agent_uid), []))
+            _agent_to_dict(a, skills_map.get(str(a.agent_uid), []))
             for a in page.items
         ],
         "next_cursor": page.next_cursor,
@@ -183,8 +185,8 @@ async def update_agent(
     if data.skill_uids is not None:
         await agent_repository.set_skill_uids(agent_uid, data.skill_uids, db)
 
-    skill_uids = await agent_repository.get_skill_uids(agent_uid, db)
-    return _agent_to_dict(agent, skill_uids)
+    skills = await agent_repository.get_skills_summary(agent_uid, db)
+    return _agent_to_dict(agent, skills)
 
 
 async def delete_agent(
@@ -212,8 +214,8 @@ async def toggle_visibility(
     assert agent is not None
 
     await agent_repository.update(agent, {"visibility": data.visibility}, db)
-    skill_uids = await agent_repository.get_skill_uids(agent_uid, db)
-    return _agent_to_dict(agent, skill_uids)
+    skills = await agent_repository.get_skills_summary(agent_uid, db)
+    return _agent_to_dict(agent, skills)
 
 
 async def download_agent(
@@ -258,12 +260,12 @@ async def download_agent(
         lines.append(agent.role_prompt)
         lines.append("")
 
-    skill_uids = await agent_repository.get_skill_uids(agent_uid, db)
-    if skill_uids:
+    skills = await agent_repository.get_skills_summary(agent_uid, db)
+    if skills:
         lines.append("## 關聯 Skills")
         lines.append("")
-        for uid in skill_uids:
-            lines.append(f"- {uid}")
+        for s in skills:
+            lines.append(f"- {s['name']}")
         lines.append("")
 
     return "\n".join(lines)

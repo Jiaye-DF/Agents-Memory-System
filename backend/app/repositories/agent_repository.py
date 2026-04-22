@@ -6,6 +6,7 @@ from sqlalchemy import Select, delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, agent_skill_table
+from app.models.skill import Skill
 
 
 async def get_by_uid(agent_uid: str, db: AsyncSession) -> Agent | None:
@@ -71,6 +72,60 @@ async def get_skill_uids_map(
     rows = await db.execute(stmt)
     for agent_uid, skill_uid in rows.fetchall():
         result[str(agent_uid)].append(str(skill_uid))
+    return result
+
+
+async def get_skills_summary(
+    agent_uid: str, db: AsyncSession
+) -> list[dict]:
+    """取得 agent 關聯 skill 的 uid + name，軟刪除的 skill 不回傳。"""
+    stmt = (
+        select(Skill.skill_uid, Skill.name)
+        .join(
+            agent_skill_table,
+            agent_skill_table.c.skill_uid == Skill.skill_uid,
+        )
+        .where(
+            agent_skill_table.c.agent_uid == uuid.UUID(agent_uid),
+            Skill.is_deleted == False,
+        )
+    )
+    result = await db.execute(stmt)
+    return [
+        {"skill_uid": str(uid), "name": name}
+        for uid, name in result.fetchall()
+    ]
+
+
+async def get_skills_summary_map(
+    agent_uids: Iterable[str], db: AsyncSession
+) -> dict[str, list[dict]]:
+    """批次取得多個 agent 的 skill summary，避免列表查詢時逐項 N+1。"""
+    uids = [uuid.UUID(a) for a in agent_uids]
+    result: dict[str, list[dict]] = defaultdict(list)
+    if not uids:
+        return result
+
+    stmt = (
+        select(
+            agent_skill_table.c.agent_uid,
+            Skill.skill_uid,
+            Skill.name,
+        )
+        .join(
+            agent_skill_table,
+            agent_skill_table.c.skill_uid == Skill.skill_uid,
+        )
+        .where(
+            agent_skill_table.c.agent_uid.in_(uids),
+            Skill.is_deleted == False,
+        )
+    )
+    rows = await db.execute(stmt)
+    for agent_uid, skill_uid, name in rows.fetchall():
+        result[str(agent_uid)].append(
+            {"skill_uid": str(skill_uid), "name": name}
+        )
     return result
 
 

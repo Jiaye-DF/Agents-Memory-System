@@ -201,6 +201,63 @@ app = FastAPI(lifespan=lifespan, docs_url="/api/docs", redoc_url=None)
 
 ---
 
+## 關聯資源回應
+
+Response 只要含「對其他資源的引用」，**必須**同時回傳該資源的識別碼（`*_uid`）與顯示欄位（`name` / `title` / `username` 等人類可讀名稱），**禁止**只回 uid 讓前端自行查名稱（見 [10-frontend.md § 識別碼顯示](10-frontend.md#識別碼顯示)）。
+
+### 單一關聯（1:1 / N:1）
+
+平鋪 uid + 顯示欄位：
+
+```json
+// 正確
+{ "agent_uid": "...", "owner_uid": "...", "owner_username": "alice" }
+
+// 錯誤 — 前端拿到 owner_uid 無法顯示名字
+{ "agent_uid": "...", "owner_uid": "..." }
+```
+
+### 多對多關聯（N:M）
+
+以物件陣列回傳，**禁止**只回 uid 陣列：
+
+```json
+// 正確
+{ "agent_uid": "...", "skills": [{ "skill_uid": "...", "name": "翻譯 Skill" }] }
+
+// 錯誤 — 前端要拿到 name 得再打一次 /skills
+{ "agent_uid": "...", "skill_uids": ["..."] }
+```
+
+若需保留 uid-only 欄位供表單使用，採 additive（`skill_uids` + `skills` 併存），**禁止**以 `skill_uids` 取代 `skills`。
+
+### 批次預取（列表端點）
+
+列表 API 回多筆含關聯資源的資料時，**必須**批次預取（`get_*_summary_map` 模式），**禁止** N+1：
+
+```python
+# 正確 — 一次 IN 查詢
+skills_map = await agent_repository.get_skills_summary_map(
+    [str(a.agent_uid) for a in page.items], db
+)
+
+# 錯誤 — 迴圈內逐個查
+for a in page.items:
+    skills = await agent_repository.get_skills_summary(str(a.agent_uid), db)
+```
+
+### 關聯資源狀態
+
+- 關聯資源已軟刪除（`is_deleted = TRUE`）：JOIN 時過濾掉，**不**回傳該筆；**禁止**回「(已刪除)」佔位
+- 關聯資源不存在（FK 完整性破損）：視同軟刪除處理
+- 關聯 name 為空字串：正常回傳，由前端決定 fallback 文字
+
+### 請求 body 仍收 uid
+
+`*CreateRequest` / `*UpdateRequest` 仍使用 uid 陣列（如 `skill_uids: list[str]`），由後端寫入後**自行查名稱**填回 response，不要求請求端提供 name。
+
+---
+
 ## 例外處理
 
 全域註冊三個例外 Handler：

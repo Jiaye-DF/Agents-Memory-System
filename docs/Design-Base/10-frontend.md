@@ -241,6 +241,40 @@ import { formatDateTime } from "@/utils/datetime";
 
 ---
 
+## 識別碼顯示
+
+**禁止**在 UI 給使用者看的文字中暴露內部識別碼（`*_uid`、`pid`、UUID、hash 等）。
+
+- UI 一律顯示人類可讀的 name / label / title，**禁止**顯示 uid 作為主要識別
+- 若後端 response 只回 uid 沒回 name，應先補後端（見 [20-backend.md § 關聯資源回應](20-backend.md#關聯資源回應)），**禁止**在前端透過多次 query 拼湊
+- 若 name 可能為空（使用者未填、關聯已刪除），顯示 fallback 文字（如「未命名」、「已刪除」），**不**顯示 uid
+
+### 允許的例外
+
+| 場景 | 說明 |
+| --- | --- |
+| URL 路徑 | `/agents/{agent_uid}`、`router.push(...)` 屬路由機制，非 UI 顯示 |
+| React `key={uid}` | 僅為 render 識別，不渲染到畫面 |
+| `<Link href>` / form hidden value / API request body | 屬非顯示用途 |
+| 錯誤 / debug 頁 | `error.tsx` 可顯示 `error.digest` 供回報；**禁止**顯示業務資料 uid |
+| 系統標準碼 | ISO 語言代碼（`zh-TW`）、model id（`openai/gpt-4o-mini`）屬約定俗成識別符，可與 name 併陳或單獨顯示 |
+
+```tsx
+// 正確 — 顯示 name，點擊跳詳情頁
+{agent.skills.map((s) => (
+  <Link key={s.skill_uid} href={`/skills/${s.skill_uid}`}>
+    {s.name}
+  </Link>
+))}
+
+// 錯誤 — 把 uid 當顯示內容
+{agent.skill_uids.map((uid) => (
+  <span key={uid}>{uid}</span>
+))}
+```
+
+---
+
 ## 其他注意事項
 
 - 圖片、靜態資源放置於 `public/`，引用時使用絕對路徑（`/images/logo.png`）

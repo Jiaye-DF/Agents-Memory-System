@@ -10,6 +10,7 @@ export type {
 export type { User, Role, UpdateUserRequest } from "./admin";
 export type {
   Agent,
+  AgentSkillSummary,
   AgentCreateRequest,
   AgentUpdateRequest,
   VisibilityRequest,
