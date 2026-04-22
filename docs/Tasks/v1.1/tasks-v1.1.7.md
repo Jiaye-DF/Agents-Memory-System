@@ -1,6 +1,6 @@
 # v1.1.7 任務規格：Agentic Skill 工廠 PoC
 
-> **狀態：已完成（待 commit, 2026-04-22）** — 後端 analyzer / generator / approve-reject 流程、前端側邊欄與觀察性 log 皆實作完畢；依賴 Redis 執行環境與對話累積才能完整驗收。
+> **狀態：已完成（commit 98a4d5a, 2026-04-22）** — 後端 analyzer / generator / approve-reject 流程、前端側邊欄與觀察性 log 皆實作完畢；依賴 Redis 執行環境與對話累積才能完整驗收。
 >
 > 前置：[propose-v1.1-extended.md §5](propose-v1.1-extended.md)。
 > 最終目標：驗證 Agentic loop 最小閉環 — 系統從 chat_memory 自學 Skill，使用者審核後入庫供 Agent 掛載。
@@ -43,15 +43,15 @@
 
 | # | 決策 | 結論 |
 | --- | --- | --- |
-| 1 | Scope | **僅單一 session**（跨 session 等 v1.2 §2-3 `user_memory`）|
-| 2 | 觸發時機 | memory_worker 寫完新 memory → 發事件到 `skill_factory_queue`，skill_factory worker 獨立消費（不阻塞 memory pipeline）|
-| 3 | 觸發條件 | memory 數 >= `min_memory_count`（預設 10）且前 3 topic 頻率加總 >= `topic_concentration`（預設 0.3）|
-| 4 | 分析模型 | `anthropic/claude-haiku-4-5`（便宜、適合批次分析，可由 `agentic.skill_factory.analyzer_model` 覆寫）|
+| 1 | Scope | **僅單一 session**（跨 session 等 v1.2 §2-3 `user_memory`） |
+| 2 | 觸發時機 | memory_worker 寫完新 memory → 發事件到 `skill_factory_queue`，skill_factory worker 獨立消費（不阻塞 memory pipeline） |
+| 3 | 觸發條件 | memory 數 >= `min_memory_count`（預設 10）且前 3 topic 頻率加總 >= `topic_concentration`（預設 0.3） |
+| 4 | 分析模型 | `anthropic/claude-haiku-4-5`（便宜、適合批次分析，可由 `agentic.skill_factory.analyzer_model` 覆寫） |
 | 5 | 候選儲存 | Redis（`skill:suggestion:{user_uid}:{session_uid}`，TTL 7 天），不新增 DB 表 |
 | 6 | 重複觸發防護 | 同 session 相同 memory signature（topic 集合 hash）在 24h 內**不**重複生成 |
 | 7 | Skill 入庫方式 | 沿用 `POST /skills` API，把 `system_prompt` 打包為 `prompt.md` 放進單檔 zip |
-| 8 | Skill ownership | 建立後 `owner = user_uid` 私人 skill（不公開，避免 PoC 污染其他使用者）|
-| 9 | 使用者拒絕後 | 標記 rejected 暫留在 Redis；**不**永久黑名單（每次新 memory 進來仍可能重生，但 signature hash 會去重）|
+| 8 | Skill ownership | 建立後 `owner = user_uid` 私人 skill（不公開，避免 PoC 污染其他使用者） |
+| 9 | 使用者拒絕後 | 標記 rejected 暫留在 Redis；**不**永久黑名單（每次新 memory 進來仍可能重生，但 signature hash 會去重） |
 | 10 | Log 保留 | `agentic:skill:log` Redis stream，保 30 天，事後觀察 approve/reject 訊號 |
 
 ---

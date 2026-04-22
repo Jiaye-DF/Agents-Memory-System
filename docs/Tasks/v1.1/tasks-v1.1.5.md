@@ -1,6 +1,6 @@
 # v1.1.5 任務規格：UX Pack（輸入框、Copy、截斷 badge）
 
-> **狀態：已完成（commit 待補, 2026-04-22）**
+> **狀態：已完成（commit 6cc0959, 2026-04-22）**
 >
 > 前置：[propose-v1.1-extended.md §3](propose-v1.1-extended.md)
 >
@@ -46,10 +46,10 @@
 | # | 決策 | 結論 |
 | --- | --- | --- |
 | 1 | `finish_reason` 欄位型別 | `VARCHAR(20) NULL`，足以容納 `stop` / `length` / `tool_calls` / `content_filter` 等 OpenRouter 可能值 |
-| 2 | 歷史訊息無此欄位 | NULL 不顯示 badge（前端以「不為 null 且 === 'length'」判斷）|
+| 2 | 歷史訊息無此欄位 | NULL 不顯示 badge（前端以「不為 null 且 === 'length'」判斷） |
 | 3 | Copy 範圍 | 僅複製 `message.content` 純文字，不含 metadata |
-| 4 | auto-resize 行數上限 | 10 行，對應 `max-h-[250px]` 左右（line-height 依現有字型）|
-| 5 | 截斷 badge 位置 | 訊息末尾（metadata 區：tokens / cost 同一行前後）|
+| 4 | auto-resize 行數上限 | 10 行，對應 `max-h-[250px]` 左右（line-height 依現有字型） |
+| 5 | 截斷 badge 位置 | 訊息末尾（metadata 區：tokens / cost 同一行前後） |
 
 ---
 

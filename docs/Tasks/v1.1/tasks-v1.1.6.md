@@ -1,6 +1,6 @@
 # v1.1.6 任務規格：附件系統（圖片 + 文字檔）
 
-> **狀態：已完成（commit pending, 2026-04-22）**
+> **狀態：已完成（commit d3e6976, 2026-04-22）**
 >
 > 前置：[propose-v1.1-extended.md §4](propose-v1.1-extended.md)、[tasks-v1.1.5.md](tasks-v1.1.5.md)（V28 已取走）
 >
@@ -46,13 +46,13 @@
 | # | 決策 | 結論 |
 | --- | --- | --- |
 | 1 | 附件儲存位置 | `data/attachments/{yyyymm}/{uid}.{ext}`，gitignore 已排除 `data/` |
-| 2 | 檔案白名單 | `.png .jpg .jpeg .webp .pdf .md .txt .json .csv`（圖片 + 常見文字格式）|
+| 2 | 檔案白名單 | `.png .jpg .jpeg .webp .pdf .md .txt .json .csv`（圖片 + 常見文字格式） |
 | 3 | `pdf` 處理 | v1.1.6 **暫不處理 pdf 內文**（只能當附件下載），OCR / PDF text extraction 留 v1.2+ |
 | 4 | 單檔上限 | `chat.max_attachment_size_mb = 10`，admin 可調最大 50 |
 | 5 | 每訊息上限 | `chat.max_attachments_per_message = 5`，admin 可調最大 10 |
-| 6 | 圖片傳 LLM | base64 data URL（OpenRouter 跨 provider 最通用），大於 5MB 先 resize（未壓縮的高解析度圖會爆）|
-| 7 | 文字檔讀入 | UTF-8 解碼，失敗 fallback 到 latin-1 + 警告訊息（不 crash）|
-| 8 | 附件權限 | 上傳者 + session owner 可讀，其他人 403；session 軟刪後附件仍可透過 admin 取回（scope 本版不做，僅保留 FK 設計）|
+| 6 | 圖片傳 LLM | base64 data URL（OpenRouter 跨 provider 最通用），大於 5MB 先 resize（未壓縮的高解析度圖會爆） |
+| 7 | 文字檔讀入 | UTF-8 解碼，失敗 fallback 到 latin-1 + 警告訊息（不 crash） |
+| 8 | 附件權限 | 上傳者 + session owner 可讀，其他人 403；session 軟刪後附件仍可透過 admin 取回（scope 本版不做，僅保留 FK 設計） |
 | 9 | memory 描述 | 圖片附件 → vision 產 1-2 句描述；文字檔 → 內容當普通 text 餵 extractor |
 | 10 | LLM 不支援 vision 時 | 後端改用 text-only prompt + 附加「(圖片附件已略過，該 model 不支援 vision)」訊息，**不**報錯 |
 

@@ -48,7 +48,7 @@ v1.1.7 明確為 **PoC**，目的是自行設計一遍 Agentic loop 理解架構
 
 ## 3. v1.1.5 — UX Pack
 
-> **狀態：已完成（commit 待補, 2026-04-22）**
+> **狀態：已完成（commit 6cc0959, 2026-04-22）**
 
 ### 範圍內
 
@@ -80,7 +80,7 @@ v1.1.7 明確為 **PoC**，目的是自行設計一遍 Agentic loop 理解架構
 
 ## 4. v1.1.6 — 附件系統
 
-> **狀態：已完成（commit pending, 2026-04-22；見 tasks-v1.1.6.md）**
+> **狀態：已完成（commit d3e6976, 2026-04-22；見 tasks-v1.1.6.md）**
 
 ### 範圍內
 
@@ -144,7 +144,7 @@ CREATE TABLE chat_attachment (
 
 ## 5. v1.1.7 — Agentic Skill 工廠 PoC
 
-> **狀態：已完成（待 commit, 2026-04-22）** — analyzer / generator / approve / reject 流程、觀察性 Redis stream、admin debug 端點與前端側邊欄均已實作。
+> **狀態：已完成（commit 98a4d5a, 2026-04-22）** — analyzer / generator / approve / reject 流程、觀察性 Redis stream、admin debug 端點與前端側邊欄均已實作。
 
 ### 目標
 
