@@ -2,7 +2,18 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Integer, Numeric, String, Text, Uuid, func
+from sqlalchemy import (
+    ARRAY,
+    BigInteger,
+    Boolean,
+    DateTime,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    Uuid,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -35,3 +46,6 @@ class ChatMessage(MessageBase):
         Numeric(10, 6), nullable=True
     )
     model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    attachment_uids: Mapped[list[uuid.UUID] | None] = mapped_column(
+        ARRAY(Uuid), nullable=True
+    )

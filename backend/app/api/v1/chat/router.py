@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import JSONResponse, StreamingResponse
+import io
+import urllib.parse
+
+from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.core.response import success
 from app.schemas.auth.schemas import TokenPayload
+from app.schemas.chat.attachment_schemas import ChatAttachmentListData
 from app.schemas.chat.memory_schemas import ChatMemoryListData
 from app.schemas.chat.schemas import (
     ChatMessageCreateRequest,
@@ -18,7 +22,7 @@ from app.schemas.chat.schemas import (
     ChatSessionUpdateRequest,
 )
 from app.schemas.response import ApiResponse, MessageData, PaginatedData
-from app.services import chat_service
+from app.services import chat_attachment_service, chat_service
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -254,7 +258,11 @@ async def send_message(
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
     generator = chat_service.send_message(
-        chat_session_uid, current_user.user_uid, data.content, db
+        chat_session_uid,
+        current_user.user_uid,
+        data.content,
+        db,
+        attachment_uids=data.attachment_uids,
     )
     return StreamingResponse(
         generator,
@@ -263,4 +271,51 @@ async def send_message(
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+# ---------- Attachments ----------
+
+@router.post(
+    "/sessions/{chat_session_uid}/attachments",
+    response_model=ApiResponse[ChatAttachmentListData],
+)
+async def upload_session_attachments(
+    chat_session_uid: str,
+    files: list[UploadFile] = File(...),
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    items = await chat_attachment_service.upload_attachments(
+        current_user.user_uid, chat_session_uid, files, db
+    )
+    return success(data={"items": items}, response_code=201)
+
+
+@router.get("/attachments/{chat_attachment_uid}")
+async def download_attachment(
+    chat_attachment_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """
+    下載 / 預覽附件。屬於 20-backend.md § 豁免端點（檔案下載）— 回非 JSON body。
+    錯誤走全域 AppError handler（仍回 ApiResponse JSON）。
+    """
+    data, mime, file_name = await chat_attachment_service.get_attachment_content(
+        chat_attachment_uid, current_user.user_uid, db
+    )
+    # 使用 RFC 5987 的 filename* 以安全承載非 ASCII 檔名
+    disposition_name = urllib.parse.quote(file_name)
+    headers = {
+        "Content-Disposition": (
+            f"inline; filename=\"{chat_attachment_uid}\"; "
+            f"filename*=UTF-8''{disposition_name}"
+        ),
+        "Cache-Control": "private, max-age=300",
+    }
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type=mime or "application/octet-stream",
+        headers=headers,
     )

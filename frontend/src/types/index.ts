@@ -60,4 +60,6 @@ export type {
   ChatMessage,
   ChatMessageRole,
   ChatMemory,
+  ChatAttachment,
+  ChatAttachmentListData,
 } from "./chat";

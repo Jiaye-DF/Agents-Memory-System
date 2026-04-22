@@ -7,7 +7,10 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.openrouter import stream_chat_completion
+from app.clients.openrouter import (
+    model_supports_vision,
+    stream_chat_completion,
+)
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.core.pagination import paginate
@@ -33,7 +36,11 @@ from app.schemas.chat.schemas import (
     ChatSessionMoveRequest,
     ChatSessionUpdateRequest,
 )
-from app.services import rag_service, system_setting_service
+from app.services import (
+    chat_attachment_service,
+    rag_service,
+    system_setting_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +111,21 @@ def _memory_to_dict(memory: ChatMemory) -> dict:
     }
 
 
-def _message_to_dict(message: ChatMessage) -> dict:
+def _message_to_dict(
+    message: ChatMessage,
+    attachments_map: dict[str, dict] | None = None,
+) -> dict:
+    attachment_uids: list[str] | None = None
+    attachments: list[dict] | None = None
+    raw_uids = message.attachment_uids
+    if raw_uids:
+        attachment_uids = [str(x) for x in raw_uids]
+        if attachments_map:
+            attachments = [
+                attachments_map[u]
+                for u in attachment_uids
+                if u in attachments_map
+            ]
     return {
         "chat_message_uid": str(message.chat_message_uid),
         "chat_session_uid": str(message.chat_session_uid),
@@ -115,6 +136,8 @@ def _message_to_dict(message: ChatMessage) -> dict:
         "cost_usd": float(message.cost_usd) if message.cost_usd is not None else None,
         "model": message.model,
         "created_at": to_taipei_iso(message.created_at),
+        "attachment_uids": attachment_uids,
+        "attachments": attachments,
     }
 
 
@@ -572,8 +595,18 @@ async def list_messages(
         cursor,
         limit,
     )
+
+    # 批次預取此頁所有 attachment（避免 N+1）
+    all_uids: list[str] = []
+    for m in page.items:
+        if m.attachment_uids:
+            all_uids.extend(str(x) for x in m.attachment_uids)
+    attachments_map = await chat_attachment_service.get_summary_map_by_uids(
+        list(set(all_uids)), db
+    )
+
     return {
-        "items": [_message_to_dict(m) for m in page.items],
+        "items": [_message_to_dict(m, attachments_map) for m in page.items],
         "next_cursor": page.next_cursor,
         "has_next": page.has_next,
     }
@@ -615,6 +648,7 @@ async def send_message(
     user_uid: str,
     content: str,
     db: AsyncSession,
+    attachment_uids: list[str] | None = None,
 ) -> AsyncIterator[str]:
     """
     SSE generator：yield `event: delta/done/error\\ndata: {...}\\n\\n` 字串。
@@ -635,12 +669,35 @@ async def send_message(
 
     model = agent.model or DEFAULT_MODEL
 
-    # 3. 寫 user message
+    # 2.1 載入附件（若有）
+    loaded_attachments: list[dict] = []
+    if attachment_uids:
+        try:
+            loaded_attachments = await chat_attachment_service.load_for_prompt(
+                attachment_uids, user_uid, chat_session_uid, db
+            )
+        except AppError as exc:
+            yield f"event: error\ndata: {json.dumps({'detail': exc.detail})}\n\n"
+            return
+        except Exception as exc:
+            logger.exception("載入附件失敗: %s", exc)
+            yield (
+                f"event: error\ndata: "
+                f"{json.dumps({'detail': '載入附件失敗'})}\n\n"
+            )
+            return
+
+    # 3. 寫 user message（保留 attachment_uids 於 DB）
     user_msg = await chat_message_repository.create(
         {
             "chat_session_uid": chat_session_uid,
             "role": "user",
             "content": content,
+            "attachment_uids": (
+                [str(u) for u in attachment_uids]
+                if attachment_uids
+                else None
+            ),
         },
         db,
     )
@@ -668,14 +725,69 @@ async def send_message(
         chat_session_uid, HISTORY_WINDOW, db
     )
 
+    # 整合附件到 user content：
+    #   - 文字 / PDF：前置 "File: {filename}\n{內容}" 拼入
+    #   - 圖片：依 model 是否支援 vision 決定走 multimodal 或降級
+    supports_vision = model_supports_vision(model)
+    image_attachments = [a for a in loaded_attachments if a["kind"] == "image"]
+    text_attachments = [a for a in loaded_attachments if a["kind"] == "text"]
+    pdf_attachments = [a for a in loaded_attachments if a["kind"] == "pdf"]
+
+    text_parts: list[str] = []
+    for a in text_attachments:
+        body = a.get("content_text") or ""
+        warn = ""
+        if a.get("text_fallback_latin1"):
+            warn = "（編碼非 UTF-8，已以 latin-1 解碼，內容可能失真）"
+        text_parts.append(f"File: {a['file_name']}{warn}\n{body}")
+    for a in pdf_attachments:
+        # v1.1.6 不抽 PDF 內文，僅標註讓 LLM 知道有附 PDF
+        text_parts.append(
+            f"File: {a['file_name']}（PDF，本版未抽取內文，如需解析請另議）"
+        )
+
+    if image_attachments and not supports_vision:
+        # 決策 #10：優雅降級
+        text_parts.append(
+            f"(圖片附件已略過，目前 model「{model}」不支援 vision)"
+        )
+
+    merged_text = content
+    if text_parts:
+        merged_text = (
+            content + "\n\n" + "\n\n".join(text_parts)
+        ).strip()
+
+    if image_attachments and supports_vision:
+        user_content: list[dict] = [{"type": "text", "text": merged_text}]
+        for a in image_attachments:
+            data_url = a.get("content_b64")
+            if not data_url:
+                continue
+            user_content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": data_url},
+                }
+            )
+        latest_user_payload: str | list[dict] = user_content
+    else:
+        latest_user_payload = merged_text
+
     messages: list[dict] = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
+
+    # history 不含剛寫入的 user_msg（get_last_n 按 pid 倒序）；但為確保語意正確，
+    # 這裡自行組：先塞 history（排除已經是本次新增的 user message），最後塞本次 user message
     for m in history:
-        # 僅傳 user / assistant 給 LLM
         if m.role not in ("user", "assistant"):
             continue
+        if m.chat_message_uid == user_msg.chat_message_uid:
+            continue
         messages.append({"role": m.role, "content": m.content})
+
+    messages.append({"role": "user", "content": latest_user_payload})
 
     # 確保 commit 目前已寫入的 user message / session 更新，避免 generator 中斷後丟失
     await db.commit()

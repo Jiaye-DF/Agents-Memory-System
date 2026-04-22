@@ -3,6 +3,10 @@
 import { useCallback, useState } from "react";
 import { openStream } from "@/lib/api/stream";
 
+interface SendMessageOptions {
+  attachmentUids?: string[];
+}
+
 interface UseChatStreamResult {
   isStreaming: boolean;
   sendMessage: (
@@ -10,6 +14,7 @@ interface UseChatStreamResult {
     onDelta: (chunk: string) => void,
     onDone: (finalUid: string) => void,
     onError: (detail: string) => void,
+    options?: SendMessageOptions,
   ) => Promise<void>;
 }
 
@@ -42,13 +47,18 @@ export function useChatStream(sessionUid: string): UseChatStreamResult {
       onDelta: (chunk: string) => void,
       onDone: (finalUid: string) => void,
       onError: (detail: string) => void,
+      options?: SendMessageOptions,
     ): Promise<void> => {
       setIsStreaming(true);
 
       try {
+        const body: Record<string, unknown> = { content };
+        if (options?.attachmentUids && options.attachmentUids.length > 0) {
+          body.attachment_uids = options.attachmentUids;
+        }
         const resp = await openStream(
           `/chat/sessions/${sessionUid}/messages`,
-          { method: "POST", body: { content } },
+          { method: "POST", body },
         );
 
         if (!resp.ok || !resp.body) {
