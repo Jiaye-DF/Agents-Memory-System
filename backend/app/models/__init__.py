@@ -7,6 +7,7 @@ from app.models.chat_message import ChatMessage, MessageBase
 from app.models.chat_project import ChatProject
 from app.models.chat_session import ChatSession
 from app.models.llm_model import LlmModel
+from app.models.script import Script
 from app.models.skill import Skill
 from app.models.system_setting import SystemSetting
 from app.models.user import User, UserRole
@@ -25,6 +26,7 @@ __all__ = [
     "ChatProject",
     "ChatSession",
     "LlmModel",
+    "Script",
     "Skill",
     "SystemSetting",
     "User",

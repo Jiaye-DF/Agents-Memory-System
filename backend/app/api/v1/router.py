@@ -8,6 +8,7 @@ from app.api.v1.auth.router import router as auth_router
 from app.api.v1.chat.router import router as chat_router
 from app.api.v1.health import router as health_router
 from app.api.v1.models.router import router as models_router
+from app.api.v1.scripts.router import router as scripts_router
 from app.api.v1.settings.router import router as settings_router
 from app.api.v1.skills.router import router as skills_router
 from app.api.v1.social.router import router as social_router
@@ -22,5 +23,6 @@ v1_router.include_router(agents_router)
 v1_router.include_router(chat_router)
 v1_router.include_router(settings_router)
 v1_router.include_router(skills_router)
+v1_router.include_router(scripts_router)
 v1_router.include_router(models_router)
 v1_router.include_router(social_router)

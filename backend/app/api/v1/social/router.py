@@ -106,6 +106,45 @@ async def unfavorite_skill(
     return success(data=result)
 
 
+@router.post(
+    "/scripts/{script_uid}/favorite",
+    response_model=ApiResponse[FavoriteToggleResponse],
+    summary="收藏 Script",
+    description=(
+        "將指定 Script 加入目前使用者的收藏。idempotent：重複呼叫不會重複增加 "
+        "`favorite_count`。若曾軟刪則復活。"
+    ),
+)
+async def favorite_script(
+    script_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await favorite_service.add_favorite(
+        current_user.user_uid, current_user.role, "script", script_uid, db
+    )
+    return success(data=result)
+
+
+@router.delete(
+    "/scripts/{script_uid}/favorite",
+    response_model=ApiResponse[FavoriteToggleResponse],
+    summary="取消收藏 Script",
+    description=(
+        "取消收藏指定 Script。idempotent：未收藏時不會讓 `favorite_count` 變負。"
+    ),
+)
+async def unfavorite_script(
+    script_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await favorite_service.remove_favorite(
+        current_user.user_uid, "script", script_uid, db
+    )
+    return success(data=result)
+
+
 @router.get(
     "/users/me/favorites",
     response_model=ApiResponse[MyFavoritesResponse],

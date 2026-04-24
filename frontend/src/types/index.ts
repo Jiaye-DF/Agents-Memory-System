@@ -28,6 +28,11 @@ export type {
   SkillFileUpdateResult,
 } from "./skills";
 export type {
+  Script,
+  ScriptUpdateRequest,
+  ScriptCreateParams,
+} from "./scripts";
+export type {
   LlmModel,
   LlmModelAdmin,
   LlmModelCreateRequest,

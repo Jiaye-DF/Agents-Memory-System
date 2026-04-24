@@ -1,5 +1,7 @@
 # v1.2.3 任務規格：腳本管理 + Sidebar 分組 + 主題切換器重構
 
+> **狀態：已完成（commit 待提交, 2026-04-24）**
+
 > 前置：[propose-v1.2.0.md §2-3 / §2-5 / §2-6](propose-v1.2.0.md)、[tasks-v1.2.1.md](tasks-v1.2.1.md)（favorite / download 機制）、[tasks-v1.2.2.md](tasks-v1.2.2.md)（filter nav / 收藏按鈕 pattern）
 
 ## 版本目標
@@ -56,7 +58,7 @@
 
 ### A-1 Migration V35
 
-- [ ] `V35__create_script.sql`
+- [x] `V35__create_script.sql`
   - `pid`、`script_uid`、`owner_user_uid`
   - `name varchar(255) NOT NULL`、`description text NULL`
   - `file_name varchar(255) NOT NULL`（原始檔 / 資料夾名）
@@ -70,51 +72,51 @@
 
 ### A-2 Seed system_setting
 
-- [ ] `script.max_total_size_mb` = `50`（max `200`）
-- [ ] `script.max_files_per_upload` = `200`（max `1000`）
-- [ ] `script.allowed_extensions` = `.py,.sh,.js,.ts,.json,.yaml,.yml,.md,.txt,.csv`
+- [x] `script.max_total_size_mb` = `50`（max `200`） —（併入 V35 migration 內以 `INSERT ... ON CONFLICT DO NOTHING` 做 seed，不另起 V36）
+- [x] `script.max_files_per_upload` = `200`（max `1000`）
+- [x] `script.allowed_extensions` = `.py,.sh,.js,.ts,.json,.yaml,.yml,.md,.txt,.csv`
 
 ### A-3 Model / Schema
 
-- [ ] `app/models/script.py`：`Script`（繼承 `Base`）
-- [ ] `app/schemas/script/schemas.py`
-  - `ScriptCreateForm`（multipart：`name`、`description?`、`files: list[UploadFile]`、`relative_paths: list[str]`）
+- [x] `app/models/script.py`：`Script`（繼承 `Base`）
+- [x] `app/schemas/script/schemas.py` —（實際路徑為 `app/schemas/scripts/schemas.py`，對齊 `skills/` / `agents/` 套用複數命名慣例）
+  - `ScriptCreateForm`（multipart：`name`、`description?`、`files: list[UploadFile]`、`relative_paths: list[str]`） —（multipart 直接於 router 以 `Form(...)` / `File(...)` 宣告，未另建 pydantic schema；與 `skills` router 一致）
   - `ScriptUpdateRequest`（`name?` / `description?`）
   - `ScriptResponse`（含 `favorite_count` / `download_count` / `is_favorited`）
 
 ### A-4 Repository
 
-- [ ] `script_repository.py`
-  - `list_by_owner(owner_user_uid, scope, order_by, page, size)`
+- [x] `script_repository.py`
+  - `list_by_owner(owner_user_uid, scope, order_by, page, size)` —（改為 `stmt_owned_by_user(owner_user_uid)` 回傳 Select，搭配 `paginate` / `paginate_ordered` 重用 v1.2.1 pattern；與 Skill/Agent 一致）
   - `get_by_uid(script_uid)`
-  - `create` / `update` / `soft_delete`
+  - `create` / `update` / `soft_delete` —（`update` 改名 `update_obj` 避免與 SQLAlchemy `update` 函式衝突）
   - `count_by_owner`
 
 ### A-5 Service
 
-- [ ] `script_service.py`
-  - `_validate_upload(files, relative_paths, settings)`：副檔名白名單 / 單檔 / 總大小 / 檔案數量上限
-  - `_pack_to_zip(files, relative_paths, dest_path)`：保留相對路徑
+- [x] `script_service.py`
+  - `_validate_upload(files, relative_paths, settings)`：副檔名白名單 / 單檔 / 總大小 / 檔案數量上限 —（實作為 `_read_and_validate_entries` + `_check_extension` + `_load_upload_settings`）
+  - `_pack_to_zip(files, relative_paths, dest_path)`：保留相對路徑 —（實作為 `_build_zip(entries)` 回傳 bytes，由 caller `write_bytes` 落盤）
   - `_check_zip_bomb(zip_path, settings)`：解壓預估超過 `max_total_size_mb * 10` 拒絕
   - `create_script(user_uid, form, db)`
   - `list_scripts(user_uid, scope, order_by, page, size, db)`：含 `is_favorited_bulk` 折算（重用 v1.2.1）
   - `update_script` / `soft_delete_script`
-  - `download_script(script_uid, user_uid, db)`：呼叫 v1.2.1 `try_increment_download` 後回 `StreamingResponse`
+  - `download_script(script_uid, user_uid, db)`：呼叫 v1.2.1 `try_increment_download` 後回 `StreamingResponse` —（`download_service` 已擴充 `script` 路由）
 
 ### A-6 Router
 
-- [ ] `app/api/v1/scripts/router.py`
-  - `GET /api/v1/scripts?scope=&order_by=&page=&size=`
+- [x] `app/api/v1/scripts/router.py`
+  - `GET /api/v1/scripts?scope=&order_by=&page=&size=` —（實際參數為 `cursor` / `limit` / `order_by` / `order`，對齊 Skill 既有 cursor 分頁；`scope` 由前端自行以資料過濾，後端 v1.2 Script 僅回擁有者自己的資料）
   - `POST /api/v1/scripts`（multipart）
   - `GET /api/v1/scripts/{uid}`
   - `PATCH /api/v1/scripts/{uid}`
   - `DELETE /api/v1/scripts/{uid}`（soft）
   - `GET /api/v1/scripts/{uid}/download`（StreamingResponse，**豁免**統一回應格式）
-- [ ] v1.2.1 收藏 API 路徑補上 `scripts`：
+- [x] v1.2.1 收藏 API 路徑補上 `scripts`：
   - `POST /api/v1/scripts/{uid}/favorite`
   - `DELETE /api/v1/scripts/{uid}/favorite`
-  - `GET /users/me/favorites?type=script` 路由通過
-- [ ] 註冊於 `api/v1/router.py`
+  - `GET /users/me/favorites?type=script` 路由通過 —（`favorite_service` 已補 `_script_snapshot` / `script` dispatch）
+- [x] 註冊於 `api/v1/router.py`
 
 ---
 
@@ -122,21 +124,21 @@
 
 ### A-7 型別 + RTK Query
 
-- [ ] `types/script.ts`：`Script`（含 `favorite_count` / `download_count` / `is_favorited`）
-- [ ] `store/scriptsApi.ts`
-  - `useListScriptsQuery({ scope, orderBy, page, size })`
+- [x] `types/script.ts`：`Script`（含 `favorite_count` / `download_count` / `is_favorited`） —（實際路徑 `types/scripts.ts`）
+- [x] `store/scriptsApi.ts`
+  - `useListScriptsQuery({ scope, orderBy, page, size })` —（實際參數 `{ limit, cursor, orderBy, order }`，對齊 Skill cursor 分頁；favorites scope 改打 `socialApi.useListMyFavoritesQuery({ type: 'script' })`）
   - `useGetScriptQuery(uid)`
   - `useCreateScriptMutation`（multipart 組裝見 §A-8）
   - `useUpdateScriptMutation` / `useDeleteScriptMutation`
-- [ ] `socialApi` 收藏 mutation 路由補 `script` resourceType
+- [x] `socialApi` 收藏 mutation 路由補 `script` resourceType —（v1.2.2 已預留 `resourcePath('script') -> 'scripts'`；本版補上 `scriptsApi.util.updateQueryData` 樂觀 patch 與 `Scripts` tagType）
 
 ### A-8 Scripts 管理頁
 
-- [ ] `app/scripts/page.tsx`
+- [x] `app/scripts/page.tsx`
   - 沿用 v1.2.2 `<FilterNav>`（全部 / 我的 / 我的收藏）
   - 卡片右上角 `<SocialMetrics>` + `<FavoriteButton>`
   - 「新增 Script」開 Modal
-- [ ] 上傳 Modal
+- [x] 上傳 Modal —（新增 `ScriptUploadDialog.tsx`，使用既有 `ModalDialog` 元件；保留規格 UI：模式切換 + multipart 組裝 + 前端驗證）
   - 模式切換：「選檔案」/「選資料夾」
   - 「選資料夾」用 `<input type="file" webkitdirectory multiple />`
   - 組裝 multipart：
@@ -147,7 +149,7 @@
     }
     ```
   - 送出前前端先檢查總大小 / 副檔名（與後端一致）
-- [ ] 下載按鈕：開新視窗 `GET /scripts/{uid}/download`，瀏覽器自動觸發下載
+- [x] 下載按鈕：開新視窗 `GET /scripts/{uid}/download`，瀏覽器自動觸發下載 —（實作改為 `fetch` 取回 blob 再 `<a download>` 觸發，避免新視窗帶不到 Bearer token；與 Skill 下載行為邏輯等價）
 
 ---
 

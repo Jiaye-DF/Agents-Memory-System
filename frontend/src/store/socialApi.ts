@@ -1,5 +1,6 @@
 import { baseApi } from "./api";
 import { agentsApi } from "./agentsApi";
+import { scriptsApi } from "./scriptsApi";
 import { skillsApi } from "./skillsApi";
 import type {
   FavoriteToggleResponse,
@@ -111,6 +112,50 @@ function patchListCache(
     const single = dispatch(
       skillsApi.util.updateQueryData(
         "getSkill",
+        resourceUid,
+        (draft) => {
+          const wasFavorited = draft.is_favorited;
+          draft.is_favorited = favorited;
+          if (favorited && !wasFavorited) {
+            draft.favorite_count += 1;
+          } else if (!favorited && wasFavorited) {
+            draft.favorite_count = Math.max(0, draft.favorite_count - 1);
+          }
+        }
+      )
+    ) as unknown as { undo: () => void };
+    patches.push(single);
+  } else if (resourceType === "script") {
+    const entries = scriptsApi.util.selectInvalidatedBy(
+      getState() as never,
+      ["Scripts"]
+    );
+    for (const entry of entries) {
+      if (entry.endpointName !== "listScripts") continue;
+      const patch = dispatch(
+        scriptsApi.util.updateQueryData(
+          "listScripts",
+          entry.originalArgs as never,
+          (draft) => {
+            for (const item of draft.items) {
+              if (item.script_uid === resourceUid) {
+                const wasFavorited = item.is_favorited;
+                item.is_favorited = favorited;
+                if (favorited && !wasFavorited) {
+                  item.favorite_count += 1;
+                } else if (!favorited && wasFavorited) {
+                  item.favorite_count = Math.max(0, item.favorite_count - 1);
+                }
+              }
+            }
+          }
+        )
+      ) as unknown as { undo: () => void };
+      patches.push(patch);
+    }
+    const single = dispatch(
+      scriptsApi.util.updateQueryData(
+        "getScript",
         resourceUid,
         (draft) => {
           const wasFavorited = draft.is_favorited;

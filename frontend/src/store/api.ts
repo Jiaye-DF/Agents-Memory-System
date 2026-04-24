@@ -40,6 +40,7 @@ export const baseApi = createApi({
     "Users",
     "Agents",
     "Skills",
+    "Scripts",
     "AdminLlmModels",
     "AgentLanguages",
     "AdminAgentLanguages",

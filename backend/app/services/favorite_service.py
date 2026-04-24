@@ -17,6 +17,7 @@ from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.repositories import (
     agent_repository,
+    script_repository,
     skill_repository,
     user_favorite_repository,
 )
@@ -57,9 +58,12 @@ async def _dispatch_count_update(
         return await skill_repository.increment_favorite_count(
             resource_uid, delta, db
         )
-    # script 於 v1.2.3 才建表；此版本收到 'script' 應直接拒絕（V34 CHECK 也會擋）
+    if resource_type == "script":
+        return await script_repository.increment_favorite_count(
+            resource_uid, delta, db
+        )
     raise AppError(
-        detail="script 資源類型尚未導入，請等待 v1.2.3",
+        detail=f"不支援的資源類型：{resource_type}",
         response_code=400,
         status_code=400,
     )
@@ -81,8 +85,24 @@ async def _ensure_resource_readable(
         skill = await skill_repository.get_by_uid(resource_uid, db)
         ensure_readable(skill, user_uid, role, "找不到指定的 Skill")
         return
+    if resource_type == "script":
+        script = await script_repository.get_by_uid(resource_uid, db)
+        # v1.2 Script 無 visibility 概念，僅擁有者 / admin 可讀
+        if script is None:
+            raise AppError(
+                detail="找不到指定的 Script",
+                response_code=404,
+                status_code=404,
+            )
+        if role != "admin" and str(script.owner_user_uid) != user_uid:
+            raise AppError(
+                detail="找不到指定的 Script",
+                response_code=404,
+                status_code=404,
+            )
+        return
     raise AppError(
-        detail="script 資源類型尚未導入，請等待 v1.2.3",
+        detail=f"不支援的資源類型：{resource_type}",
         response_code=400,
         status_code=400,
     )
@@ -158,6 +178,9 @@ async def _get_current_favorite_count(
     if resource_type == "skill":
         skill = await skill_repository.get_by_uid(resource_uid, db)
         return skill.favorite_count if skill else None
+    if resource_type == "script":
+        script = await script_repository.get_by_uid(resource_uid, db)
+        return script.favorite_count if script else None
     return None
 
 
@@ -191,6 +214,22 @@ def _skill_snapshot(skill) -> dict:
     }
 
 
+def _script_snapshot(script) -> dict:
+    return {
+        "uid": str(script.script_uid),
+        "name": script.name,
+        "description": script.description,
+        "owner_uid": str(script.owner_user_uid),
+        "owner_username": script.owner.username if script.owner else None,
+        # v1.2 Script 無 visibility 概念
+        "visibility": None,
+        "favorite_count": script.favorite_count,
+        "download_count": script.download_count,
+        "created_at": to_taipei_iso(script.created_at),
+        "updated_at": to_taipei_iso(script.updated_at),
+    }
+
+
 async def list_my_favorites(
     user_uid: str,
     resource_type: str | None,
@@ -213,9 +252,13 @@ async def list_my_favorites(
     skill_uids = [
         str(f.resource_uid) for f in favs if f.resource_type == "skill"
     ]
+    script_uids = [
+        str(f.resource_uid) for f in favs if f.resource_type == "script"
+    ]
 
     agent_map: dict[str, object] = {}
     skill_map: dict[str, object] = {}
+    script_map: dict[str, object] = {}
     if agent_uids:
         # include_deleted=False：軟刪的資源當作 tombstone 處理
         agents = await agent_repository.get_by_uids(agent_uids, db)
@@ -223,6 +266,9 @@ async def list_my_favorites(
     if skill_uids:
         skills = await skill_repository.get_by_uids(skill_uids, db)
         skill_map = {str(s.skill_uid): s for s in skills}
+    if script_uids:
+        scripts = await script_repository.get_by_uids(script_uids, db)
+        script_map = {str(s.script_uid): s for s in scripts}
 
     items: list[dict] = []
     for f in favs:
@@ -240,8 +286,13 @@ async def list_my_favorites(
                 resource_snapshot = _skill_snapshot(skill)
             else:
                 tombstone = "resource_removed"
+        elif f.resource_type == "script":
+            script = script_map.get(str(f.resource_uid))
+            if script is not None:
+                resource_snapshot = _script_snapshot(script)
+            else:
+                tombstone = "resource_removed"
         else:
-            # script：資源尚未導入，一律視為 tombstone（無對應表可查）
             tombstone = "resource_removed"
 
         items.append(

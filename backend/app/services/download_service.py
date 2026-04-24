@@ -15,7 +15,11 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.redis_client import try_setnx_with_ttl
-from app.repositories import agent_repository, skill_repository
+from app.repositories import (
+    agent_repository,
+    script_repository,
+    skill_repository,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +41,10 @@ async def _increment_by_type(
         return await skill_repository.increment_download_count(
             resource_uid, 1, db
         )
-    # script v1.2.3 才導入
+    if resource_type == "script":
+        return await script_repository.increment_download_count(
+            resource_uid, 1, db
+        )
     logger.warning(
         "try_increment_download 遇到未支援的 resource_type：%s", resource_type
     )
