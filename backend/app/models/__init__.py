@@ -10,6 +10,7 @@ from app.models.llm_model import LlmModel
 from app.models.skill import Skill
 from app.models.system_setting import SystemSetting
 from app.models.user import User, UserRole
+from app.models.user_favorite import UserFavorite
 
 __all__ = [
     "Base",
@@ -28,4 +29,5 @@ __all__ = [
     "SystemSetting",
     "User",
     "UserRole",
+    "UserFavorite",
 ]

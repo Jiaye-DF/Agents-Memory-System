@@ -35,6 +35,12 @@ class Agent(Base):
     visibility: Mapped[str] = mapped_column(
         String(10), nullable=False, default="private"
     )
+    favorite_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+    download_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
 
     owner: Mapped[User] = relationship(lazy="joined")
 

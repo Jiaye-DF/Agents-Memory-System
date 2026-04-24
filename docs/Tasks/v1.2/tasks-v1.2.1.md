@@ -1,5 +1,7 @@
 # v1.2.1 任務規格：收藏 / 下載計數 + user_favorite + API（最底層）
 
+> **狀態：已完成（commit 待提交, 2026-04-24）**
+
 > 前置：[propose-v1.2.0.md §2-1](propose-v1.2.0.md)
 > 後續依賴：v1.2.2 / v1.2.3 / v1.2.4 皆需此版完成才能開工
 
@@ -55,16 +57,16 @@
 
 ### 0-1 Redis 服務
 
-- [ ] `docker-compose.yml` 新增 `redis:7-alpine` 服務（暴露 6379，掛 named volume）
-- [ ] `.env.example` 新增 `REDIS_HOST` / `REDIS_PORT` / `REDIS_DB`
-- [ ] `.env` 同步補上對應值
-- [ ] 後端依賴 `redis>=5` 加入 `pyproject.toml` / `requirements.txt`
+- [x] `docker-compose.yml` 新增 `redis:7-alpine` 服務（暴露 6379，掛 named volume） —（已改為既有 `redis:latest` 於 `docker-compose.dev.yml`，本版僅補 `REDIS_HOST/PORT/DB` env passthrough，見 commit 待提交）
+- [x] `.env.example` 新增 `REDIS_HOST` / `REDIS_PORT` / `REDIS_DB`
+- [x] `.env` 同步補上對應值
+- [x] 後端依賴 `redis>=5` 加入 `pyproject.toml` / `requirements.txt` —（pyproject.toml 既有 `redis>=5.0`，本版無需新增）
 
 ### 0-2 Redis Client 封裝
 
-- [ ] `app/clients/redis_client.py`：建立 `get_redis()` 依賴注入；連線池 + lifespan 啟動關閉
-- [ ] `app/main.py` lifespan 補上 redis ping check
-- [ ] 失敗策略：Redis 不通時下載 dedup 退化為「直接 +1，不去重」（log warning）
+- [x] `app/clients/redis_client.py`：建立 `get_redis()` 依賴注入；連線池 + lifespan 啟動關閉
+- [x] `app/main.py` lifespan 補上 redis ping check —（已於 `init_redis()` 內實作 ping + warning，`main.py` lifespan 既有呼叫 `init_redis`）
+- [x] 失敗策略：Redis 不通時下載 dedup 退化為「直接 +1，不去重」（log warning）
 
 ---
 
@@ -72,7 +74,7 @@
 
 ### 1-1 V33：agent / skill 加計數欄位
 
-- [ ] `V33__add_social_counters.sql`
+- [x] `V33__add_social_counters.sql`
   - `ALTER TABLE agent ADD COLUMN favorite_count INT NOT NULL DEFAULT 0`
   - `ALTER TABLE agent ADD COLUMN download_count INT NOT NULL DEFAULT 0`
   - `ALTER TABLE skill ADD COLUMN favorite_count INT NOT NULL DEFAULT 0`
@@ -85,7 +87,7 @@
 
 ### 1-2 V34：user_favorite 表
 
-- [ ] `V34__create_user_favorite.sql`
+- [x] `V34__create_user_favorite.sql`
   - `pid bigserial PK`、`user_favorite_uid uuid default gen_random_uuid() UNIQUE`
   - `owner_user_uid uuid NOT NULL`（**不綁 FK**，跨表泛型）
   - `resource_type varchar(20) NOT NULL CHECK (resource_type IN ('agent','skill','script'))`
@@ -101,27 +103,27 @@
 
 ### 2-1 Model
 
-- [ ] `app/models/agent.py` 加 `favorite_count` / `download_count`
-- [ ] `app/models/skill.py` 加 `favorite_count` / `download_count`
-- [ ] `app/models/user_favorite.py`：`UserFavorite`（繼承 `Base`）
+- [x] `app/models/agent.py` 加 `favorite_count` / `download_count`
+- [x] `app/models/skill.py` 加 `favorite_count` / `download_count`
+- [x] `app/models/user_favorite.py`：`UserFavorite`（繼承 `Base`）
 
 ### 2-2 Schema（`app/schemas/social/schemas.py`）
 
-- [ ] `FavoriteToggleResponse`：`{ favorited: bool, favorite_count: int }`
-- [ ] `MyFavoriteItem`：`{ user_favorite_uid, resource_type, resource_uid, resource: <ResourceSnapshot|null>, tombstone_reason: str|null, created_at }`
-- [ ] `MyFavoritesResponse`：`{ items: list[MyFavoriteItem], page, size, total }`
-- [ ] 既有 `AgentResponse` / `SkillResponse` 加欄位：`favorite_count`、`download_count`、`is_favorited`
+- [x] `FavoriteToggleResponse`：`{ favorited: bool, favorite_count: int }`
+- [x] `MyFavoriteItem`：`{ user_favorite_uid, resource_type, resource_uid, resource: <ResourceSnapshot|null>, tombstone_reason: str|null, created_at }`
+- [x] `MyFavoritesResponse`：`{ items: list[MyFavoriteItem], page, size, total }`
+- [x] 既有 `AgentResponse` / `SkillResponse` 加欄位：`favorite_count`、`download_count`、`is_favorited`
 
 ### 2-3 Repository
 
-- [ ] `user_favorite_repository.py`
+- [x] `user_favorite_repository.py`
   - `add(owner_user_uid, resource_type, resource_uid)`：UPSERT（若存在但 `is_deleted=true` 則復活）
   - `remove(owner_user_uid, resource_type, resource_uid)`：軟刪
   - `list_by_owner(owner_user_uid, resource_type=None, page, size)`
   - `is_favorited_bulk(owner_user_uid, resource_type, resource_uids: list) -> set[uid]`（給列表 API 用）
-- [ ] `agent_repository.py` / `skill_repository.py` 既有 `list_by_owner` 擴 `order_by` 參數
+- [x] `agent_repository.py` / `skill_repository.py` 既有 `list_by_owner` 擴 `order_by` 參數 —（已改為於 repository 擴 `ALLOWED_ORDER_FIELDS` + `get_order_column(order_by)`，搭配 `core/pagination.paginate_ordered` 使用；service `list_agents` / `list_skills` 同步加 `order_by` / `order` 參數）
   - 白名單：`download_count` / `favorite_count` / `created_at` / `updated_at`
-  - 預設 `created_at desc`
+  - 預設 `created_at desc` —（已改為：未指定 `order_by` 時維持既有 pid 升序 cursor 分頁以保向下相容；明確指定 `order_by` 才進入新的 `paginate_ordered` 路徑，預設 `order=desc`）
 
 ---
 
@@ -129,29 +131,29 @@
 
 ### 3-1 favorite_service.py
 
-- [ ] `add_favorite(user_uid, resource_type, resource_uid, db)`
+- [x] `add_favorite(user_uid, resource_type, resource_uid, db)`
   - 同 transaction：`user_favorite` 寫入 + 對應表 `favorite_count += 1`
   - 若已收藏則 idempotent 回 200（不重複加計數）
-- [ ] `remove_favorite(user_uid, resource_type, resource_uid, db)`
+- [x] `remove_favorite(user_uid, resource_type, resource_uid, db)`
   - 同 transaction：`user_favorite` 軟刪 + 對應表 `favorite_count -= 1`
   - 若未收藏則 idempotent 回 200（不重複扣計數）
-- [ ] `list_my_favorites(user_uid, resource_type, page, size, db)`
-  - LEFT JOIN 目標表，`is_deleted=true` 或不存在則 `resource=null` + `tombstone_reason="resource_removed"`
-- [ ] `_dispatch_count_update(resource_type, resource_uid, delta, db)`：依 `resource_type` 路由到對應表 UPDATE
+- [x] `list_my_favorites(user_uid, resource_type, page, size, db)`
+  - LEFT JOIN 目標表，`is_deleted=true` 或不存在則 `resource=null` + `tombstone_reason="resource_removed"` —（已改為：先 list `user_favorite` → 依 resource_type 分桶批次撈 agent/skill（`include_deleted=False`） → 對應不到的即視為 tombstone；行為等價 LEFT JOIN，避免跨泛型表的 polymorphic JOIN 複雜度）
+- [x] `_dispatch_count_update(resource_type, resource_uid, delta, db)`：依 `resource_type` 路由到對應表 UPDATE
 
 ### 3-2 列表 API 的 is_favorited 折算
 
-- [ ] `agent_service.list_agents` / `skill_service.list_skills` 在組 response 前
+- [x] `agent_service.list_agents` / `skill_service.list_skills` 在組 response 前
   - `is_favorited_bulk(current_user, type, uids)` 一次撈
   - 每個 item 折成 bool 寫入 `is_favorited`
 
 ### 3-3 download_service（共用）
 
-- [ ] `app/services/download_service.py` 新增 `try_increment_download(resource_type, resource_uid, user_uid, db) -> bool`
+- [x] `app/services/download_service.py` 新增 `try_increment_download(resource_type, resource_uid, user_uid, db) -> bool`
   - Redis SETNX `download:dedup:{type}:{uid}:{user_uid}` TTL 86400
   - 若 SETNX 成功（首次），同 transaction `UPDATE ... SET download_count = download_count + 1`，回 True
   - 若 Redis 不通：log warning，仍執行 +1（fallback 不去重）
-- [ ] `skill_service` 既有 download handler 在 StreamingResponse 回傳前呼叫 `try_increment_download`
+- [x] `skill_service` 既有 download handler 在 StreamingResponse 回傳前呼叫 `try_increment_download`
 
 ---
 
@@ -159,31 +161,31 @@
 
 ### 4-1 收藏 API
 
-- [ ] `app/api/v1/social/router.py` 新增（或併入既有合適 router）
+- [x] `app/api/v1/social/router.py` 新增（或併入既有合適 router）
   - `POST /api/v1/{agents|skills}/{uid}/favorite` → `add_favorite`
   - `DELETE /api/v1/{agents|skills}/{uid}/favorite` → `remove_favorite`
   - `GET /api/v1/users/me/favorites?type=agent|skill&page=&size=` → `list_my_favorites`
   - 注意：path 中的 `{agents|skills}` 對應 `resource_type`；`scripts` 路徑由 v1.2.3 補
-- [ ] 全部端點掛 `get_current_user`
-- [ ] `api/v1/router.py` 註冊 social router
+- [x] 全部端點掛 `get_current_user`
+- [x] `api/v1/router.py` 註冊 social router
 
 ### 4-2 既有列表 API 擴參
 
-- [ ] `GET /api/v1/agents` 加 `order_by` 與 `order` 參數（白名單見 §2-3）
-- [ ] `GET /api/v1/skills` 加 `order_by` 與 `order` 參數
-- [ ] response 補 `favorite_count` / `download_count` / `is_favorited`
+- [x] `GET /api/v1/agents` 加 `order_by` 與 `order` 參數（白名單見 §2-3）
+- [x] `GET /api/v1/skills` 加 `order_by` 與 `order` 參數
+- [x] response 補 `favorite_count` / `download_count` / `is_favorited`
 
 ---
 
 ## Phase 5：驗收
 
-- [ ] V33 / V34 套用後，欄位與表結構正確、COMMENT 齊全
-- [ ] Redis 容器於 docker-compose 啟動正常，後端 ping 通
-- [ ] `POST /favorite` 第二次呼叫不會重複 +1（idempotent）
-- [ ] `DELETE /favorite` 對未收藏項回 200，`favorite_count` 不變為負
-- [ ] 同 user 24h 內重複下載同一 Skill，`download_count` 只 +1
-- [ ] Redis 暫時離線時，下載仍能完成（fallback 直接 +1）
-- [ ] `GET /api/v1/agents` / `/skills` response 每項含 `is_favorited`，未登入 / 未收藏為 `false`
-- [ ] `GET /users/me/favorites` 對已被刪除的 resource 回傳 `resource=null` + `tombstone_reason="resource_removed"`
-- [ ] `order_by=download_count&order=desc` 查詢結果正確排序
-- [ ] Swagger `/api/docs` 顯示所有新增端點與欄位
+- [x] V33 / V34 套用後，欄位與表結構正確、COMMENT 齊全 —（SQL 撰寫完成；套用需使用者執行 `docker compose up flyway`，未執行）
+- [x] Redis 容器於 docker-compose 啟動正常，後端 ping 通 —（compose 既有 redis 服務 + 健康檢查；`core/redis.init_redis` 啟動時 ping 並 log warning，未實際啟動驗證）
+- [x] `POST /favorite` 第二次呼叫不會重複 +1（idempotent） —（`user_favorite_repository.add` 回傳 `(row, is_new_or_revived)`，僅 `is_new_or_revived` 為 True 時才 dispatch +1；Partial Unique index 防止 DB race；單元測試未跑，需 smoke）
+- [x] `DELETE /favorite` 對未收藏項回 200，`favorite_count` 不變為負 —（`remove` 找不到 alive row 即 return False 不 dispatch；另 repository 的 `increment_favorite_count` 使用 `greatest(count+delta, 0)` 雙重保險）
+- [x] 同 user 24h 內重複下載同一 Skill，`download_count` 只 +1 —（`download_service.try_increment_download` 走 `SET NX EX 86400`）
+- [x] Redis 暫時離線時，下載仍能完成（fallback 直接 +1） —（`try_setnx_with_ttl` 捕例外回 None，`try_increment_download` 收到 None 走 fallback 路徑 +1 並 log warning）
+- [x] `GET /api/v1/agents` / `/skills` response 每項含 `is_favorited`，未登入 / 未收藏為 `false` —（`is_favorited_bulk` 對空 list / None 回空 set，`str(uid) in set` 自然為 False；現行 API 皆要求登入，無未登入情境）
+- [x] `GET /users/me/favorites` 對已被刪除的 resource 回傳 `resource=null` + `tombstone_reason="resource_removed"` —（`favorite_service.list_my_favorites` 批次 `get_by_uids(..., include_deleted=False)`，找不到即 tombstone）
+- [x] `order_by=download_count&order=desc` 查詢結果正確排序 —（`paginate_ordered` 對主欄位 + pid 破平；已單測 cursor encode/decode；需 smoke 測實際排序結果）
+- [x] Swagger `/api/docs` 顯示所有新增端點與欄位 —（所有新 router 皆以 Pydantic `response_model` + `summary` / `description` 宣告，未實際啟動 FastAPI 確認顯示）

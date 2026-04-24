@@ -3,9 +3,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.access import ensure_modifiable, ensure_owner, ensure_readable
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
-from app.core.pagination import paginate
+from app.core.pagination import paginate, paginate_ordered
 from app.models.agent import Agent
-from app.repositories import agent_language_repository, agent_repository
+from app.repositories import (
+    agent_language_repository,
+    agent_repository,
+    user_favorite_repository,
+)
 from app.schemas.agents.schemas import AgentCreateRequest, AgentUpdateRequest
 from app.schemas.common import VisibilityRequest
 from app.services import system_setting_service
@@ -14,7 +18,9 @@ DEFAULT_MAX_SKILLS = 10
 NOT_FOUND_DETAIL = "找不到指定的 Agent"
 
 
-def _agent_to_dict(agent: Agent, skills: list[dict]) -> dict:
+def _agent_to_dict(
+    agent: Agent, skills: list[dict], is_favorited: bool = False
+) -> dict:
     return {
         "agent_uid": str(agent.agent_uid),
         "owner_uid": str(agent.owner_uid),
@@ -35,6 +41,9 @@ def _agent_to_dict(agent: Agent, skills: list[dict]) -> dict:
         "is_active": agent.is_active,
         "skill_uids": [s["skill_uid"] for s in skills],
         "skills": skills,
+        "favorite_count": agent.favorite_count,
+        "download_count": agent.download_count,
+        "is_favorited": is_favorited,
         "created_at": to_taipei_iso(agent.created_at),
         "updated_at": to_taipei_iso(agent.updated_at),
     }
@@ -102,7 +111,7 @@ async def create_agent(
     skills = await agent_repository.get_skills_summary(
         str(agent.agent_uid), db
     )
-    return _agent_to_dict(agent, skills)
+    return _agent_to_dict(agent, skills, is_favorited=False)
 
 
 async def get_agent(
@@ -113,23 +122,53 @@ async def get_agent(
     assert agent is not None
 
     skills = await agent_repository.get_skills_summary(agent_uid, db)
-    return _agent_to_dict(agent, skills)
+    favorited = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "agent", [agent_uid], db
+    )
+    return _agent_to_dict(agent, skills, is_favorited=agent_uid in favorited)
 
 
 async def list_agents(
-    user_uid: str, cursor: str | None, limit: int, db: AsyncSession
+    user_uid: str,
+    cursor: str | None,
+    limit: int,
+    db: AsyncSession,
+    order_by: str | None = None,
+    order: str = "desc",
 ) -> dict:
-    page = await paginate(
-        db, agent_repository.stmt_visible_to_user(user_uid), cursor, limit
-    )
+    base_stmt = agent_repository.stmt_visible_to_user(user_uid)
 
-    skills_map = await agent_repository.get_skills_summary_map(
-        [str(a.agent_uid) for a in page.items], db
+    if order_by is not None:
+        try:
+            order_col = agent_repository.get_order_column(order_by)
+        except ValueError as exc:
+            raise AppError(
+                detail=str(exc), response_code=400, status_code=400
+            ) from exc
+        page = await paginate_ordered(
+            db,
+            base_stmt,
+            order_col,
+            order_desc=(order.lower() != "asc"),
+            cursor=cursor,
+            limit=limit,
+        )
+    else:
+        page = await paginate(db, base_stmt, cursor, limit)
+
+    item_uids = [str(a.agent_uid) for a in page.items]
+    skills_map = await agent_repository.get_skills_summary_map(item_uids, db)
+    favorited_set = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "agent", item_uids, db
     )
 
     return {
         "items": [
-            _agent_to_dict(a, skills_map.get(str(a.agent_uid), []))
+            _agent_to_dict(
+                a,
+                skills_map.get(str(a.agent_uid), []),
+                is_favorited=str(a.agent_uid) in favorited_set,
+            )
             for a in page.items
         ],
         "next_cursor": page.next_cursor,
@@ -186,7 +225,12 @@ async def update_agent(
         await agent_repository.set_skill_uids(agent_uid, data.skill_uids, db)
 
     skills = await agent_repository.get_skills_summary(agent_uid, db)
-    return _agent_to_dict(agent, skills)
+    favorited = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "agent", [agent_uid], db
+    )
+    return _agent_to_dict(
+        agent, skills, is_favorited=agent_uid in favorited
+    )
 
 
 async def delete_agent(
@@ -215,7 +259,12 @@ async def toggle_visibility(
 
     await agent_repository.update(agent, {"visibility": data.visibility}, db)
     skills = await agent_repository.get_skills_summary(agent_uid, db)
-    return _agent_to_dict(agent, skills)
+    favorited = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "agent", [agent_uid], db
+    )
+    return _agent_to_dict(
+        agent, skills, is_favorited=agent_uid in favorited
+    )
 
 
 async def download_agent(

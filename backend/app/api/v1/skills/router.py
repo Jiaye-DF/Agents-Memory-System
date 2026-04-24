@@ -36,12 +36,25 @@ router = APIRouter(prefix="/skills", tags=["skills"])
 @router.get("", response_model=ApiResponse[PaginatedData[SkillResponse]])
 async def list_skills(
     current_user: TokenPayload = Depends(get_current_user),
-    cursor: str | None = Query(None),
-    limit: int = Query(20, ge=1, le=50),
+    cursor: str | None = Query(None, description="分頁游標（由上一頁回傳）"),
+    limit: int = Query(20, ge=1, le=50, description="每頁筆數"),
+    order_by: str | None = Query(
+        None,
+        description=(
+            "排序欄位（白名單）：favorite_count / download_count / created_at / "
+            "updated_at；未指定時維持 pid 升序（向下相容）"
+        ),
+        pattern="^(favorite_count|download_count|created_at|updated_at)$",
+    ),
+    order: str = Query(
+        "desc",
+        description="排序方向：desc（預設）/ asc；僅在有指定 order_by 時生效",
+        pattern="^(asc|desc)$",
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     result = await skill_service.list_skills(
-        current_user.user_uid, cursor, limit, db
+        current_user.user_uid, cursor, limit, db, order_by=order_by, order=order
     )
     return success(data=result)
 

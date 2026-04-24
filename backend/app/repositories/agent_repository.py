@@ -2,11 +2,15 @@ import uuid
 from collections import defaultdict
 from collections.abc import Iterable
 
-from sqlalchemy import Select, delete, or_, select
+from sqlalchemy import Select, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, agent_skill_table
 from app.models.skill import Skill
+
+
+def _greatest_zero(expr):
+    return func.greatest(expr, 0)
 
 
 async def get_by_uid(agent_uid: str, db: AsyncSession) -> Agent | None:
@@ -18,6 +22,20 @@ async def get_by_uid(agent_uid: str, db: AsyncSession) -> Agent | None:
     return result.scalar_one_or_none()
 
 
+async def get_by_uids(
+    agent_uids: list[str], db: AsyncSession, include_deleted: bool = False
+) -> list[Agent]:
+    """批次取得多個 agent（owner relationship 一併載入）。"""
+    if not agent_uids:
+        return []
+    uuids = [uuid.UUID(u) for u in agent_uids]
+    stmt = select(Agent).where(Agent.agent_uid.in_(uuids))
+    if not include_deleted:
+        stmt = stmt.where(Agent.is_deleted == False)  # noqa: E712
+    result = await db.execute(stmt)
+    return list(result.scalars().unique().all())
+
+
 def stmt_visible_to_user(owner_uid: str) -> Select[tuple[Agent]]:
     return select(Agent).where(
         Agent.is_deleted == False,
@@ -26,6 +44,22 @@ def stmt_visible_to_user(owner_uid: str) -> Select[tuple[Agent]]:
             Agent.visibility == "public",
         ),
     )
+
+
+ALLOWED_ORDER_FIELDS = {
+    "favorite_count": Agent.favorite_count,
+    "download_count": Agent.download_count,
+    "created_at": Agent.created_at,
+    "updated_at": Agent.updated_at,
+}
+
+
+def get_order_column(order_by: str | None):
+    """白名單驗證後回傳 SQLAlchemy 欄位；未指定時預設 `created_at`。"""
+    key = order_by or "created_at"
+    if key not in ALLOWED_ORDER_FIELDS:
+        raise ValueError(f"不支援的 order_by：{order_by}")
+    return ALLOWED_ORDER_FIELDS[key]
 
 
 async def create(agent_data: dict, db: AsyncSession) -> Agent:
@@ -47,6 +81,46 @@ async def update(agent: Agent, update_data: dict, db: AsyncSession) -> Agent:
 async def soft_delete(agent: Agent, db: AsyncSession) -> None:
     agent.is_deleted = True
     await db.flush()
+
+
+async def increment_favorite_count(
+    agent_uid: str, delta: int, db: AsyncSession
+) -> int | None:
+    """原子遞增 `favorite_count`；下限為 0（避免 race 變負）。
+
+    回傳更新後的 favorite_count；若找不到 agent 或已軟刪回傳 None。
+    """
+    stmt = (
+        update(Agent)
+        .where(
+            Agent.agent_uid == uuid.UUID(agent_uid),
+            Agent.is_deleted == False,  # noqa: E712
+        )
+        .values(
+            favorite_count=_greatest_zero(Agent.favorite_count + delta)
+        )
+        .returning(Agent.favorite_count)
+    )
+    result = await db.execute(stmt)
+    row = result.first()
+    return int(row[0]) if row else None
+
+
+async def increment_download_count(
+    agent_uid: str, delta: int, db: AsyncSession
+) -> int | None:
+    stmt = (
+        update(Agent)
+        .where(
+            Agent.agent_uid == uuid.UUID(agent_uid),
+            Agent.is_deleted == False,  # noqa: E712
+        )
+        .values(download_count=Agent.download_count + delta)
+        .returning(Agent.download_count)
+    )
+    result = await db.execute(stmt)
+    row = result.first()
+    return int(row[0]) if row else None
 
 
 async def get_skill_uids(agent_uid: str, db: AsyncSession) -> list[str]:

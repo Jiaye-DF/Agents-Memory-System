@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import BigInteger, ForeignKey, String, Text, Uuid
+from sqlalchemy import BigInteger, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -23,6 +23,12 @@ class Skill(Base):
     file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     visibility: Mapped[str] = mapped_column(
         String(10), nullable=False, default="private"
+    )
+    favorite_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+    download_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
     )
 
     owner: Mapped[User] = relationship(lazy="joined")

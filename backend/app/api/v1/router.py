@@ -10,6 +10,7 @@ from app.api.v1.health import router as health_router
 from app.api.v1.models.router import router as models_router
 from app.api.v1.settings.router import router as settings_router
 from app.api.v1.skills.router import router as skills_router
+from app.api.v1.social.router import router as social_router
 
 v1_router = APIRouter(prefix="/api/v1")
 v1_router.include_router(health_router, tags=["health"])
@@ -22,3 +23,4 @@ v1_router.include_router(chat_router)
 v1_router.include_router(settings_router)
 v1_router.include_router(skills_router)
 v1_router.include_router(models_router)
+v1_router.include_router(social_router)

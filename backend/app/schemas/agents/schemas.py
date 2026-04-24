@@ -88,6 +88,9 @@ class AgentResponse(BaseModel):
     is_active: bool
     skill_uids: list[str]
     skills: list[AgentSkillSummary]
+    favorite_count: int = 0
+    download_count: int = 0
+    is_favorited: bool = False
     created_at: datetime
     updated_at: datetime
 

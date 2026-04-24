@@ -57,6 +57,9 @@ class SkillResponse(BaseModel):
     file_size: int
     visibility: str
     is_active: bool
+    favorite_count: int = 0
+    download_count: int = 0
+    is_favorited: bool = False
     created_at: str
     updated_at: str
 

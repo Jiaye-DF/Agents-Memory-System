@@ -13,11 +13,16 @@ from app.core.access import ensure_modifiable, ensure_owner, ensure_readable
 from app.core.config import settings
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
-from app.core.pagination import paginate
+from app.core.pagination import paginate, paginate_ordered
 from app.models.skill import Skill
-from app.repositories import agent_repository, skill_repository
+from app.repositories import (
+    agent_repository,
+    skill_repository,
+    user_favorite_repository,
+)
 from app.schemas.common import VisibilityRequest
 from app.schemas.skills.schemas import FileTreeNode, SkillUpdateRequest
+from app.services import download_service
 
 EDITABLE_EXTENSIONS = {
     ".md",
@@ -45,7 +50,7 @@ FILE_PREVIEW_MAX_BYTES = 512 * 1024
 NOT_FOUND_DETAIL = "找不到指定的 Skill"
 
 
-def _skill_to_dict(skill: Skill) -> dict:
+def _skill_to_dict(skill: Skill, is_favorited: bool = False) -> dict:
     return {
         "skill_uid": str(skill.skill_uid),
         "owner_uid": str(skill.owner_uid),
@@ -56,6 +61,9 @@ def _skill_to_dict(skill: Skill) -> dict:
         "file_size": skill.file_size,
         "visibility": skill.visibility,
         "is_active": skill.is_active,
+        "favorite_count": skill.favorite_count,
+        "download_count": skill.download_count,
+        "is_favorited": is_favorited,
         "created_at": to_taipei_iso(skill.created_at),
         "updated_at": to_taipei_iso(skill.updated_at),
     }
@@ -202,17 +210,51 @@ async def get_skill(
     skill = await skill_repository.get_by_uid(skill_uid, db)
     ensure_readable(skill, user_uid, role, NOT_FOUND_DETAIL)
     assert skill is not None
-    return _skill_to_dict(skill)
+    favorited = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "skill", [skill_uid], db
+    )
+    return _skill_to_dict(skill, is_favorited=skill_uid in favorited)
 
 
 async def list_skills(
-    user_uid: str, cursor: str | None, limit: int, db: AsyncSession
+    user_uid: str,
+    cursor: str | None,
+    limit: int,
+    db: AsyncSession,
+    order_by: str | None = None,
+    order: str = "desc",
 ) -> dict:
-    page = await paginate(
-        db, skill_repository.stmt_visible_to_user(user_uid), cursor, limit
+    base_stmt = skill_repository.stmt_visible_to_user(user_uid)
+
+    if order_by is not None:
+        try:
+            order_col = skill_repository.get_order_column(order_by)
+        except ValueError as exc:
+            raise AppError(
+                detail=str(exc), response_code=400, status_code=400
+            ) from exc
+        page = await paginate_ordered(
+            db,
+            base_stmt,
+            order_col,
+            order_desc=(order.lower() != "asc"),
+            cursor=cursor,
+            limit=limit,
+        )
+    else:
+        page = await paginate(db, base_stmt, cursor, limit)
+
+    item_uids = [str(s.skill_uid) for s in page.items]
+    favorited_set = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "skill", item_uids, db
     )
     return {
-        "items": [_skill_to_dict(s) for s in page.items],
+        "items": [
+            _skill_to_dict(
+                s, is_favorited=str(s.skill_uid) in favorited_set
+            )
+            for s in page.items
+        ],
         "next_cursor": page.next_cursor,
         "has_next": page.has_next,
     }
@@ -243,7 +285,10 @@ async def update_skill(
         )
 
     await skill_repository.update(skill, update_data, db)
-    return _skill_to_dict(skill)
+    favorited = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "skill", [skill_uid], db
+    )
+    return _skill_to_dict(skill, is_favorited=skill_uid in favorited)
 
 
 async def delete_skill(
@@ -269,7 +314,10 @@ async def toggle_visibility(
     )
     assert skill is not None
     await skill_repository.update(skill, {"visibility": data.visibility}, db)
-    return _skill_to_dict(skill)
+    favorited = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "skill", [skill_uid], db
+    )
+    return _skill_to_dict(skill, is_favorited=skill_uid in favorited)
 
 
 async def download_skill(
@@ -286,6 +334,11 @@ async def download_skill(
             response_code=404,
             status_code=404,
         )
+
+    # StreamingResponse / FileResponse 即將回傳前才 +1（且同 user 24h Redis dedup）
+    await download_service.try_increment_download(
+        "skill", skill_uid, user_uid, db
+    )
 
     download_name = f"{os.path.splitext(skill.original_filename)[0]}.zip"
     return file_path, download_name
@@ -590,7 +643,10 @@ async def reupload_skill(
         },
         db,
     )
-    return _skill_to_dict(skill)
+    favorited = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "skill", [skill_uid], db
+    )
+    return _skill_to_dict(skill, is_favorited=skill_uid in favorited)
 
 
 def _rebuild_zip_with_replacement(
