@@ -40,38 +40,32 @@ if command -v docker >/dev/null 2>&1; then
   fi
 fi
 
-# ── 3. 清除 cache ──────────────────────────────────────────────────────
-cleared=()
-
+# ── 3. 若 container 在跑，先停（避免 next dev 還活著時 .next 被刪 → ENOENT log race）
 if $container_running; then
-  echo "🐳 偵測到 $SERVICE container 在跑，使用 docker exec 清 .next"
-  if docker compose -f "$COMPOSE_FILE" exec -T "$SERVICE" rm -rf .next 2>/dev/null; then
-    cleared+=("container:.next")
-  else
-    echo "⚠️  container exec 失敗，改在 host 直接刪 frontend/.next"
-    [[ -d "$NEXT_DIR" ]] && rm -rf "$NEXT_DIR" && cleared+=("host:.next(fallback)")
-  fi
-else
-  echo "💻 frontend container 未啟動，直接清 host 端 cache"
-  if [[ -d "$NEXT_DIR" ]]; then
-    rm -rf "$NEXT_DIR"
-    cleared+=("host:.next")
-  fi
+  echo "🛑 先停 $SERVICE container（避免 next dev process 寫 log 時 .next 已消失）"
+  docker compose -f "$COMPOSE_FILE" stop "$SERVICE" >/dev/null
 fi
 
-# tsconfig.tsbuildinfo 一律從 host 清（host IDE 用的，與 container 無關）
+# ── 4. 清除 cache（一律從 host 清；frontend bind mount 即 host frontend/）─
+cleared=()
+
+if [[ -d "$NEXT_DIR" ]]; then
+  rm -rf "$NEXT_DIR"
+  cleared+=("host:.next")
+fi
+
 if [[ -f "$TSBUILD" ]]; then
   rm -f "$TSBUILD"
   cleared+=("host:tsconfig.tsbuildinfo")
 fi
 
-# ── 4. 若 container 在跑，重啟以套用 ───────────────────────────────────
+# ── 5. 若先前 container 在跑，重新啟動 ────────────────────────────────
 if $container_running; then
-  echo "🔄 重啟 $SERVICE container 套用變更"
-  docker compose -f "$COMPOSE_FILE" restart "$SERVICE"
+  echo "▶️  重新啟動 $SERVICE container"
+  docker compose -f "$COMPOSE_FILE" start "$SERVICE" >/dev/null
 fi
 
-# ── 5. 摘要 ────────────────────────────────────────────────────────────
+# ── 6. 摘要 ────────────────────────────────────────────────────────────
 echo ""
 if [[ ${#cleared[@]} -eq 0 ]]; then
   echo "ℹ️  沒有 cache 需要清除（已乾淨）"

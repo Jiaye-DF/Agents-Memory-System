@@ -27,9 +27,10 @@ bash .claude/skills/clear-next-cache/clear-cache.sh
 腳本會自動：
 
 1. 偵測 frontend container（`docker compose ps`）是否在跑
-2. **container 在跑** → `docker compose exec` 清掉 container 內的 `.next` + host 的 `tsconfig.tsbuildinfo`，然後 `docker compose restart frontend`
+2. **container 在跑** → `docker compose stop frontend`（避免 next dev 還活著時 `.next` 被刪 → ENOENT log race）→ host 端 `rm -rf` → `docker compose start frontend`
 3. **container 沒跑** → 直接 `rm -rf frontend/.next frontend/tsconfig.tsbuildinfo`
-4. 回報處理摘要
+4. 一律從 host 端清檔案（`./frontend` 是 bind mount，host 與 container 同視野）
+5. 回報處理摘要
 
 ## 重要原則
 

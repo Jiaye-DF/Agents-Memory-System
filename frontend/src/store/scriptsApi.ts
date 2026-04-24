@@ -13,6 +13,13 @@ interface ListScriptsParams {
   order?: "asc" | "desc";
 }
 
+interface ListPublicScriptsParams {
+  limit?: number;
+  cursor?: string | null;
+  orderBy?: "favorite_count" | "download_count" | "created_at" | "updated_at";
+  order?: "asc" | "desc";
+}
+
 export const scriptsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listScripts: builder.query<PaginatedData<Script>, ListScriptsParams>({
@@ -35,6 +42,29 @@ export const scriptsApi = baseApi.injectEndpoints({
       ],
     }),
 
+    listPublicScripts: builder.query<
+      PaginatedData<Script>,
+      ListPublicScriptsParams
+    >({
+      query: ({ limit = 20, cursor, orderBy, order }) => {
+        const params: Record<string, string> = { limit: String(limit) };
+        if (cursor) params.cursor = cursor;
+        if (orderBy) params.order_by = orderBy;
+        if (order) params.order = order;
+        return {
+          method: "get",
+          path: "/scripts/public",
+          params,
+        };
+      },
+      providesTags: (result) => [
+        "Scripts",
+        ...(result?.items ?? []).map(
+          (s) => ({ type: "Scripts" as const, id: s.script_uid })
+        ),
+      ],
+    }),
+
     getScript: builder.query<Script, string>({
       query: (scriptUid) => ({
         method: "get",
@@ -46,11 +76,14 @@ export const scriptsApi = baseApi.injectEndpoints({
     }),
 
     createScript: builder.mutation<Script, ScriptCreateParams>({
-      query: ({ name, description, files, relativePaths }) => {
+      query: ({ name, description, visibility, files, relativePaths }) => {
         const formData = new FormData();
         formData.append("name", name);
         if (description !== undefined && description !== null) {
           formData.append("description", description);
+        }
+        if (visibility !== undefined) {
+          formData.append("visibility", visibility);
         }
         for (let i = 0; i < files.length; i += 1) {
           const f = files[i];
@@ -96,6 +129,7 @@ export const scriptsApi = baseApi.injectEndpoints({
 
 export const {
   useListScriptsQuery,
+  useListPublicScriptsQuery,
   useGetScriptQuery,
   useCreateScriptMutation,
   useUpdateScriptMutation,

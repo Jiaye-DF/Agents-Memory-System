@@ -6,91 +6,141 @@
 
 ## 1. Admin 管理頁表格於中等視窗擠壓、內容被強制換行  〔2026-04-24 05:20:00〕
 
-**問題**：`/admin/models` 等 Admin 管理頁於約 1100px 寬視窗下，表格每個儲存格（「顯示名稱」、「最大 Token」、「建立時間」、「操作」按鈕組）都被強制折成兩行，右側「刪除」按鈕被容器切掉，閱讀體驗明顯劣化。
+**問題**：`/admin/models` 等頁在約 1100px 視窗下表格儲存格強制換行、右側按鈕被切。
 
-```text
-Provider | Model ID            | 顯示 | 預設 | 最大    | 狀 | 建立時間   | 操
-         |                     | 名稱 |     | Token  | 態 |            | 作
-OpenRouter anthropic/claude... Claude      8192  啟  2026/04/24   編輯
-                               Sonnet            用  08:44:49     停用 刪除
-                               4                                         ←被切
-```
+**根因**：儲存格未加 `whitespace-nowrap`；卡片斷點只設到 `md`，768–1279px 落入跑版區。
 
-根因為兩個互相疊加的設計缺陷：
+**修正**：`Table.tsx` 儲存格加 `whitespace-nowrap`、卡片斷點由 `md` 拉到 `xl`；RWD 斷點原則寫入 `docs/Design-Base/11-ui-ux.md`（預設斷點間跑版時提前用上一級切 layout）。
 
-1. **儲存格允許自動換行**：`<th>` / `<td>` 沒掛 `whitespace-nowrap`，Tailwind 預設 `white-space: normal`，當容器寬度不足以容納所有欄位時，每個儲存格先嘗試折行收斂，導致每行高度暴漲、版面零碎。
-2. **卡片替代斷點設得太保守**：`Table.tsx` 在 `md` (768px) 以下才切卡片，768–1279px 這段「中等寬度」剛好會進入表格模式但又無法漂亮呈現 8 欄，Tailwind 預設斷點（`md=768 / lg=1024 / xl=1280`）之間恰好有個跑版區間。
-
-**修正**：
-
-1. `Table.tsx` 表頭 `<th>` / 儲存格 `<td>` 一律加 `whitespace-nowrap`，配合既有 `overflow-x-auto`，過寬時改以容器內水平捲軸承載。
-2. 卡片 / 表格切換斷點由 `md` 拉高到 `xl`（< 1280px 一律顯示卡片模式）。
-3. 同步將 **RWD 斷點選擇原則**寫入 `docs/Design-Base/11-ui-ux.md`：若 UI 於 Tailwind 預設斷點之間（例：1100px）跑版，必須提前用**上一級**斷點切 layout（此例選 `xl` 而非 `lg`），寧可提前切到保守版本，不讓使用者看到中間跑版態。
-
-**影響檔案**：
-
-- `frontend/src/components/ui/Table.tsx`
-- `docs/Design-Base/11-ui-ux.md`
-
-**驗證方式**：於 1100px 左右視窗檢視 `/admin/models` → 應直接顯示卡片；於 1280px 以上 → 應顯示表格且每列單行水平顯示，過寬時容器內出現水平捲軸。
-
-**影響範圍**：此調整透過共用 `<Table>` 元件一併影響 `/admin/users`、`/admin/models`、`/admin/agent-languages`、`/admin/agent-templates` 四頁；四頁均已實作 `cardRender`，無副作用。
+**影響檔案**：`frontend/src/components/ui/Table.tsx`、`docs/Design-Base/11-ui-ux.md`。
 
 ---
 
 ## 2. 儀錶板「你最常用的」混入公開排行榜語義  〔2026-04-24 05:22:00〕
 
-**問題**：v1.2.4 實作的 `RankingPanel`（「你最常用的」）同時呈現「類型切換 [全部 / Agents / Skills / Scripts]」與「排序切換 [最新 / 熱度 / 收藏數]」兩組切換。但本面板資料源**僅限使用者擁有的資源**（副標「根據你擁有的資源統計」），對使用者個人自己的資源做「熱度／收藏數」排序沒有跨人比較的意義，且會與後續將建立的**公開 Agents / 公開 Skills / 公開 Scripts** 排行榜概念重疊混淆。
+**問題**：`RankingPanel` 同時呈現類型切換與「最新 / 熱度 / 收藏數」排序切換，但資料源僅限個人擁有資源，對個人資源做熱度／收藏排序無跨人比較意義，且與公開排行榜概念混淆。
 
-根因：v1.2.4 規格（見 [tasks-v1.2.4.md §2-3](tasks-v1.2.4.md)）把 `<RankingOrderTabs>` 直接併入「你最常用的」區塊，設計當時未釐清「個人擁有資源統計」與「跨使用者公開排行」應屬兩個獨立概念 — 前者的正確呈現維度只有**類型**，後者才需要「熱度 vs 收藏」與「升 vs 降序」的排序切換，且應放在儀錶板上方的公開 Agents / Skills / Scripts 頁籤內。
+**修正**：移除 `RankingPanel` 的 `orderBy` 切換，API 固定帶 `orderBy: "download_count"`；副標改註明「公開排行將整合至公開 Agents／Skills／Scripts 頁籤」;`tasks-v1.2.4.md` 相關項目加註「見 fixed.md §2」。
 
-**修正**：
+**影響檔案**：`frontend/src/components/dashboard/RankingPanel.tsx`、`docs/Tasks/v1.2/tasks-v1.2.4.md`。
 
-1. `RankingPanel.tsx` 移除 `ORDER_TABS` 常數、`RankingOrderTabs` 元件、`orderBy` state 與分隔線。
-2. API 呼叫固定帶入 `orderBy: "download_count"`（「最常用」語義上與下載／使用次數最接近；後端 `/dashboard/rankings` 仍保留參數供未來擴充）。
-3. 副標文案由「跨使用者公開排行將在後續版本推出」改為「公開熱度／收藏排行將整合至公開 Agents／Skills／Scripts 頁籤」，明確劃分兩個面板的職責。
-4. `tasks-v1.2.4.md` 相關規格項目保留 `[x]` 並於後方加註「已改為 xxx，見 fixed.md §2」（遵循 CLAUDE.md「任務文件回填」規則）。
-
-**影響檔案**：
-
-- `frontend/src/components/dashboard/RankingPanel.tsx`
-- `docs/Tasks/v1.2/tasks-v1.2.4.md`
-
-**驗證方式**：/dashboard 畫面「你最常用的」區塊右側應僅剩類型切換 `[全部] [Agents] [Skills] [Scripts]`，不再顯示 `[最新] [熱度] [收藏數]`；切換類型後列表仍依 `download_count` 降序呈現。
-
-**殘留 / 後續**：
-
-- 公開 Scripts 頁籤尚未於 `/dashboard` 新增（目前僅有公開 Agents / 公開 Skills 兩頁籤）
-- 公開 Agents / Skills / Scripts 三頁籤的「熱度／收藏排行」與「升／降序」切換尚未實作
-- 以上兩項應歸入 v1.2 後續版次或 v1.3，待單獨任務規格化
+**後續**：公開 Scripts 頁籤與公開排行排序切換歸入 §4、§5。
 
 ---
 
 ## 3. Admin 卡片模式 Y 軸高度過大、資訊密度過低  〔2026-04-24 05:29:36〕
 
-**問題**：接續 §1 將 Admin 管理頁卡片斷點由 `md` 拉到 `xl` 後，實際瀏覽 `/admin/models`、`/admin/users`、`/admin/agent-languages`、`/admin/agent-templates` 發現**每張卡片高度過大**（約 150–180px），單一 viewport 可見筆數過少、滾動成本高。
+**問題**：§1 將卡片斷點拉到 `xl` 後，桌機中等寬度看到的卡片每張 120–180px（4–6 列垂直堆疊），資訊密度太低。
 
-根因：四張 Card 元件（`UserCard` / `ModelCard` / `LanguageCard` / `TemplateCard`）皆採同一種「每個欄位獨立一行」的 `flex flex-col gap-3` 垂直堆疊：主名稱、徽章、metadata 1、metadata 2、建立時間、按鈕群各占一行，共 4–6 列。原本為 `md` 以下才會啟用的行動裝置布局，拉高到 `xl` 後仍沿用手機期間的稀疏排版，導致桌機中等寬度（768–1279px）看到的資訊密度極低。
+**根因**：四張 Card 與 `SettingRow` 都用 `flex flex-col gap-3` 每欄位獨立一行，手機式稀疏排版沿用到桌機。
 
-**修正**：四張卡片統一改為 **2–3 列緊湊布局**：
+**修正**：五張卡片／列統一改 2–3 列緊湊布局 —
+- Row 1：名稱 + 徽章 + 右推操作按鈕（`flex flex-wrap items-center`）
+- Row 2：metadata 用 `·` 分隔 inline 排列
+- Row 3（選用）：長描述 `line-clamp-1` + tooltip
 
-1. **Row 1（主資訊列）**：名稱 + 預設/狀態徽章（`text-xs`）+ 右推（`ml-auto`）操作按鈕群；整列用 `flex flex-wrap items-center gap-2`，窄寬度時按鈕自然 wrap。
-2. **Row 2（metadata 列）**：provider / code / template_key / 排序 / 建立時間用 `·` 分隔符 inline 排列，`flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted`。
-3. **Row 3（選用，僅 TemplateCard）**：`description` 以 `line-clamp-1` 呈現，原本 `line-clamp-2` 改 1 行避免撐高。
-4. 卡片內部 `gap` 由 `gap-3` 收到 `gap-1.5`；`Table.tsx` 卡片容器外距由 `p-4` 改 `px-3 py-2`、`gap-4` 改 `gap-2`；徽章字級由 `text-sm` 改 `text-xs`。
-5. `UserCard` 把 role select 也合併進 Row 1（移除「角色：」前綴，保留 aria-label），並把鎖定狀態訊息併入 metadata 列，節省兩列。
+同步收斂間距與字級（`gap-3` → `gap-1.5`、徽章 `text-sm` → `text-xs`、settings 頁首與 group header 合併同行）。最終卡片高度降至 60–80px。
 
-最終每張卡片高度降至約 60–80px，單一 viewport 可見筆數約提升 2 倍。
+**影響檔案**：`frontend/src/components/ui/Table.tsx`、`frontend/src/app/(main)/admin/{users,models,agent-languages,agent-templates,settings}/page.tsx`。
 
-**影響檔案**：
+---
 
-- `frontend/src/components/ui/Table.tsx`
-- `frontend/src/app/(main)/admin/users/page.tsx`
-- `frontend/src/app/(main)/admin/models/page.tsx`
-- `frontend/src/app/(main)/admin/agent-languages/page.tsx`
-- `frontend/src/app/(main)/admin/agent-templates/page.tsx`
+## 4. 儀錶板缺「公開 Scripts」頁籤、Script 表缺 `visibility` 欄位  〔2026-04-24 05:48:56〕
 
-**驗證方式**：於 1100px 視窗檢視上述四頁 → 卡片應每張高度約 60–80px、每項僅 2 行（有描述的 template 為 3 行）、操作按鈕貼右；視窗縮到 400px 仍可正常 wrap 不溢出。
+**問題**：`/dashboard` 上方頁籤目前僅 `[公開 Agents] [公開 Skills]`（見 `frontend/src/app/(main)/dashboard/page.tsx` L13 `TabKey = "agents" | "skills"`、L251-258 TabButton 兩顆），**缺第三顆「公開 Scripts」**。無法讓使用者在儀錶板瀏覽他人公開的腳本資源，與 propose-v1.2.0 §2-4「類型切換：[全部] [Agents] [Skills] [Scripts]」規格不一致。
+
+根因：v1.2.3 Phase A 實作 `script` 表（V35）時沿用 v1.2 範圍外約束「跨使用者公開 marketplace 留 v1.4」，**刻意未加 `visibility` 欄位** — 不像 V5（agent）/ V7（skill）在 v1.1 就具備 `visibility VARCHAR(10) DEFAULT 'private' CHECK (visibility IN ('public','private'))`。儀錶板既有「公開 X」頁籤透過前端 `filter(item.visibility === 'public')` 實現，Script 因無此欄位也無從實作頁籤。propose-v1.2.0 §2-4 雖明示類型切換含 Scripts，但因 script 欄位設計未同步延伸，落入 v1.2 殘留。
+
+**待修範圍**（規劃歸入 tasks-v1.2.5.md）：
+
+1. **V37 migration**：`ALTER TABLE script ADD COLUMN visibility VARCHAR(10) NOT NULL DEFAULT 'private'` + CHECK constraint + COMMENT，與 agent / skill 對齊
+2. **後端 Script 擴充**：
+   - `backend/app/models/script.py` 加 `visibility` 欄位
+   - `backend/app/schemas/scripts/schemas.py` `ScriptResponse` / `ScriptCreateForm` / `ScriptUpdateRequest` 加 `visibility`
+   - `backend/app/repositories/script_repository.py` `list_by_owner` 支援 `visibility='public'` 過濾（或由 service 層處理）
+   - `backend/app/api/v1/scripts/router.py` list 端點已能透過前端 filter，或擴 `visibility` query（看設計取捨）
+3. **Dashboard 頁籤擴 Scripts**：
+   - `TabKey = "agents" | "skills" | "scripts"`
+   - 新增 TabButton「公開 Scripts ({n})」
+   - `publicScripts` useMemo 以同 pattern filter `visibility === 'public'`
+   - `ScriptRow` 元件或沿用 `AgentRow` / `SkillRow` 樣式
+4. **Scripts 管理頁**：卡片 / 編輯 Modal 加 `visibility` 切換（預設 `private`），對齊 Agents / Skills 管理頁既有行為
+
+**已確認決策**：
+- `visibility` 預設 `'private'`（使用者主動公開、不改變既有 Script 行為）
+- Dashboard 公開頁籤**維持單純瀏覽場景**（GitHub explore 風格），不加「全部 / 我的 / 我的收藏」filter — 這三段只存在於 `/agents` / `/skills` / `/scripts` 管理頁
+- 公開資源的可見性政策範圍僅限「自己擁有 vs 公開瀏覽」；跨使用者訂閱 / 審核 / API scope 仍歸 v1.4 公開 API 處理
+
+**影響檔案**（預期）：
+
+- `migrations/sql/V37__add_script_visibility.sql`（新增）
+- `backend/app/models/script.py`
+- `backend/app/schemas/scripts/schemas.py`
+- `backend/app/repositories/script_repository.py`
+- `backend/app/services/script_service.py`
+- `backend/app/api/v1/scripts/router.py`
+- `frontend/src/types/scripts.ts`
+- `frontend/src/store/scriptsApi.ts`
+- `frontend/src/app/(main)/dashboard/page.tsx`
+- `frontend/src/app/(main)/scripts/page.tsx`
+- `docs/Tasks/v1.2/tasks-v1.2.5.md`（新增，規格化待辦）
+
+---
+
+## 5. 公開頁籤缺排序切換、Ranking API 缺 `order=asc|desc` 參數  〔2026-04-24 05:48:56〕
+
+**問題**：原 v1.2.4 `RankingPanel` 含「[最新] [熱度] [收藏數]」排序切換於 propose-v1.2.0 §2-4 明文規格，但 fixed.md §2 將其從「你最常用的」區塊移除（因個人資源做熱度 / 收藏排序無跨人意義），改口說「排序概念改歸入後續公開 Agents / Skills / Scripts 頁籤」— 公開頁籤至今**未新增任何排序 chip**，且後端 `GET /api/v1/dashboard/rankings` router 寫死 `desc`（見 `backend/app/api/v1/dashboard/router.py` L37 comment「排序欄位 order_by 皆為 desc」、L47 僅 `order_by` Query 無 `order`）。propose-v1.2.0 §2-1 L119-121 已為列表 API 定下 `order=desc` 參數，ranking API 卻未延伸此參數，規格落差。
+
+根因：
+1. **v1.2.4 設計盲點**：原規格把排序 chip 放在「你最常用的」面板，後驗收時才發現「個人擁有資源的熱度排序」語意模糊，fixed.md §2 快速處置為移除；但移除後「排序切換搬到公開頁籤」一事未同步開 task 落地
+2. **Ranking API 規格漏設 `order` 參數**：propose-v1.2.0 §2-4 的 `GET /api/v1/dashboard/rankings` 範例 URL 僅列 `type` / `order_by` / `limit`，未如 §2-1 明示 `order=desc`；v1.2.4 實作者依規格辦事、寫死 `desc`，升序路徑完全缺席
+3. **命名規格空白**：專案既有 `/admin/models` 頁 L741-755 用 `<FilterChip>` + 前綴「排序：」+ **語意化對稱命名**（最新 / 最舊）做單軸排序，但排行榜的「雙軸三向」（時間 / 熱度 / 收藏 × 高 / 低）未於任何 propose 或 Design-Base 文件規格化 chip 命名慣例
+
+**待修範圍**（規劃歸入 tasks-v1.2.5.md）：
+
+1. **後端 Ranking API 擴 `order` 參數**：
+   - `GET /api/v1/dashboard/rankings?type=&order_by=&order=asc|desc&limit=`
+   - `dashboard_service.list_rankings` 依 `order` 參數決定三類各自 top N query 的排序方向 + 合併後重排方向
+   - `Literal["asc", "desc"]` 白名單，預設 `desc`
+2. **列表 API 的 `order` 參數**（前端補串接）：`/api/v1/agents` / `/skills` / `/scripts` 後端已支援（v1.2.1 + v1.2.3 實作），前端既有 RTK Query hook 需補 `order` 欄位傳遞
+3. **前端排序 chip（沿用既有 pattern）**：
+   - 位置：類型頁籤下方、搜尋框 + 作者 filter **下方**
+   - 元件：沿用 `FilterChip` + 前綴 `<span>排序：</span>`（與 `/admin/models` L741-755 一致）
+   - 布局：`flex flex-wrap items-center gap-2`（窄寬度自然 wrap）
+   - 共 6 顆 chip、預設選中「最新」
+4. **chip 標籤對照表**（**語意化對稱命名、禁用方向符號 / toggle**）：
+
+   | `order_by` | `order` | chip 標籤 |
+   | --- | --- | --- |
+   | `created_at` | `desc` | 最新 |
+   | `created_at` | `asc` | 最舊 |
+   | `download_count` | `desc` | 最熱門 |
+   | `download_count` | `asc` | 最冷門 |
+   | `favorite_count` | `desc` | 最多收藏 |
+   | `favorite_count` | `asc` | 最少收藏 |
+
+5. **chip 使用情境**：
+   - 公開 Agents / Skills / Scripts 三頁籤**共用**同一排序列
+   - 切換類型時**保留**當前排序選擇（UX：避免使用者在三個頁籤反覆設定）
+   - 搜尋框 / 作者 filter 仍生效於排序結果上
+
+**已確認決策**：
+- chip 命名不使用「↑↓」、「由高到低」、「asc/desc」等方向 / 英文符號，一律中文語意化對稱詞
+- 「最新」/「最舊」必須成對出現（對稱性；使用者明確要求）
+- 排序 chip **不做 toggle** — 6 顆平鋪、單選切換
+- Ranking API 預設維持 `order=desc`（向後相容既有 ranking 呼叫）
+- 列表 API 的 `order=asc` 路徑後端已可用、前端補 UI 即通
+
+**影響檔案**（預期）：
+
+- `backend/app/api/v1/dashboard/router.py`（擴 `order` Query）
+- `backend/app/services/dashboard_service.py`（接 `order` 參數）
+- `backend/app/schemas/dashboard/schemas.py`（若 request schema 化則同步）
+- `frontend/src/app/(main)/dashboard/page.tsx`（排序 chip + API 串接）
+- `frontend/src/store/dashboardApi.ts`（hook 參數加 `order`）
+- `frontend/src/store/agentsApi.ts` / `skillsApi.ts` / `scriptsApi.ts`（若既有 hook 未暴露 `order` 則擴）
+- `docs/Design-Base/11-ui-ux.md`（**新增排序 chip 慣例**子節：語意化對稱命名、前綴「排序：」、`<FilterChip>` 複用規則）
+- `docs/Tasks/v1.2/tasks-v1.2.5.md`（新增，規格化待辦）
 
 ---
 
@@ -101,10 +151,14 @@ OpenRouter anthropic/claude... Claude      8192  啟  2026/04/24   編輯
 | 1 | Admin 表格中等視窗擠壓 + RWD 斷點原則 | ✅ 已修 | — 待 commit-all |
 | 2 | 儀錶板「你最常用的」移除 orderBy 切換 | ✅ 已修 | — 待 commit-all |
 | 3 | Admin 卡片模式 Y 軸高度過大 | ✅ 已修 | — 待 commit-all |
+| 4 | 儀錶板缺公開 Scripts 頁籤 + Script 缺 visibility | ✅ 已修 | — 待 commit-all |
+| 5 | 公開頁籤缺排序切換 + Ranking API 缺 `order` | ✅ 已修 | — 待 commit-all |
 
 ---
 
 ## 殘留清理項
 
-- 儀錶板公開 Scripts 頁籤尚未建立（見 §2 殘留 / 後續）
-- 公開 Agents / Skills / Scripts 排行榜升降序切換尚未實作（見 §2 殘留 / 後續）
+§4 / §5 已於 v1.2.5 完成（詳見 `tasks-v1.2.5.md`）：
+
+- §4 公開 Scripts 頁籤 + Script `visibility` 欄位 — ✅ 已於 v1.2.5 完成
+- §5 公開頁籤排序切換 chip + Ranking API `order` 參數 — ✅ 已於 v1.2.5 完成

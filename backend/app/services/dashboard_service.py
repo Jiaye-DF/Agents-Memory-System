@@ -29,6 +29,7 @@ from app.services import system_setting_service
 
 RankingTypeFilter = Literal["all", "agent", "skill", "script"]
 RankingOrderBy = Literal["download_count", "favorite_count", "created_at"]
+RankingOrder = Literal["asc", "desc"]
 
 _DEFAULT_LIMIT = 10
 _RANKING_SIZE_KEY = "dashboard.ranking_size"
@@ -61,8 +62,17 @@ async def _resolve_limit(db: AsyncSession) -> int:
     return value
 
 
+def _apply_direction(column, order: RankingOrder):
+    """依 order 決定欄位排序方向（asc / desc）。"""
+    return column.asc() if order == "asc" else column.desc()
+
+
 async def _top_agents(
-    user_uid: str, order_by: RankingOrderBy, limit: int, db: AsyncSession
+    user_uid: str,
+    order_by: RankingOrderBy,
+    order: RankingOrder,
+    limit: int,
+    db: AsyncSession,
 ) -> list[Agent]:
     stmt = (
         select(Agent)
@@ -70,7 +80,10 @@ async def _top_agents(
             Agent.is_deleted == False,  # noqa: E712
             Agent.owner_uid == uuid.UUID(user_uid),
         )
-        .order_by(_AGENT_ORDER_COLS[order_by].desc(), Agent.pid.desc())
+        .order_by(
+            _apply_direction(_AGENT_ORDER_COLS[order_by], order),
+            _apply_direction(Agent.pid, order),
+        )
         .limit(limit)
     )
     result = await db.execute(stmt)
@@ -78,7 +91,11 @@ async def _top_agents(
 
 
 async def _top_skills(
-    user_uid: str, order_by: RankingOrderBy, limit: int, db: AsyncSession
+    user_uid: str,
+    order_by: RankingOrderBy,
+    order: RankingOrder,
+    limit: int,
+    db: AsyncSession,
 ) -> list[Skill]:
     stmt = (
         select(Skill)
@@ -86,7 +103,10 @@ async def _top_skills(
             Skill.is_deleted == False,  # noqa: E712
             Skill.owner_uid == uuid.UUID(user_uid),
         )
-        .order_by(_SKILL_ORDER_COLS[order_by].desc(), Skill.pid.desc())
+        .order_by(
+            _apply_direction(_SKILL_ORDER_COLS[order_by], order),
+            _apply_direction(Skill.pid, order),
+        )
         .limit(limit)
     )
     result = await db.execute(stmt)
@@ -94,7 +114,11 @@ async def _top_skills(
 
 
 async def _top_scripts(
-    user_uid: str, order_by: RankingOrderBy, limit: int, db: AsyncSession
+    user_uid: str,
+    order_by: RankingOrderBy,
+    order: RankingOrder,
+    limit: int,
+    db: AsyncSession,
 ) -> list[Script]:
     stmt = (
         select(Script)
@@ -102,7 +126,10 @@ async def _top_scripts(
             Script.is_deleted == False,  # noqa: E712
             Script.owner_user_uid == uuid.UUID(user_uid),
         )
-        .order_by(_SCRIPT_ORDER_COLS[order_by].desc(), Script.pid.desc())
+        .order_by(
+            _apply_direction(_SCRIPT_ORDER_COLS[order_by], order),
+            _apply_direction(Script.pid, order),
+        )
         .limit(limit)
     )
     result = await db.execute(stmt)
@@ -179,14 +206,15 @@ async def list_rankings(
     order_by: RankingOrderBy,
     db: AsyncSession,
     limit: int | None = None,
+    order: RankingOrder = "desc",
 ) -> dict:
     """跨三類資源產生 top-N 排行榜。
 
     聚合流程：
     1. 解析 limit（未傳時取 `dashboard.ranking_size`）
-    2. 依 `type_filter` 撈三類 / 單類各自 top N
+    2. 依 `type_filter` 撈三類 / 單類各自 top N（依 order 決方向）
     3. 逐類折 `is_favorited`（沿用 v1.2.1 `is_favorited_bulk`）
-    4. 合併後依 `order_by desc` 重排，截 limit
+    4. 合併後依 `order_by` + `order` 重排，截 limit
     """
     resolved_limit = limit if limit is not None and limit > 0 else (
         await _resolve_limit(db)
@@ -197,11 +225,17 @@ async def list_rankings(
     scripts: list[Script] = []
 
     if type_filter in ("all", "agent"):
-        agents = await _top_agents(user_uid, order_by, resolved_limit, db)
+        agents = await _top_agents(
+            user_uid, order_by, order, resolved_limit, db
+        )
     if type_filter in ("all", "skill"):
-        skills = await _top_skills(user_uid, order_by, resolved_limit, db)
+        skills = await _top_skills(
+            user_uid, order_by, order, resolved_limit, db
+        )
     if type_filter in ("all", "script"):
-        scripts = await _top_scripts(user_uid, order_by, resolved_limit, db)
+        scripts = await _top_scripts(
+            user_uid, order_by, order, resolved_limit, db
+        )
 
     agent_fav_set = await user_favorite_repository.is_favorited_bulk(
         user_uid, "agent", [str(a.agent_uid) for a in agents], db
@@ -227,7 +261,7 @@ async def list_rankings(
             _script_to_item(sc, str(sc.script_uid) in script_fav_set)
         )
 
-    items.sort(key=lambda x: _sort_key(x, order_by), reverse=True)
+    items.sort(key=lambda x: _sort_key(x, order_by), reverse=(order == "desc"))
     items = items[:resolved_limit]
 
     return {"items": items}

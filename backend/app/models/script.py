@@ -21,6 +21,9 @@ class Script(Base):
     file_name: Mapped[str] = mapped_column(String(255), nullable=False)
     file_path: Mapped[str] = mapped_column(String(500), nullable=False)
     file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    visibility: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="private"
+    )
     favorite_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
     )

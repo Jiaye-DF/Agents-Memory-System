@@ -8,17 +8,21 @@ import type {
 interface GetRankingsParams {
   type: RankingTypeFilter;
   orderBy: RankingOrderBy;
+  order?: "asc" | "desc";
   limit?: number;
 }
 
 export const dashboardApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getRankings: builder.query<RankingResponse, GetRankingsParams>({
-      query: ({ type, orderBy, limit }) => {
+      query: ({ type, orderBy, order, limit }) => {
         const params: Record<string, string> = {
           type,
           order_by: orderBy,
         };
+        if (order !== undefined) {
+          params.order = order;
+        }
         if (limit !== undefined) {
           params.limit = String(limit);
         }
@@ -29,7 +33,10 @@ export const dashboardApi = baseApi.injectEndpoints({
         };
       },
       providesTags: (_result, _error, arg) => [
-        { type: "Rankings", id: `${arg.type}:${arg.orderBy}` },
+        {
+          type: "Rankings",
+          id: `${arg.type}:${arg.orderBy}:${arg.order ?? "desc"}`,
+        },
         "Rankings",
       ],
     }),

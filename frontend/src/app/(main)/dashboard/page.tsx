@@ -4,13 +4,39 @@ import React, { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useListAgentsQuery } from "@/store/agentsApi";
 import { useListSkillsQuery } from "@/store/skillsApi";
+import { useListScriptsQuery } from "@/store/scriptsApi";
 import { useListAgentLanguagesQuery } from "@/store/agentLanguagesApi";
 import { PageLoading } from "@/components/ui/Loading";
 import { Input } from "@/components/ui/Input";
+import { FilterChip } from "@/components/ui/FilterChip";
 import { RankingPanel } from "@/components/dashboard/RankingPanel";
-import type { Agent, Skill } from "@/types";
+import type { Agent, Skill, Script } from "@/types";
 
-type TabKey = "agents" | "skills";
+type TabKey = "agents" | "skills" | "scripts";
+
+type SortOrderBy = "created_at" | "download_count" | "favorite_count";
+type SortOrder = "asc" | "desc";
+
+interface SortState {
+  orderBy: SortOrderBy;
+  order: SortOrder;
+}
+
+interface SortChipConfig {
+  label: string;
+  orderBy: SortOrderBy;
+  order: SortOrder;
+}
+
+// §2-5 chip 標籤 ↔ state 對應（語意化對稱中文詞，禁用方向符號 / asc-desc）
+const SORT_CHIPS: SortChipConfig[] = [
+  { label: "最新", orderBy: "created_at", order: "desc" },
+  { label: "最舊", orderBy: "created_at", order: "asc" },
+  { label: "最熱門", orderBy: "download_count", order: "desc" },
+  { label: "最冷門", orderBy: "download_count", order: "asc" },
+  { label: "最多收藏", orderBy: "favorite_count", order: "desc" },
+  { label: "最少收藏", orderBy: "favorite_count", order: "asc" },
+];
 
 interface ParsedSearch {
   text: string;
@@ -137,15 +163,61 @@ const SkillRow = React.memo(function SkillRow({
   );
 });
 
+const ScriptRow = React.memo(function ScriptRow({
+  script,
+}: {
+  script: Script;
+}): React.ReactNode {
+  return (
+    <Link
+      href={`/scripts`}
+      className="flex flex-col gap-2 px-4 py-3 transition-colors hover:cursor-pointer hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <h3 className="truncate text-lg font-semibold text-foreground">
+            {script.name}
+          </h3>
+          <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+            @{script.owner_username ?? "未知"}
+          </span>
+        </div>
+        {script.description && (
+          <p className="mt-1 line-clamp-1 text-base text-muted">
+            {script.description}
+          </p>
+        )}
+      </div>
+      <div className="flex shrink-0 flex-wrap gap-2 text-sm text-muted md:ml-auto">
+        <span className="truncate">{script.file_name}</span>
+      </div>
+    </Link>
+  );
+});
+
 export default function DashboardPage(): React.ReactNode {
   const [activeTab, setActiveTab] = useState<TabKey>("agents");
   const [query, setQuery] = useState<string>("");
+  // §2-5：三頁籤共用 sort state；切換類型保留選擇；重新進頁面預設回「最新」
+  const [sort, setSort] = useState<SortState>({
+    orderBy: "created_at",
+    order: "desc",
+  });
 
   const { data: agentsData, isLoading: agentsLoading } = useListAgentsQuery({
     limit: 50,
+    orderBy: sort.orderBy,
+    order: sort.order,
   });
   const { data: skillsData, isLoading: skillsLoading } = useListSkillsQuery({
     limit: 50,
+    orderBy: sort.orderBy,
+    order: sort.order,
+  });
+  const { data: scriptsData, isLoading: scriptsLoading } = useListScriptsQuery({
+    limit: 50,
+    orderBy: sort.orderBy,
+    order: sort.order,
   });
   const { data: languagesData } = useListAgentLanguagesQuery();
 
@@ -165,6 +237,9 @@ export default function DashboardPage(): React.ReactNode {
     [languageNameMap]
   );
 
+  // §2-4：公開 Scripts 資料源採「前端 filter」(沿用 useListScriptsQuery)；
+  // 與 Agents / Skills 現行 pattern 對稱。後端 `/scripts/public` 端點已建立（§1-3），
+  // 未來若資料量大再切換。
   const publicAgents = useMemo(
     (): Agent[] =>
       (agentsData?.items ?? []).filter((a) => a.visibility === "public"),
@@ -174,6 +249,11 @@ export default function DashboardPage(): React.ReactNode {
     (): Skill[] =>
       (skillsData?.items ?? []).filter((s) => s.visibility === "public"),
     [skillsData]
+  );
+  const publicScripts = useMemo(
+    (): Script[] =>
+      (scriptsData?.items ?? []).filter((s) => s.visibility === "public"),
+    [scriptsData]
   );
 
   const parsed = useMemo(() => parseSearch(query), [query]);
@@ -192,19 +272,25 @@ export default function DashboardPage(): React.ReactNode {
       ),
     [publicSkills, parsed]
   );
+  const filteredScripts = useMemo(
+    (): Script[] =>
+      publicScripts.filter((s) =>
+        matchItem(s.name, s.description, s.owner_username, parsed)
+      ),
+    [publicScripts, parsed]
+  );
 
   const currentAuthors = useMemo((): string[] => {
-    const items = activeTab === "agents" ? publicAgents : publicSkills;
+    let items: { owner_username: string | null }[] = [];
+    if (activeTab === "agents") items = publicAgents;
+    else if (activeTab === "skills") items = publicSkills;
+    else items = publicScripts;
     const set = new Set<string>();
     for (const it of items) {
-      const name =
-        activeTab === "agents"
-          ? (it as Agent).owner_username
-          : (it as Skill).owner_username;
-      if (name) set.add(name);
+      if (it.owner_username) set.add(it.owner_username);
     }
     return Array.from(set).sort();
-  }, [activeTab, publicAgents, publicSkills]);
+  }, [activeTab, publicAgents, publicSkills, publicScripts]);
 
   const handleQueryChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -232,14 +318,43 @@ export default function DashboardPage(): React.ReactNode {
     setActiveTab(tab);
   }, []);
 
-  const showAgents = activeTab === "agents";
-  const isLoading = showAgents ? agentsLoading : skillsLoading;
-  const totalCount = showAgents ? publicAgents.length : publicSkills.length;
-  const filteredCount = showAgents
-    ? filteredAgents.length
-    : filteredSkills.length;
-  const manageHref = showAgents ? "/agents" : "/skills";
-  const manageLabel = showAgents ? "Agents" : "Skills";
+  const handleSortChange = useCallback(
+    (orderBy: SortOrderBy, order: SortOrder): void => {
+      setSort({ orderBy, order });
+    },
+    []
+  );
+
+  const isLoading =
+    activeTab === "agents"
+      ? agentsLoading
+      : activeTab === "skills"
+        ? skillsLoading
+        : scriptsLoading;
+  const totalCount =
+    activeTab === "agents"
+      ? publicAgents.length
+      : activeTab === "skills"
+        ? publicSkills.length
+        : publicScripts.length;
+  const filteredCount =
+    activeTab === "agents"
+      ? filteredAgents.length
+      : activeTab === "skills"
+        ? filteredSkills.length
+        : filteredScripts.length;
+  const manageHref =
+    activeTab === "agents"
+      ? "/agents"
+      : activeTab === "skills"
+        ? "/skills"
+        : "/scripts";
+  const manageLabel =
+    activeTab === "agents"
+      ? "Agents"
+      : activeTab === "skills"
+        ? "Skills"
+        : "Scripts";
 
   return (
     <div className="flex flex-col gap-4">
@@ -255,6 +370,12 @@ export default function DashboardPage(): React.ReactNode {
           onClick={() => handleTabChange("skills")}
         >
           公開 Skills ({publicSkills.length})
+        </TabButton>
+        <TabButton
+          active={activeTab === "scripts"}
+          onClick={() => handleTabChange("scripts")}
+        >
+          公開 Scripts ({publicScripts.length})
         </TabButton>
         <Link
           href={manageHref}
@@ -293,6 +414,21 @@ export default function DashboardPage(): React.ReactNode {
         </div>
       )}
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="shrink-0 text-sm text-muted">排序：</span>
+        {SORT_CHIPS.map((chip) => (
+          <FilterChip
+            key={chip.label}
+            active={
+              sort.orderBy === chip.orderBy && sort.order === chip.order
+            }
+            onClick={() => handleSortChange(chip.orderBy, chip.order)}
+          >
+            {chip.label}
+          </FilterChip>
+        ))}
+      </div>
+
       {isLoading ? (
         <PageLoading />
       ) : totalCount === 0 ? (
@@ -306,17 +442,22 @@ export default function DashboardPage(): React.ReactNode {
       ) : (
         <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
           <div className="divide-y divide-border">
-            {showAgents
-              ? filteredAgents.map((agent) => (
-                  <AgentRow
-                    key={agent.agent_uid}
-                    agent={agent}
-                    languageLabel={resolveLanguage(agent.language)}
-                  />
-                ))
-              : filteredSkills.map((skill) => (
-                  <SkillRow key={skill.skill_uid} skill={skill} />
-                ))}
+            {activeTab === "agents" &&
+              filteredAgents.map((agent) => (
+                <AgentRow
+                  key={agent.agent_uid}
+                  agent={agent}
+                  languageLabel={resolveLanguage(agent.language)}
+                />
+              ))}
+            {activeTab === "skills" &&
+              filteredSkills.map((skill) => (
+                <SkillRow key={skill.skill_uid} skill={skill} />
+              ))}
+            {activeTab === "scripts" &&
+              filteredScripts.map((script) => (
+                <ScriptRow key={script.script_uid} script={script} />
+              ))}
           </div>
         </div>
       )}

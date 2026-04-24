@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, field_validator
 
 
 class ScriptUpdateRequest(BaseModel):
     name: str | None = None
     description: str | None = None
+    visibility: Literal["public", "private"] | None = None
 
     @field_validator("name")
     @classmethod
@@ -35,6 +38,7 @@ class ScriptResponse(BaseModel):
     description: str | None
     file_name: str
     file_size: int
+    visibility: Literal["public", "private"]
     is_active: bool
     favorite_count: int = 0
     download_count: int = 0

@@ -57,6 +57,7 @@ def _script_to_dict(script: Script, is_favorited: bool = False) -> dict:
         "description": script.description,
         "file_name": script.file_name,
         "file_size": script.file_size,
+        "visibility": script.visibility,
         "is_active": script.is_active,
         "favorite_count": script.favorite_count,
         "download_count": script.download_count,
@@ -262,6 +263,7 @@ async def create_script(
     files: list[UploadFile],
     relative_paths: list[str],
     db: AsyncSession,
+    visibility: str | None = None,
 ) -> dict:
     name = (name or "").strip()
     if not name or len(name) > 255:
@@ -272,6 +274,13 @@ async def create_script(
         )
 
     desc = (description or "").strip() or None
+
+    if visibility is not None and visibility not in ("public", "private"):
+        raise AppError(
+            detail="可見性只能為 public 或 private",
+            response_code=400,
+            status_code=400,
+        )
 
     # 同 owner 名稱不可重複（雖然 DB 也有 partial unique，但先驗證給好錯訊）
     if await script_repository.exists_name_for_owner(user_uid, name, db):
@@ -314,18 +323,19 @@ async def create_script(
     # zip bomb 檢測
     _check_zip_bomb(zip_path, max_total_bytes)
 
-    script = await script_repository.create(
-        {
-            "script_uid": script_uid,
-            "owner_user_uid": user_uid,
-            "name": name,
-            "description": desc,
-            "file_name": file_name,
-            "file_path": str(zip_path),
-            "file_size": len(zip_content),
-        },
-        db,
-    )
+    script_data: dict = {
+        "script_uid": script_uid,
+        "owner_user_uid": user_uid,
+        "name": name,
+        "description": desc,
+        "file_name": file_name,
+        "file_path": str(zip_path),
+        "file_size": len(zip_content),
+    }
+    if visibility is not None:
+        script_data["visibility"] = visibility
+
+    script = await script_repository.create(script_data, db)
 
     return _script_to_dict(script)
 
@@ -339,6 +349,55 @@ async def list_scripts(
     order: str = "desc",
 ) -> dict:
     base_stmt = script_repository.stmt_owned_by_user(user_uid)
+
+    if order_by is not None:
+        try:
+            order_col = script_repository.get_order_column(order_by)
+        except ValueError as exc:
+            raise AppError(
+                detail=str(exc), response_code=400, status_code=400
+            ) from exc
+        page = await paginate_ordered(
+            db,
+            base_stmt,
+            order_col,
+            order_desc=(order.lower() != "asc"),
+            cursor=cursor,
+            limit=limit,
+        )
+    else:
+        page = await paginate(db, base_stmt, cursor, limit)
+
+    item_uids = [str(s.script_uid) for s in page.items]
+    favorited_set = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "script", item_uids, db
+    )
+    return {
+        "items": [
+            _script_to_dict(
+                s, is_favorited=str(s.script_uid) in favorited_set
+            )
+            for s in page.items
+        ],
+        "next_cursor": page.next_cursor,
+        "has_next": page.has_next,
+    }
+
+
+async def list_public_scripts(
+    user_uid: str,
+    cursor: str | None,
+    limit: int,
+    db: AsyncSession,
+    order_by: str | None = None,
+    order: str = "desc",
+) -> dict:
+    """列出所有公開（visibility='public'）的 Script。
+
+    v1.2.5 新增：搭配 Dashboard 公開 Scripts 頁籤 / `/api/v1/scripts/public`。
+    `is_favorited` 依 current user 折算；排序白名單與 `list_scripts` 一致。
+    """
+    base_stmt = script_repository.stmt_public()
 
     if order_by is not None:
         try:
@@ -408,6 +467,8 @@ async def update_script(
         update_data["name"] = data.name
     if data.description is not None:
         update_data["description"] = data.description
+    if data.visibility is not None:
+        update_data["visibility"] = data.visibility
 
     if not update_data:
         raise AppError(

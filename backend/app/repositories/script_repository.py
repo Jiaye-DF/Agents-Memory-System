@@ -1,8 +1,7 @@
 """Script 資料存取層。
 
-與 Skill 差異：
-- Script 無 `visibility` 欄位（v1.2 僅擁有者可見，跨使用者可見性留 v1.4）
-- 僅擁有者能操作，故 `list_by_owner` 直接以 owner_user_uid 過濾
+v1.2.5（§1-2）：對齊 agent / skill 加上 `visibility` 欄位，新增 `stmt_public` 供
+Dashboard 公開頁籤 / 後端 `/public` 端點使用。既有 `stmt_owned_by_user` 行為不動。
 """
 
 from __future__ import annotations
@@ -29,10 +28,21 @@ async def get_by_uid(script_uid: str, db: AsyncSession) -> Script | None:
 
 
 def stmt_owned_by_user(owner_user_uid: str) -> Select[tuple[Script]]:
-    """v1.2 Script 尚未開放跨使用者可見，僅回傳擁有者自己的資料。"""
+    """擁有者自己的 Script（不含軟刪）。"""
     return select(Script).where(
         Script.is_deleted == False,  # noqa: E712
         Script.owner_user_uid == uuid.UUID(owner_user_uid),
+    )
+
+
+def stmt_public() -> Select[tuple[Script]]:
+    """公開（visibility='public'）的 Script。
+
+    v1.2.5 新增；搭配 Dashboard 公開 Scripts 頁籤 / `/api/v1/scripts/public`。
+    """
+    return select(Script).where(
+        Script.is_deleted == False,  # noqa: E712
+        Script.visibility == "public",
     )
 
 

@@ -363,53 +363,49 @@ const SettingRow = React.memo(function SettingRow({
   const showFallbackDesc =
     !meta && setting.description && setting.description !== title;
 
+  const hintText =
+    (meta && hint) || showFallbackDesc ? hint ?? setting.description : null;
+
   return (
-    <div className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted-bg/40 md:flex-row md:items-start md:gap-6">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="truncate text-lg font-semibold text-foreground">
-            {title}
-          </h3>
-          {setting.is_public && (
-            <span className="shrink-0 rounded-xl bg-info-bg px-2 py-0.5 text-sm font-medium text-info">
-              公開
-            </span>
-          )}
-          {!setting.is_active && (
-            <span className="shrink-0 rounded-xl bg-muted-bg px-2 py-0.5 text-sm font-medium text-muted">
-              停用
-            </span>
-          )}
-        </div>
-
-        <p className="mt-0.5 font-mono text-sm text-muted">{setting.key}</p>
-
-        {meta && hint && (
-          <p className="mt-2 text-sm text-muted">{hint}</p>
-        )}
-        {showFallbackDesc && (
-          <p className="mt-2 text-sm text-muted">{setting.description}</p>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <span className="shrink-0 text-muted">目前值：</span>
-          <code className="break-all rounded-md bg-muted-bg px-2 py-0.5 font-mono text-foreground">
-            {formatDisplayValue(setting)}
-          </code>
-          <span className="shrink-0 rounded-xl bg-muted-bg px-2 py-0.5 font-mono text-sm text-muted">
-            {setting.value_type}
+    <div className="flex flex-col gap-1.5 px-4 py-2.5 transition-colors hover:bg-muted-bg/40">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="truncate font-semibold text-foreground">{title}</h3>
+        {setting.is_public && (
+          <span className="shrink-0 rounded-xl bg-info-bg px-2 py-0.5 text-xs font-medium text-info">
+            公開
           </span>
-          <span className="text-muted">
-            更新於 {formatDateTime(setting.updated_at)}
+        )}
+        {!setting.is_active && (
+          <span className="shrink-0 rounded-xl bg-muted-bg px-2 py-0.5 text-xs font-medium text-muted">
+            停用
           </span>
-        </div>
-      </div>
-
-      <div className="shrink-0 md:pt-1">
-        <Button size="sm" variant="secondary" onClick={handleEdit}>
+        )}
+        <code className="max-w-[12rem] shrink-0 truncate rounded-md bg-muted-bg px-2 py-0.5 font-mono text-sm text-foreground">
+          {formatDisplayValue(setting)}
+        </code>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={handleEdit}
+          className="ml-auto"
+        >
           編輯
         </Button>
       </div>
+
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+        <span className="truncate font-mono">{setting.key}</span>
+        <span>·</span>
+        <span className="font-mono">{setting.value_type}</span>
+        <span>·</span>
+        <span>更新於 {formatDateTime(setting.updated_at)}</span>
+      </div>
+
+      {hintText && (
+        <p className="line-clamp-1 text-sm text-muted" title={hintText}>
+          {hintText}
+        </p>
+      )}
     </div>
   );
 });
@@ -493,10 +489,12 @@ export default function AdminSettingsPage(): React.ReactNode {
 
   return (
     <div>
-      <h1 className="mb-2 text-3xl font-bold text-foreground">系統設定</h1>
-      <p className="mb-6 text-base text-muted">
-        全域參數調整；「公開」設定前端 member 也可讀取，其餘僅 admin 可見。
-      </p>
+      <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-3xl font-bold text-foreground">系統設定</h1>
+        <p className="text-sm text-muted">
+          全域參數調整；「公開」設定前端 member 也可讀取，其餘僅 admin 可見。
+        </p>
+      </div>
 
       {isLoading || isFetching ? (
         <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
@@ -507,22 +505,22 @@ export default function AdminSettingsPage(): React.ReactNode {
           尚無系統設定
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           {groupedItems.map((group) => {
             const meta = GROUP_META[group.key];
             const title = meta?.title ?? group.key;
             const description = meta?.description;
             return (
               <section key={group.key}>
-                <div className="mb-2 px-1">
-                  <h2 className="text-xl font-semibold text-foreground">
+                <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1">
+                  <h2 className="text-lg font-semibold text-foreground">
                     {title}
-                    <span className="ml-2 font-mono text-sm font-normal text-muted">
-                      {group.key}.*
-                    </span>
                   </h2>
+                  <span className="font-mono text-sm text-muted">
+                    {group.key}.*
+                  </span>
                   {description && (
-                    <p className="mt-0.5 text-sm text-muted">{description}</p>
+                    <span className="text-sm text-muted">· {description}</span>
                   )}
                 </div>
                 <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">

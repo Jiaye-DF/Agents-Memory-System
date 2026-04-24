@@ -100,10 +100,19 @@ const ScriptRow = React.memo(function ScriptRow({
   return (
     <div className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4">
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h3 className="truncate text-lg font-semibold text-foreground">
             {script.name}
           </h3>
+          <span
+            className={`shrink-0 rounded-xl px-2 py-0.5 text-sm font-medium ${
+              script.visibility === "public"
+                ? "bg-info-bg text-info"
+                : "bg-muted-bg text-muted"
+            }`}
+          >
+            {script.visibility === "public" ? "公開" : "私人"}
+          </span>
           {script.owner_username && (
             <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
               @{script.owner_username}

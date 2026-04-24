@@ -16,6 +16,8 @@ import type {
 interface ListSkillsParams {
   limit?: number;
   cursor?: string | null;
+  orderBy?: "favorite_count" | "download_count" | "created_at" | "updated_at";
+  order?: "asc" | "desc";
 }
 
 interface FileTreeResponse {
@@ -25,11 +27,13 @@ interface FileTreeResponse {
 export const skillsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listSkills: builder.query<PaginatedData<Skill>, ListSkillsParams>({
-      query: ({ limit = 20, cursor }) => {
+      query: ({ limit = 20, cursor, orderBy, order }) => {
         const params: Record<string, string> = { limit: String(limit) };
         if (cursor) {
           params.cursor = cursor;
         }
+        if (orderBy) params.order_by = orderBy;
+        if (order) params.order = order;
         return {
           method: "get",
           path: "/skills",

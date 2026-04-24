@@ -59,6 +59,7 @@ export function ScriptUploadDialog({
   const [mode, setMode] = useState<UploadMode>("files");
   const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
+  const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [nameError, setNameError] = useState<string>("");
   const [fileError, setFileError] = useState<string>("");
@@ -196,6 +197,7 @@ export function ScriptUploadDialog({
         await createScript({
           name: name.trim(),
           description: description.trim() || undefined,
+          visibility,
           files: selectedFiles,
           relativePaths: selectedFiles.map((f) => getRelativePath(f)),
         }).unwrap();
@@ -218,7 +220,7 @@ export function ScriptUploadDialog({
         });
       }
     },
-    [name, description, selectedFiles, createScript, showDialog, onClose]
+    [name, description, visibility, selectedFiles, createScript, showDialog, onClose]
   );
 
   const summary = useMemo((): string => {
@@ -374,6 +376,34 @@ export function ScriptUploadDialog({
             rows={3}
             className="min-h-16 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
           />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="shrink-0 text-base font-medium text-foreground">
+            可見性：
+          </span>
+          <button
+            type="button"
+            onClick={() => setVisibility("private")}
+            className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
+              visibility === "private"
+                ? "bg-primary text-white"
+                : "bg-muted-bg text-muted hover:bg-border"
+            }`}
+          >
+            私人
+          </button>
+          <button
+            type="button"
+            onClick={() => setVisibility("public")}
+            className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
+              visibility === "public"
+                ? "bg-primary text-white"
+                : "bg-muted-bg text-muted hover:bg-border"
+            }`}
+          >
+            公開
+          </button>
         </div>
 
         <div className="mt-2 flex justify-end gap-3">

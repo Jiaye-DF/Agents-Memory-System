@@ -34,7 +34,8 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
     description=(
         "跨 Agent / Skill / Script 三類資源的 top-N 排行榜。"
         "`type=all` 時三類混排；指定單類時僅回該類。"
-        "排序欄位 `order_by` 皆為 desc：`download_count` / `favorite_count` / `created_at`。"
+        "排序欄位 `order_by`：`download_count` / `favorite_count` / `created_at`；"
+        "排序方向 `order`：`desc`（預設）/ `asc`（v1.2.5 新增）。"
         "`limit` 未傳時以 `dashboard.ranking_size` 為準（預設 10）。"
         "本版僅顯示當前使用者擁有的資源，跨使用者公開排行留 v1.4。"
     ),
@@ -46,7 +47,11 @@ async def get_rankings(
     ),
     order_by: Literal["download_count", "favorite_count", "created_at"] = Query(
         "download_count",
-        description="排序欄位（皆 desc）",
+        description="排序欄位",
+    ),
+    order: Literal["asc", "desc"] = Query(
+        "desc",
+        description="排序方向：desc（預設）/ asc；v1.2.5 新增",
     ),
     limit: int | None = Query(
         None,
@@ -58,6 +63,6 @@ async def get_rankings(
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     result = await dashboard_service.list_rankings(
-        current_user.user_uid, type, order_by, db, limit=limit
+        current_user.user_uid, type, order_by, db, limit=limit, order=order
     )
     return success(data=result)

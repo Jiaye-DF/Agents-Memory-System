@@ -10,16 +10,20 @@ import type {
 interface ListAgentsParams {
   limit?: number;
   cursor?: string | null;
+  orderBy?: "favorite_count" | "download_count" | "created_at" | "updated_at";
+  order?: "asc" | "desc";
 }
 
 export const agentsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listAgents: builder.query<PaginatedData<Agent>, ListAgentsParams>({
-      query: ({ limit = 20, cursor }) => {
+      query: ({ limit = 20, cursor, orderBy, order }) => {
         const params: Record<string, string> = { limit: String(limit) };
         if (cursor) {
           params.cursor = cursor;
         }
+        if (orderBy) params.order_by = orderBy;
+        if (order) params.order = order;
         return {
           method: "get",
           path: "/agents",

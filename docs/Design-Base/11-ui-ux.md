@@ -264,6 +264,56 @@ showContentDialog({
 
 ---
 
+## 篩選與排序 chip
+
+列表頁的「範圍 / 屬性 / 排序」切換一律以 `<FilterChip>` 水平平鋪呈現，搭配前綴標籤指明作用面。
+
+### 共用規則
+
+- 元件：`frontend/src/components/ui/FilterChip.tsx`（小圓角、單選切換、`active` 以 `bg-primary` 實心背景標示）
+- 布局：`flex flex-wrap items-center gap-2`，窄寬度自然 wrap
+- 前綴標籤：`<span className="shrink-0 text-sm text-muted">{面向}：</span>`（例：`範圍：` / `可見性：` / `排序：`）
+- **禁用**升降箭頭（↑↓）、方向性英文（asc / desc）、「由高到低 / 由低到高」等方向表述 — 一律以語意化對稱中文詞呈現
+
+### 排序 chip 慣例
+
+排序本質是「排序欄位 × 方向」兩軸組合，chip 命名以**對稱中文詞**呈現單一概念，讓使用者不需理解欄位與方向的技術抽象。
+
+| 排序欄位 | 方向 | chip 標籤 |
+| --- | --- | --- |
+| `created_at` | `desc` | 最新 |
+| `created_at` | `asc`  | 最舊 |
+| `download_count` | `desc` | 最熱門 |
+| `download_count` | `asc`  | 最冷門 |
+| `favorite_count` | `desc` | 最多收藏 |
+| `favorite_count` | `asc`  | 最少收藏 |
+
+**命名原則**：
+
+- 時間軸 = 最新 / 最舊
+- 下載熱度軸 = 最熱門 / 最冷門
+- 收藏熱度軸 = 最多收藏 / 最少收藏
+- 未來擴新軸時延伸相同「最 X / 最 Y」對稱結構
+
+**單選 vs toggle 判準**：
+
+- chip 數量 ≤ 2：允許單純單選（如 `/admin/models` 的「最新 / 最舊」單軸雙 chip）
+- chip 數量 > 2：**一律平鋪、單選切換、禁 toggle**（如 `/dashboard` 公開頁籤的雙軸 6 chip）
+
+**放置位置**：
+
+- 類型 / 範圍頁籤**下方**
+- 搜尋框 + 作者 filter **下方**
+- 列表上方
+- 切換類型或範圍時**保留當前排序選擇**（不重置），重新進頁面才重置為預設值
+
+### 範例參考
+
+- 單軸雙 chip：`frontend/src/app/(main)/admin/models/page.tsx`（「最新 / 最舊」）
+- 雙軸 6 chip：`frontend/src/app/(main)/dashboard/page.tsx`（公開 Agents / Skills / Scripts 共用）
+
+---
+
 ## 表單驗證回饋
 
 - 欄位錯誤：即時顯示於欄位下方（紅色文字）
