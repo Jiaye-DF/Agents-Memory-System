@@ -12,7 +12,7 @@
 
 1. 對話輸入框 textarea 固定高度，長訊息難打
 2. 使用者無法快速 copy assistant 回覆
-3. LLM 被 `max_tokens` 截斷時 UI 完全無提示（見 [propose-v1.2.0.md §2-5](../v1.2/propose-v1.2.0.md)）
+3. LLM 被 `max_tokens` 截斷時 UI 完全無提示（見 [propose-v1.3.0.md §2-5](../v1.3/propose-v1.3.0.md)）
 
 ### 範圍內
 
@@ -25,7 +25,7 @@
 
 ### 範圍外
 
-- `max_tokens` UI hint（propose-v1.2.0.md §2-5 A）— 等 v1.1.6 一起動 AgentForm 再加
+- `max_tokens` UI hint（propose-v1.3.0.md §2-5 A）— 等 v1.1.6 一起動 AgentForm 再加
 - Agent Template 預設 `max_tokens` 分類（§2-5 C）— v1.2 多 Agent 一起
 - Copy 按鈕的「複製為 markdown / 純文字」選項 — 先只做純文字複製
 - 訊息編輯 / 刪除 / 重新生成 — 超出本版範圍

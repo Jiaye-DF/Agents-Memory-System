@@ -117,7 +117,7 @@
 
 - [x] `app/api/v1/chat/router.py` 新增兩個 endpoint：
   - `POST /chat/sessions/{uid}/attachments`（multipart/form-data、`files: list[UploadFile]`）
-  - `GET /chat/attachments/{uid}` 回 StreamingResponse（按 [propose-v1.2.0.md § 統一回應格式豁免端點](../Design-Base/20-backend.md#統一回應格式) 下載豁免）
+  - `GET /chat/attachments/{uid}` 回 StreamingResponse（按 [20-backend.md § 統一回應格式豁免端點](../Design-Base/20-backend.md#統一回應格式) 下載豁免）
 - [x] `send_message` endpoint 支援 `attachment_uids` 欄位
 
 ### 1-6 OpenRouter Client 擴充

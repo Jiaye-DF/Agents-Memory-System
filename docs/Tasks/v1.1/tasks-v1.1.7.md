@@ -171,7 +171,7 @@
 ## Phase 4：文件
 
 - [x] [propose-v1.1-extended.md §5](propose-v1.1-extended.md) 實作完回填狀態標題
-- [x] [propose-v1.2.0.md §2-8](../v1.2/propose-v1.2.0.md) 加一行「承接 v1.1.7 commit xxx 的 PoC，approve/reject 訊號可用於 threshold 調校」
+- [x] [propose-v1.3.0.md §2-8](../v1.3/propose-v1.3.0.md) 加一行「承接 v1.1.7 commit xxx 的 PoC，approve/reject 訊號可用於 threshold 調校」
 - [ ] `docs/Tasks/v1.1/fixed.md`：驗收期 bug 記錄 —（無驗收 bug 可紀錄，留空待驗收期填入）
 
 ---

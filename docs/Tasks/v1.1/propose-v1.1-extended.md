@@ -57,7 +57,7 @@ v1.1.7 明確為 **PoC**，目的是自行設計一遍 Agentic loop 理解架構
 - **Copy 模型回覆**：每則 assistant message hover 顯示 Copy 按鈕
   - `navigator.clipboard.writeText(message.content)` + 2 秒 ✓ 反饋
 - **截斷 badge**：OpenRouter `finish_reason === "length"` 時 UI 標 ⚠「回覆被截斷」
-  - 承 [propose-v1.2.0.md §2-5 B](../v1.2/propose-v1.2.0.md)，提前在 v1.1.5 做
+  - 承 [propose-v1.3.0.md §2-5 B](../v1.3/propose-v1.3.0.md)，提前在 v1.1.5 做
 
 ### 範圍外
 
@@ -203,7 +203,7 @@ TTL:      7 days
 
 ### 觀察性（學習價值的關鍵）
 
-PoC 的意義在看清每一步，所以每階段**必須 log**（對齊 [propose-v1.2.0.md §2-4](../v1.2/propose-v1.2.0.md) Debug 層 1）：
+PoC 的意義在看清每一步，所以每階段**必須 log**（對齊 [propose-v1.3.0.md §2-4](../v1.3/propose-v1.3.0.md) Debug 層 1）：
 
 - Rule 觸發條件是否成立的理由（哪條不符）
 - Analyzer 的 memory 輸入 + suggestion 輸出完整 payload
@@ -240,7 +240,7 @@ PoC 的意義在看清每一步，所以每階段**必須 log**（對齊 [propos
 | 1.1.7 Skill PoC（session scope） | §2-8 升級跨 session（消費 `user_memory` / `project_memory`） |
 | 1.1.7 人工審核 Skill | §2-1 多 Agent 自動推薦適合 Skill |
 
-本 propose 定稿後**同步更新** [propose-v1.2.0.md](../v1.2/propose-v1.2.0.md) 補 §2-8 / §2-2 / §2-1。
+本 propose 定稿後**同步更新** [propose-v1.3.0.md](../v1.3/propose-v1.3.0.md) 補 §2-8 / §2-2 / §2-1。
 
 v1.3 公開 API 可承接：1.1.6 的上傳 API / quota 基礎、1.1.7 的 Agentic 能力對外暴露。
 

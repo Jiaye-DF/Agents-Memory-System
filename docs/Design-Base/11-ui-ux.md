@@ -8,72 +8,106 @@
 
 ## 整體風格
 
-- 全站採用**圓角設計**，所有卡片、按鈕、輸入框、Dialog 等元件統一使用 `rounded-xl`（或等效圓角值）
-- 任何可被點選的元素（按鈕、連結、卡片、圖示按鈕等）**必須**加上 `hover:cursor-pointer`
-- 維持一致的間距系統，使用 Tailwind spacing scale（`p-4`、`gap-6` 等），不使用任意數值
+- 全站統一 `rounded-xl`（卡片、按鈕、輸入框、Dialog 等）
+- 可點選元素**必須**加 `hover:cursor-pointer`
+- 間距一律使用 Tailwind spacing scale（`p-4`、`gap-6`），不用任意數值
 
 ---
 
 ## 佈景主題
 
-### 預設主題
+### 架構：系列（Series） + 主題（Theme）
 
-提供**淺色**與**深色**兩種預設主題，透過 TailwindCSS `dark:` 策略搭配 CSS Variables 切換。
+兩層結構（系列 + 成員），為多系列擴充與使用者自訂主題預留彈性。
 
-### 自訂主題
+```ts
+interface ThemeColors {
+  background: string;
+  foreground: string;
+  primary: string;
+  accent: string;
+  // 其他項依 globals.css 擴充
+}
 
-除預設深淺色外，提供三種自訂配色主題供使用者選擇：
+interface ThemeItem {
+  id: string;                   // builtin 如 'light'，user 如 'custom-<uuid>'
+  labelZh: string;              // 中文主標
+  labelEn: string;              // 英文副標
+  icon: string;                 // Unicode 符號或 SVG 路徑
+  colors: ThemeColors;          // 宣告式配色（thumb 繪製與自訂注入共用）
+  source: 'builtin' | 'user';
+}
 
-| 主題名稱 | 色調方向   | 說明                                 |
-| -------- | ---------- | ------------------------------------ |
-| 冷色系   | 藍、青、灰 | 專業沉穩風格，適合長時間使用         |
-| 暖色系   | 橙、棕、米 | 柔和溫暖風格，降低視覺疲勞           |
-| 粉紫色   | 紫、粉、薰 | 活潑輕盈風格                         |
+interface ThemeSeries {
+  key: string;                  // 'atmosphere' / 'gemstone' / 'user-custom'
+  label: string;
+  labelEn: string;
+  source: 'builtin' | 'user';
+  themes: ThemeItem[];
+}
+```
+
+**關鍵原則**：
+
+- 主題 `id` 一旦發布**不得改名**（綁 localStorage 值與 CSS 選擇器）
+- 顯示欄位（`labelZh` / `labelEn` / `icon`）可隨時調整
+- `colors` 為宣告式真相，須與 `globals.css` 對齊；`source: 'user'` 改以動態注入 `<html>` inline style，不寫入 CSS 檔
+- `source: 'user'` 卡片右上角顯示「編輯 / 刪除」，`builtin` 則無
+
+### 首發系列：光影 Atmosphere（v1.2）
+
+以「一日光影變化」為敘事軸，五個主題分別對應不同時刻氛圍：
+
+| id | labelZh | labelEn | icon | 氛圍 |
+| --- | --- | --- | --- | --- |
+| light | 晨曦 | Dawn | ◐ | 清透白光 |
+| cool | 霧境 | Nordic | ❅ | 清冷霧藍 |
+| warm | 夕映 | Ember | ◉ | 暖陽餘暉 |
+| purple | 暮霞 | Twilight | ✦ | 霞紫漸層 |
+| dark | 深夜 | Midnight | ☾ | 靜謐黑墨 |
+
+> `id` 沿用舊值以避免 localStorage 遷移；僅顯示名與 icon 為新命名。
+
+### 擴充協議
+
+- **同族擴充**：既有系列新增 `ThemeItem`
+- **跨族擴充**：新增 `ThemeSeries`，Dialog 自動多一個分區
+- **使用者自訂**（v1.2 不實作）：獨立系列 `user-custom`，`colors` 存 DB，套用時動態注入 `<html>` 的 CSS Variable，不污染 `globals.css`
 
 ### 實作方式
 
-- 所有色彩定義統一於 `globals.css` 的 CSS Variables，**禁止**在元件內寫死 hex 色碼
-- 主題切換透過 `<html>` 的 `data-theme` 屬性控制，各主題定義獨立的 CSS Variable 區塊
-- 使用者選擇的主題偏好儲存至 localStorage，重新載入時自動套用
-- **例外**：`app/global-error.tsx` 由 Next.js 負責取代根佈局渲染，此時 `globals.css` 與 Tailwind class 均未載入，因此**允許**使用 inline style 與 hex 色碼；實作上應以中性色（例如 `#6b7280`、`#2563eb`）呈現純文字錯誤頁，不得包含業務邏輯或受主題影響的視覺元素
+- 色彩一律走 `globals.css` 的 CSS Variables，元件內**禁止**寫死 hex 色碼
+- 透過 `<html data-theme="<id>">` 切換（`light` = `:root`、`dark` = `.dark`、其餘 `[data-theme="<id>"]`）
+- 偏好存 localStorage（key：`agents-platform-theme`），重新載入時自動套用
+- **例外**：`app/global-error.tsx` 因 `globals.css` 未載入，允許 inline style + 中性色 hex（如 `#6b7280`）呈現純文字錯誤頁，不得含業務邏輯
 
 ```css
-/* globals.css 範例 */
-:root {
+/* globals.css 範例（需與 ThemeItem.colors 對齊） */
+:root {                    /* id: light，晨曦 Dawn */
   --color-background: #ffffff;
   --color-foreground: #171717;
   --color-primary: #2563eb;
   --color-accent: #3b82f6;
 }
 
-.dark {
+.dark {                    /* id: dark，深夜 Midnight */
   --color-background: #0a0a0a;
   --color-foreground: #ededed;
   --color-primary: #60a5fa;
   --color-accent: #93c5fd;
 }
 
-[data-theme="cool"] {
-  --color-background: #f0f4f8;
-  --color-foreground: #1e293b;
-  --color-primary: #0ea5e9;
-  --color-accent: #06b6d4;
-}
-
-[data-theme="warm"] {
-  --color-background: #fdf6ec;
-  --color-foreground: #44403c;
-  --color-primary: #ea580c;
-  --color-accent: #f59e0b;
-}
-
-[data-theme="purple"] {
-  --color-background: #faf5ff;
-  --color-foreground: #3b0764;
-  --color-primary: #a855f7;
-  --color-accent: #e879f9;
-}
+/* 其餘主題 (cool / warm / purple) 以 [data-theme="<id>"] 同模式宣告 */
 ```
+
+### 主題選擇 UI（ThemeSwitcher）
+
+- Header 主題按鈕開啟 **Content Dialog**，不用懸浮下拉（無法承載多系列擴充）
+- Dialog 內以系列分區（垂直），各系列下為主題卡片 grid
+- 卡片：色彩縮影 thumb（依 `colors` 動態繪製）+ `labelZh` / `labelEn`，選中以 `ring-primary` 標示
+- **即時套用**：點擊即套用全頁
+- **取消回復**：「取消」回復原主題；關閉（ESC / 遮罩 / X）**保留**當前選擇
+- `source: 'user'` 卡片右上角顯示「編輯 / 刪除」
 
 ---
 
@@ -87,13 +121,13 @@ Header 為全站共用，固定於頂部，結構如下：
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-- **左側**：Sidebar 選單切換按鈕（☰）+ SVG 圖示 + 「Agents-Platform」文字，Logo 區塊點擊可回到主頁
-- **右側**：主題切換按鈕（🎨）+ 當前登入的 `{Username}` + 登出按鈕
-- 主題切換按鈕點擊後展開下拉選單，列出所有可用主題（淺色 / 深色 / 冷色系 / 暖色系 / 粉紫色）
-- Sidebar 切換按鈕控制左側選單，共三種狀態：完整展開（圖示+文字）→ 收合（僅圖示）→ 完全隱藏，再點擊循環回完整展開
-- `md` 以下 Sidebar 預設隱藏，點擊按鈕以 overlay 方式展開，可關閉
-- Header 高度固定，背景色跟隨主題 CSS Variable
-- 響應式：`sm` 以下「Agents-Platform」文字隱藏，僅保留 SVG 圖示
+- **左側**：Sidebar 切換（☰）+ SVG 圖示 + 「Agents-Platform」文字（點擊回主頁）
+- **右側**：主題切換（🎨）+ `{Username}` + 登出
+- 主題按鈕行為見 [主題選擇 UI](#主題選擇-uithemeswitcher)
+- Sidebar 按鈕循環三態：完整展開（圖示+文字）→ 收合（僅圖示）→ 完全隱藏
+- `md` 以下 Sidebar 預設隱藏，點擊以 overlay 展開
+- Header 高度固定，背景跟隨主題 CSS Variable
+- `sm` 以下「Agents-Platform」文字隱藏，僅保留 SVG 圖示
 
 ---
 
@@ -115,20 +149,20 @@ Sidebar 展開：                          Sidebar 隱藏：
 └────────┴─────────────────────────┘    └──────────────────────────────┘
 ```
 
-- 每個頁面的 main section 皆包含：**Page Title 區塊** + **Main Content 卡片容器**
-- Main Content 區域使用統一的圓角卡片容器（`rounded-xl` + 背景色 + 陰影）
-- 各頁面**禁止**自行定義外層佈局結構，僅填充 Main Content 內部內容
-- 佈局由 `(main)/layout.tsx` 統一控制
+- 每個頁面含 **Page Title** + **Main Content 卡片容器**（`rounded-xl` + 背景 + 陰影）
+- 外層佈局由 `(main)/layout.tsx` 統一控制，**禁止**頁面自行定義
 
 ---
 
 ## Dialog 元件
 
-- **禁止**使用瀏覽器原生 `alert()` / `confirm()` / `prompt()`，所有提示訊息一律透過 Dialog 元件呈現
-- 提供共用方法（如 `useDialog` Hook 或全域 `dialogStore`），讓任何元件皆可透過程式觸發 Dialog，無須各自引入元件
-- Dialog 容器同樣採用圓角設計（`rounded-xl`）
+- **禁止** `alert()` / `confirm()` / `prompt()`，一律走 Dialog 元件
+- 透過共用 Hook / Store（如 `useDialog`）程式觸發，無須逐一引入元件
+- 容器 `rounded-xl`
 
-Dialog 須區分三種類型，各有對應的視覺樣式與預設行為：
+分兩族：**提示型**（Info / Warning / Error）承載訊息，**內容型**（Content）承載表單 / 選擇器。
+
+### 提示型 Dialog
 
 | 類型    | 用途           | 圖示/色調 | 預設按鈕    |
 | ------- | -------------- | --------- | ----------- |
@@ -143,37 +177,56 @@ const { showDialog } = useDialog();
 showDialog({ type: "error", title: "操作失敗", message: "無法取得資料" });
 ```
 
+### 內容型 Dialog（Content Dialog）
+
+承載表單、選擇器、複雜流程：
+
+- 結構：`title` + `children`（JSX slot）+ 動作列
+- 尺寸 `sm` / `md` / `lg`（預設 `md`）
+- 即時副作用場景：`onConfirm` 保留變更、`onDismiss` 回復（ESC / 遮罩 / X 皆觸發 `onDismiss`）
+- `< sm` 自動轉底部滑出式（bottom sheet）
+
+```typescript
+const { showContentDialog } = useDialog();
+showContentDialog({
+  title: "選擇主題",
+  size: "md",
+  children: <ThemePicker />,
+  onDismiss: () => revertToOriginalTheme(),  // 回復副作用
+  onConfirm: () => persistThemeChoice(),     // 即時副作用場景可省
+});
+```
+
 ---
 
 ## 表單驗證回饋
 
-- 欄位驗證錯誤即時顯示於該欄位下方，使用紅色文字提示
-- 表單送出後的伺服器錯誤透過 Dialog（Error 類型）呈現
-- 送出按鈕在請求期間須顯示 loading 狀態並禁用，防止重複提交
+- 欄位錯誤：即時顯示於欄位下方（紅色文字）
+- 伺服器錯誤：以 Error Dialog 呈現
+- 送出按鈕請求期間顯示 loading 並禁用
 
 ---
 
 ## 響應式設計（RWD）
 
-- 以 **Mobile First** 為基礎，依序向上擴展
-- 使用 Tailwind 預設斷點：
+**Mobile First**，採 Tailwind 預設斷點：
 
 | 斷點 | 寬度      | 佈局變化                      |
 | ---- | --------- | ----------------------------- |
-| 預設 | < 640px   | 單欄、Sidebar 隱藏為漢堡選單  |
-| `sm` | >= 640px  | 單欄、元素間距微調            |
-| `md` | >= 768px  | Sidebar 展開、雙欄佈局        |
-| `lg` | >= 1024px | Main Content 區域加寬         |
-| `xl` | >= 1280px | 最大內容寬度，置中顯示        |
+| 預設 | < 640px   | 單欄、Sidebar 為漢堡選單      |
+| `sm` | >= 640px  | 單欄、間距微調                |
+| `md` | >= 768px  | Sidebar 展開、雙欄            |
+| `lg` | >= 1024px | Main Content 加寬             |
+| `xl` | >= 1280px | 最大寬度、置中                |
 
-- Sidebar 於 `md` 以下自動收合為漢堡選單，點擊展開為 overlay
-- 表格於小螢幕可水平捲動或改為卡片式呈現
-- 所有互動元素的觸控區域至少 44x44px（符合無障礙標準）
+- `md` 以下 Sidebar 收為漢堡選單，點擊以 overlay 展開
+- 表格於小螢幕可水平捲動或轉卡片式
+- 觸控區域至少 44x44px（a11y）
 
 ---
 
 ## Loading 狀態
 
-- 頁面級載入使用全頁 Skeleton 或 Spinner
-- 元件級載入使用局部 Skeleton，避免整頁閃爍
-- 按鈕操作中顯示 Spinner 並禁用，防止重複觸發
+- 頁面級：全頁 Skeleton 或 Spinner
+- 元件級：局部 Skeleton，避免整頁閃爍
+- 按鈕：操作中顯 Spinner 並禁用
