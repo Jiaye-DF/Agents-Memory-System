@@ -12,7 +12,7 @@ import { FilterChip } from "@/components/ui/FilterChip";
 import { RankingPanel } from "@/components/dashboard/RankingPanel";
 import type { Agent, Skill, Script } from "@/types";
 
-type TabKey = "agents" | "skills" | "scripts";
+type TabKey = "agents" | "skills" | "scripts" | "favorites";
 
 type SortOrderBy = "created_at" | "download_count" | "favorite_count";
 type SortOrder = "asc" | "desc";
@@ -22,20 +22,33 @@ interface SortState {
   order: SortOrder;
 }
 
-interface SortChipConfig {
-  label: string;
+interface SortGroup {
+  prefix: string;
   orderBy: SortOrderBy;
-  order: SortOrder;
+  descLabel: string;
+  ascLabel: string;
 }
 
-// §2-5 chip 標籤 ↔ state 對應（語意化對稱中文詞，禁用方向符號 / asc-desc）
-const SORT_CHIPS: SortChipConfig[] = [
-  { label: "最新", orderBy: "created_at", order: "desc" },
-  { label: "最舊", orderBy: "created_at", order: "asc" },
-  { label: "最熱門", orderBy: "download_count", order: "desc" },
-  { label: "最冷門", orderBy: "download_count", order: "asc" },
-  { label: "最多收藏", orderBy: "favorite_count", order: "desc" },
-  { label: "最少收藏", orderBy: "favorite_count", order: "asc" },
+// §2-5 多軸排序：軸為前綴，chip 標籤用「由新到舊 / 由多到少」方向表述
+const SORT_GROUPS: SortGroup[] = [
+  {
+    prefix: "按時間：",
+    orderBy: "created_at",
+    descLabel: "由新到舊",
+    ascLabel: "由舊到新",
+  },
+  {
+    prefix: "按收藏：",
+    orderBy: "favorite_count",
+    descLabel: "由多到少",
+    ascLabel: "由少到多",
+  },
+  {
+    prefix: "按熱度：",
+    orderBy: "download_count",
+    descLabel: "由多到少",
+    ascLabel: "由少到多",
+  },
 ];
 
 interface ParsedSearch {
@@ -356,6 +369,8 @@ export default function DashboardPage(): React.ReactNode {
         ? "Skills"
         : "Scripts";
 
+  const isFavoritesTab = activeTab === "favorites";
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-1 border-b border-border">
@@ -377,13 +392,26 @@ export default function DashboardPage(): React.ReactNode {
         >
           公開 Scripts ({publicScripts.length})
         </TabButton>
-        <Link
-          href={manageHref}
-          className="ml-auto text-base text-primary hover:cursor-pointer hover:underline"
+        <TabButton
+          active={isFavoritesTab}
+          onClick={() => handleTabChange("favorites")}
         >
-          管理我的 {manageLabel} →
-        </Link>
+          你最常用的
+        </TabButton>
+        {!isFavoritesTab && (
+          <Link
+            href={manageHref}
+            className="ml-auto text-base text-primary hover:cursor-pointer hover:underline"
+          >
+            管理我的 {manageLabel} →
+          </Link>
+        )}
       </div>
+
+      {isFavoritesTab ? (
+        <RankingPanel />
+      ) : (
+        <>
 
       <Input
         placeholder="搜尋名稱、描述，或輸入 @作者 篩選（可多個）"
@@ -414,18 +442,26 @@ export default function DashboardPage(): React.ReactNode {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="shrink-0 text-sm text-muted">排序：</span>
-        {SORT_CHIPS.map((chip) => (
-          <FilterChip
-            key={chip.label}
-            active={
-              sort.orderBy === chip.orderBy && sort.order === chip.order
-            }
-            onClick={() => handleSortChange(chip.orderBy, chip.order)}
+      <div className="flex flex-col gap-2">
+        {SORT_GROUPS.map((group) => (
+          <div
+            key={group.orderBy}
+            className="flex flex-wrap items-center gap-2"
           >
-            {chip.label}
-          </FilterChip>
+            <span className="shrink-0 text-sm text-muted">{group.prefix}</span>
+            <FilterChip
+              active={sort.orderBy === group.orderBy && sort.order === "desc"}
+              onClick={() => handleSortChange(group.orderBy, "desc")}
+            >
+              {group.descLabel}
+            </FilterChip>
+            <FilterChip
+              active={sort.orderBy === group.orderBy && sort.order === "asc"}
+              onClick={() => handleSortChange(group.orderBy, "asc")}
+            >
+              {group.ascLabel}
+            </FilterChip>
+          </div>
         ))}
       </div>
 
@@ -462,7 +498,8 @@ export default function DashboardPage(): React.ReactNode {
         </div>
       )}
 
-      <RankingPanel />
+        </>
+      )}
     </div>
   );
 }

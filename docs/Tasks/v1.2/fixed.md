@@ -144,6 +144,43 @@
 
 ---
 
+## 6. 排序 chip 分軸分向重構 + 「你最常用的」改 tab  〔2026-04-24 23:16:26〕
+
+**問題**：使用者檢視 `/dashboard` 後認定兩項 UI 需調整 —
+
+1. 排序列 6 顆扁平 chip（最新 / 最舊 / 最熱門 / 最冷門 / 最多收藏 / 最少收藏）閱讀負擔重，軸與方向混在同一列，掃視不直覺
+2. 「你最常用的」排行榜自 v1.2.4 起一直放在公開頁籤**下方**作為獨立區塊，與上方公開頁籤的視覺層級模糊、進入點不明
+
+根因：
+
+1. **§5 的 chip 命名規範被本模型過度設計**：fixed.md §5 與當時新寫入的 Design-Base §2-5 強推「語意化對稱中文詞、禁用方向表述」，把排序欄位 × 方向硬壓成單一詞（最熱門 / 最冷門等）。使用者實際體感是「軸 + 方向」兩個概念，一體成形的單詞反而要多一層轉譯。此規則是**前代 Claude 回合自行擴寫**進 Design-Base、使用者未主動背書。
+2. **§2 的「你最常用的」擺放沿用自 v1.2.4 原始規格**：當時無公開 Scripts 頁籤、資訊層級少，放在下方 OK；v1.2.5 補上公開 Scripts 頁籤後，「個人最常用 vs 公開瀏覽」在同一頁面應為**並行切換**而非**上下堆疊**。
+
+**修正**：
+
+1. **排序 UI 改分軸分向**：以「軸」為前綴標籤，每軸兩顆方向 chip（見 `docs/Design-Base/11-ui-ux.md` §2-5 改寫後表格）
+   - `按時間：` [由新到舊] [由舊到新]
+   - `按收藏：` [由多到少] [由少到多]
+   - `按熱度：` [由多到少] [由少到多]
+2. **Design-Base §2-5 改寫**：多軸排序以「軸前綴 + 方向 chip」為 canonical；單軸場景（`/admin/models`）保留「最新 / 最舊」短形式；移除「禁用方向表述」限制
+3. **新增「你最常用的」tab**：`TabKey` 加 `"favorites"`；tab 位置在「公開 Scripts」右側、「管理我的 … →」左側
+4. **RankingPanel 從頁面底部移除**：僅在 `favorites` tab active 時呈現；公開 tab active 時不渲染
+
+交叉引用：
+
+- 本次操作推翻 **§5 chip 標籤對照表**（符合 §5「使用者明確要求」當時語境，但經本次確認使用者最終偏好為分軸分向）
+- 本次操作推翻 **§2 RankingPanel 擺放位置**（自區塊升為 tab）
+
+**影響檔案**：
+
+- `docs/Design-Base/11-ui-ux.md`（§2-5 改寫）
+- `frontend/src/app/(main)/dashboard/page.tsx`（TabKey 擴 `favorites` + 排序列改 `SORT_GROUPS` 結構 + 條件渲染）
+- `frontend/src/components/dashboard/RankingPanel.tsx`（僅 Prettier 自動格式化，無行為變更）
+
+**殘留**：`/admin/models` 與其他頁面既有排序 UI 未同步遷移，暫留單軸短形式；若後續使用者要求統一再開 task。
+
+---
+
 ## 處理狀態
 
 | # | 項目 | 狀態 | Commit |
@@ -153,6 +190,7 @@
 | 3 | Admin 卡片模式 Y 軸高度過大 | ✅ 已修 | — 待 commit-all |
 | 4 | 儀錶板缺公開 Scripts 頁籤 + Script 缺 visibility | ✅ 已修 | — 待 commit-all |
 | 5 | 公開頁籤缺排序切換 + Ranking API 缺 `order` | ✅ 已修 | — 待 commit-all |
+| 6 | 排序 chip 分軸分向重構 + 「你最常用的」改 tab | ✅ 已修 | — 待 commit-all |
 
 ---
 
@@ -161,4 +199,5 @@
 §4 / §5 已於 v1.2.5 完成（詳見 `tasks-v1.2.5.md`）：
 
 - §4 公開 Scripts 頁籤 + Script `visibility` 欄位 — ✅ 已於 v1.2.5 完成
-- §5 公開頁籤排序切換 chip + Ranking API `order` 參數 — ✅ 已於 v1.2.5 完成
+- §5 公開頁籤排序切換 chip + Ranking API `order` 參數 — ✅ 已於 v1.2.5 完成（chip 標籤表已於 §6 推翻）
+- §6 `/admin/models` 等其他頁面排序 UI 是否需統一至多軸分向格式 — 暫留決策

@@ -6,11 +6,7 @@ import { useGetRankingsQuery } from "@/store/dashboardApi";
 import { PageLoading } from "@/components/ui/Loading";
 import { SocialMetrics } from "@/components/social/SocialMetrics";
 import { FavoriteButton } from "@/components/social/FavoriteButton";
-import type {
-  RankingItem,
-  RankingType,
-  RankingTypeFilter,
-} from "@/types";
+import type { RankingItem, RankingType, RankingTypeFilter } from "@/types";
 
 const TYPE_TABS: {
   key: RankingTypeFilter;
@@ -45,13 +41,7 @@ function TypeIcon({ type }: { type: RankingType }): React.ReactNode {
   if (type === "agent") {
     return (
       <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
-        <circle
-          cx="10"
-          cy="7"
-          r="3"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
+        <circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" />
         <path
           d="M4 17C4 13.6863 6.68629 11 10 11C13.3137 11 16 13.6863 16 17"
           stroke="currentColor"
@@ -99,33 +89,6 @@ function TypeIcon({ type }: { type: RankingType }): React.ReactNode {
   );
 }
 
-interface TabButtonProps {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}
-
-const TabButton = React.memo(function TabButton({
-  active,
-  onClick,
-  children,
-}: TabButtonProps): React.ReactNode {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`rounded-xl px-3 py-1.5 text-sm font-medium transition-colors hover:cursor-pointer ${
-        active
-          ? "bg-primary text-white shadow-sm"
-          : "bg-muted-bg text-muted hover:bg-border"
-      }`}
-    >
-      {children}
-    </button>
-  );
-});
-
 interface RankingTypeTabsProps {
   value: RankingTypeFilter;
   onChange: (next: RankingTypeFilter) => void;
@@ -141,15 +104,26 @@ const RankingTypeTabs = React.memo(function RankingTypeTabs({
       aria-label="排行榜類型"
       className="inline-flex flex-wrap items-center gap-2"
     >
-      {TYPE_TABS.map((t) => (
-        <TabButton
-          key={t.key}
-          active={value === t.key}
-          onClick={() => onChange(t.key)}
-        >
-          {t.label}
-        </TabButton>
-      ))}
+      {TYPE_TABS.map((t) => {
+        const active = value === t.key;
+        return (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            tabIndex={active ? 0 : -1}
+            aria-selected={active}
+            onClick={() => onChange(t.key)}
+            className={`rounded-xl px-3 py-1.5 text-sm font-medium transition-colors hover:cursor-pointer ${
+              active
+                ? "bg-primary text-white shadow-sm"
+                : "bg-muted-bg text-muted hover:bg-border"
+            }`}
+          >
+            {t.label}
+          </button>
+        );
+      })}
     </div>
   );
 });
@@ -207,20 +181,16 @@ const RankingRow = React.memo(function RankingRow({
 
 export const RankingPanel = React.memo(
   function RankingPanel(): React.ReactNode {
-    const [typeFilter, setTypeFilter] =
-      useState<RankingTypeFilter>("all");
+    const [typeFilter, setTypeFilter] = useState<RankingTypeFilter>("all");
 
     const { data, isLoading, isFetching } = useGetRankingsQuery({
       type: typeFilter,
       orderBy: "download_count",
     });
 
-    const handleTypeChange = useCallback(
-      (next: RankingTypeFilter): void => {
-        setTypeFilter(next);
-      },
-      []
-    );
+    const handleTypeChange = useCallback((next: RankingTypeFilter): void => {
+      setTypeFilter(next);
+    }, []);
 
     const items = data?.items ?? [];
     // Agent 的 download_count 恆為 0，Agent 列不顯示下載數
@@ -229,17 +199,13 @@ export const RankingPanel = React.memo(
     return (
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-foreground">
-            你最常用的
-          </h2>
-          <RankingTypeTabs
-            value={typeFilter}
-            onChange={handleTypeChange}
-          />
+          <h2 className="text-lg font-semibold text-foreground">你最常用的</h2>
+          <RankingTypeTabs value={typeFilter} onChange={handleTypeChange} />
         </div>
 
         <p className="text-sm text-muted">
-          根據你擁有的資源統計；公開熱度／收藏排行將整合至公開 Agents／Skills／Scripts 頁籤。
+          根據你擁有的資源統計；公開熱度／收藏排行將整合至公開
+          Agents／Skills／Scripts 頁籤。
         </p>
 
         <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
@@ -263,5 +229,5 @@ export const RankingPanel = React.memo(
         </div>
       </section>
     );
-  }
+  },
 );
