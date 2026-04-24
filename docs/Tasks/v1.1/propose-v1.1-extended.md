@@ -72,9 +72,9 @@ v1.1.7 明確為 **PoC**，目的是自行設計一遍 Agentic loop 理解架構
 
 ### 驗收
 
-- [ ] 輸入框隨文字自動加高，超過 10 行改 scroll
-- [ ] Assistant message hover 顯示 Copy，點擊後 ✓ 反饋 2 秒
-- [ ] 設 `max_tokens = 100` 對話時 UI 顯示截斷 badge
+- [x] 輸入框隨文字自動加高，超過 10 行改 scroll
+- [x] Assistant message hover 顯示 Copy，點擊後 ✓ 反饋 2 秒
+- [x] 設 `max_tokens = 100` 對話時 UI 顯示截斷 badge
 
 ---
 
@@ -135,10 +135,10 @@ CREATE TABLE chat_attachment (
 
 ### 驗收
 
-- [ ] 上傳 < 10MB 圖片成功、過大被拒、白名單外副檔名被拒
-- [ ] Claude / Gemini vision 能描述上傳的圖片
-- [ ] 文字檔內容能被 LLM 引用
-- [ ] 圖片對話的 `memory.topic` 是描述文字而非 `[image]`
+- [x] 上傳 < 10MB 圖片成功、過大被拒、白名單外副檔名被拒
+- [x] Claude / Gemini vision 能描述上傳的圖片
+- [x] 文字檔內容能被 LLM 引用
+- [x] 圖片對話的 `memory.topic` 是描述文字而非 `[image]`
 
 ---
 
@@ -211,11 +211,11 @@ PoC 的意義在看清每一步，所以每階段**必須 log**（對齊 [propos
 
 ### 驗收
 
-- [ ] 累積 10+ 筆主題聚焦的 memory 能觸發 analyzer
-- [ ] 產出 >= 1 個合理的 skill suggestion（人工判斷 name / description）
-- [ ] 使用者前端審核 + 建立 skill
-- [ ] 建立後 skill 能掛到其他 Agent
-- [ ] 每階段 log 可追溯 suggestion 來源 memory
+- [x] 累積 10+ 筆主題聚焦的 memory 能觸發 analyzer
+- [x] 產出 >= 1 個合理的 skill suggestion（人工判斷 name / description）
+- [x] 使用者前端審核 + 建立 skill
+- [x] 建立後 skill 能掛到其他 Agent
+- [x] 每階段 log 可追溯 suggestion 來源 memory
 
 ---
 
