@@ -131,6 +131,65 @@ Header 為全站共用，固定於頂部，結構如下：
 
 ---
 
+## Sidebar
+
+登入後頁面（`(main)` 群組）共用左側 Sidebar，承載主要導航。
+
+### 三態循環
+
+由 Header 漢堡按鈕控制：
+
+| 狀態 | 寬度 | 顯示 |
+| --- | --- | --- |
+| expanded | `w-56` | 圖示 + 文字 + 分組 label |
+| collapsed | `w-16` | 僅圖示（label 隱藏、分隔線保留） |
+| hidden | `w-0` | 完全隱藏 |
+
+`md` 以下預設 overlay 模式，點擊遮罩 / 選項自動關閉。
+
+### 分組結構（Group + Item）
+
+Sidebar 以「分組」承載，避免擴充後退化為單一平面列表、同類型項目混雜。
+
+```ts
+interface SidebarItem {
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+  adminOnly?: boolean;
+}
+
+interface SidebarGroup {
+  key: string;              // 'overview' / 'resources' / 'admin'
+  label: string;            // 僅 expanded 顯示
+  adminOnly?: boolean;      // 整組僅 admin 可見
+  items: SidebarItem[];
+}
+```
+
+### 首發分組（v1.2）
+
+| group key | label | adminOnly | 成員 |
+| --- | --- | --- | --- |
+| overview | 概覽 | 否 | 儀表板 |
+| resources | 我的資源 | 否 | Agent 管理 / Skill 管理 / Script 管理 |
+| admin | 系統管理 | 是 | 使用者管理 / LLM 模型管理 / 語言管理 / Agent 範本 / 系統設定 |
+
+### 權限與顯示規則
+
+- 整組 `adminOnly: true` 對非 admin **完全隱藏**（含 label 與分隔線）
+- 項目層級 `adminOnly: true` 僅該項隱藏，所屬 group 與同組其他項維持
+- `collapsed` 狀態：group label 隱藏，**分隔線保留**（維持視覺節奏）
+- 選中態：`bg-sidebar-active` + `text-primary`，以 `pathname.startsWith(item.href)` 判定
+
+### 擴充協議
+
+- **加項目**：擴 `SidebarGroup.items`；語義不屬既有組則開新組
+- **開新組**：擴 `SIDEBAR_GROUPS` 陣列，依語義插入適當位置
+- **權限隔離**：敏感功能一律放 `admin` 組或標 `adminOnly`，**不可**與一般使用者功能混在同一組
+
+---
+
 ## 頁面佈局
 
 所有登入後頁面（`(main)` 群組）共用相同的 main section 佈局結構：

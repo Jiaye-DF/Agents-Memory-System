@@ -347,6 +347,20 @@ interface SidebarGroup {
 - **純排序不加分組**：工程量最小，但「同類型擺在一起」仍屬視覺約定，未來再加項目又會回到「混雜」狀態
 - **分組 + 分隔線 + label**：工程量略增（資料結構 + 渲染），但可長期吸收新功能 — 採此方案
 
+#### Design-Base/11-ui-ux.md 異動清單
+
+本版於 `11-ui-ux.md` Header 節後、頁面佈局節前**新增 §Sidebar 節**，規範內容如下：
+
+| 子節 | 內容 |
+| --- | --- |
+| 三態循環 | 將既有行為（expanded `w-56` / collapsed `w-16` / hidden `w-0`）整理為規範表格；`md` 以下 overlay 模式 |
+| 分組結構 | 新增 `SidebarGroup` + `SidebarItem` 資料結構（兩層） |
+| 首發分組（v1.2） | 明列三組：`overview`（概覽，公開）/ `resources`（我的資源，公開）/ `admin`（系統管理，adminOnly） |
+| 權限與顯示規則 | 整組 `adminOnly` 對非 admin 完全隱藏（含 label 與分隔線）；項目層級 `adminOnly` 僅隱藏該項；collapsed 狀態 label 隱藏、分隔線保留 |
+| 擴充協議 | 加項目 / 開新組 / 權限隔離三情境規範 |
+
+> 先前 `11-ui-ux.md` 無 Sidebar 節（僅於 §Header / §RWD 片段提及），本版獨立成節，補齊規範覆蓋面。
+
 ### 2-6 主題切換器重構（系列化 + Dialog 化）
 
 > 配套規範已寫入 [Design-Base/11-ui-ux.md](../../Design-Base/11-ui-ux.md)；本節記錄動機、範圍邊界，並完整列出 Design-Base 本版異動，供後人讀此 propose 即可掌握 UI/UX 規範變動全貌。
