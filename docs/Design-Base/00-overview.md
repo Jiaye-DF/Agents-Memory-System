@@ -107,6 +107,7 @@
 | [21-database.md](21-database.md) | 資料庫命名、必備欄位、軟刪除、pgvector、Redis、Migration |
 | [30-login.md](30-login.md) | 認證機制（雙 Token）、註冊 / 登入 / 忘記密碼流程 |
 | [40-permission.md](40-permission.md) | 角色定義、端點權限對照、資源存取控制 |
+| [90-code-fixed.md](90-code-fixed.md) | 程式碼修正記錄規範（fixed.md 撰寫格式 / 時機 / 與 tasks 分工） |
 
 ---
 
