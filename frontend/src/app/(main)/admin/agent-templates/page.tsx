@@ -513,13 +513,13 @@ const TemplateCard = React.memo(function TemplateCard({
   onDelete,
 }: TemplateCardProps): React.ReactNode {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="truncate font-medium text-foreground">
           {template.label}
         </span>
         <span
-          className={`shrink-0 rounded-xl px-2 py-0.5 text-sm font-medium ${
+          className={`shrink-0 rounded-xl px-2 py-0.5 text-xs font-medium ${
             template.is_active
               ? "bg-success/10 text-success"
               : "bg-muted-bg text-muted"
@@ -527,35 +527,35 @@ const TemplateCard = React.memo(function TemplateCard({
         >
           {template.is_active ? "啟用" : "停用"}
         </span>
+        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => onEdit(template)}
+          >
+            編輯
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => onDelete(template)}
+          >
+            刪除
+          </Button>
+        </div>
       </div>
-      <div className="font-mono text-sm text-muted">
-        {template.template_key}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+        <span className="truncate font-mono">{template.template_key}</span>
+        <span>·</span>
+        <span>排序：{template.sort_order}</span>
+        <span>·</span>
+        <span>{formatDateTime(template.created_at)}</span>
       </div>
       {template.description && (
-        <div className="line-clamp-2 text-sm text-muted">
+        <div className="line-clamp-1 text-sm text-muted">
           {template.description}
         </div>
       )}
-      <div className="text-sm text-muted">排序：{template.sort_order}</div>
-      <div className="text-sm text-muted">
-        建立時間：{formatDateTime(template.created_at)}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => onEdit(template)}
-        >
-          編輯
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => onDelete(template)}
-        >
-          刪除
-        </Button>
-      </div>
     </div>
   );
 });

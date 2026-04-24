@@ -337,53 +337,49 @@ const ModelCard = React.memo(function ModelCard({
   }, [model, onDelete]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="truncate font-medium text-foreground">
           {model.display_name}
         </span>
-        <div className="flex shrink-0 items-center gap-1">
-          {model.is_default && (
-            <span className="rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
-              預設
-            </span>
-          )}
-          <span
-            className={`rounded-xl px-2 py-0.5 text-sm font-medium ${
-              model.is_active
-                ? "bg-success/10 text-success"
-                : "bg-muted-bg text-muted"
-            }`}
-          >
-            {model.is_active ? "啟用" : "停用"}
+        {model.is_default && (
+          <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            預設
           </span>
+        )}
+        <span
+          className={`shrink-0 rounded-xl px-2 py-0.5 text-xs font-medium ${
+            model.is_active
+              ? "bg-success/10 text-success"
+              : "bg-muted-bg text-muted"
+          }`}
+        >
+          {model.is_active ? "啟用" : "停用"}
+        </span>
+        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5">
+          <Button size="sm" variant="secondary" onClick={handleEdit}>
+            編輯
+          </Button>
+          <Button size="sm" variant="secondary" onClick={handleToggle}>
+            {model.is_active ? "停用" : "啟用"}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={handleDelete}>
+            刪除
+          </Button>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+        <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
           {model.provider}
         </span>
-        <span className="truncate font-mono text-sm text-muted">
-          {model.model_id}
+        <span className="truncate font-mono">{model.model_id}</span>
+        <span>·</span>
+        <span>
+          最大 Token：
+          {model.max_output_tokens != null ? model.max_output_tokens : "未設定"}
         </span>
-      </div>
-      <div className="text-sm text-muted">
-        最大 Token 數：
-        {model.max_output_tokens != null ? model.max_output_tokens : "未設定"}
-      </div>
-      <div className="text-sm text-muted">
-        建立時間：{formatDateTime(model.created_at)}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="secondary" onClick={handleEdit}>
-          編輯
-        </Button>
-        <Button size="sm" variant="secondary" onClick={handleToggle}>
-          {model.is_active ? "停用" : "啟用"}
-        </Button>
-        <Button size="sm" variant="destructive" onClick={handleDelete}>
-          刪除
-        </Button>
+        <span>·</span>
+        <span>{formatDateTime(model.created_at)}</span>
       </div>
     </div>
   );

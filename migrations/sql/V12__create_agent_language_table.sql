@@ -39,9 +39,9 @@ COMMENT ON COLUMN agent_language.created_at         IS '建立時間';
 COMMENT ON COLUMN agent_language.updated_at         IS '更新時間（Trigger 自動維護）';
 
 INSERT INTO agent_language (code, name, sort_order, is_default) VALUES
-    ('zh-TW', '繁體中文', 10, TRUE),
-    ('en',    'English',  20, FALSE),
-    ('ja',    '日本語',   30, FALSE),
-    ('zh-CN', '简体中文', 40, FALSE),
-    ('ko',    '한국어',   50, FALSE)
+    ('zh-TW', '繁體中文', 1, TRUE),
+    ('en',    'English',  2, FALSE),
+    ('ja',    '日本語',   3, FALSE),
+    ('zh-CN', '简体中文', 4, FALSE),
+    ('ko',    '한국어',   5, FALSE)
 ON CONFLICT DO NOTHING;

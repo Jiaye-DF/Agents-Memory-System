@@ -71,12 +71,16 @@ const UserCard = React.memo(function UserCard({
     onUnlock(user.user_uid);
   }, [user.user_uid, onUnlock]);
 
+  const showUnlock = Boolean(user.locked_until) || !user.is_active;
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <span className="font-medium text-foreground">{user.username}</span>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="truncate font-medium text-foreground">
+          {user.username}
+        </span>
         <span
-          className={`rounded-xl px-2 py-0.5 text-sm font-medium ${
+          className={`shrink-0 rounded-xl px-2 py-0.5 text-xs font-medium ${
             user.is_active
               ? "bg-success/10 text-success"
               : "bg-destructive/10 text-destructive"
@@ -84,16 +88,12 @@ const UserCard = React.memo(function UserCard({
         >
           {user.is_active ? "啟用" : "停用"}
         </span>
-      </div>
-      <div className="text-base text-muted">帳號：{user.account}</div>
-      <div className="flex items-center gap-2">
-        <span className="text-base text-muted">角色：</span>
         <select
           value={roles.find((r) => r.name === user.role_name)?.user_role_uid ?? ""}
           onChange={handleRoleChange}
           aria-label={`變更 ${user.username} 的角色`}
           title="變更角色"
-          className="min-h-9 rounded-xl border border-input-border bg-input-bg px-2 py-1 text-base text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+          className="min-h-8 shrink-0 rounded-xl border border-input-border bg-input-bg px-2 py-0.5 text-sm text-foreground hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
         >
           {roles.map((role) => (
             <option key={role.user_role_uid} value={role.user_role_uid}>
@@ -101,27 +101,35 @@ const UserCard = React.memo(function UserCard({
             </option>
           ))}
         </select>
+        {showUnlock && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleUnlock}
+            className="ml-auto"
+          >
+            解除鎖定
+          </Button>
+        )}
       </div>
-      {user.locked_until && (
-        <div className="flex items-center justify-between">
-          <span className="text-base text-warning">
-            鎖定至：{formatDateTime(user.locked_until)}
-          </span>
-          <Button size="sm" variant="secondary" onClick={handleUnlock}>
-            解除鎖定
-          </Button>
-        </div>
-      )}
-      {!user.is_active && !user.locked_until && (
-        <div className="flex items-center justify-between">
-          <span className="text-base text-destructive">帳號已被永久鎖定</span>
-          <Button size="sm" variant="secondary" onClick={handleUnlock}>
-            解除鎖定
-          </Button>
-        </div>
-      )}
-      <div className="text-sm text-muted">
-        建立時間：{formatDateTime(user.created_at)}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+        <span className="truncate">{user.account}</span>
+        <span>·</span>
+        <span>{formatDateTime(user.created_at)}</span>
+        {user.locked_until && (
+          <>
+            <span>·</span>
+            <span className="text-warning">
+              鎖定至 {formatDateTime(user.locked_until)}
+            </span>
+          </>
+        )}
+        {!user.is_active && !user.locked_until && (
+          <>
+            <span>·</span>
+            <span className="text-destructive">帳號已被永久鎖定</span>
+          </>
+        )}
       </div>
     </div>
   );

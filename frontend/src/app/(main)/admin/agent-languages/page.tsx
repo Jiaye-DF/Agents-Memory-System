@@ -274,22 +274,18 @@ const LanguageCard = React.memo(function LanguageCard({
   }, [language, onDelete]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="truncate font-medium text-foreground">
           {language.name}
         </span>
         {language.is_default && (
-          <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+          <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
             預設
           </span>
         )}
-      </div>
-      <div className="font-mono text-sm text-muted">{language.code}</div>
-      <div className="flex items-center gap-2 text-sm text-muted">
-        <span>排序：{language.sort_order}</span>
         <span
-          className={`rounded-xl px-2 py-0.5 font-medium ${
+          className={`shrink-0 rounded-xl px-2 py-0.5 text-xs font-medium ${
             language.is_active
               ? "bg-success/10 text-success"
               : "bg-muted-bg text-muted"
@@ -297,17 +293,21 @@ const LanguageCard = React.memo(function LanguageCard({
         >
           {language.is_active ? "啟用" : "停用"}
         </span>
+        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5">
+          <Button size="sm" variant="secondary" onClick={handleEdit}>
+            編輯
+          </Button>
+          <Button size="sm" variant="destructive" onClick={handleDelete}>
+            刪除
+          </Button>
+        </div>
       </div>
-      <div className="text-sm text-muted">
-        建立時間：{formatDateTime(language.created_at)}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="secondary" onClick={handleEdit}>
-          編輯
-        </Button>
-        <Button size="sm" variant="destructive" onClick={handleDelete}>
-          刪除
-        </Button>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+        <span className="font-mono">{language.code}</span>
+        <span>·</span>
+        <span>排序：{language.sort_order}</span>
+        <span>·</span>
+        <span>{formatDateTime(language.created_at)}</span>
       </div>
     </div>
   );

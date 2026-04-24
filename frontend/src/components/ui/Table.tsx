@@ -33,11 +33,11 @@ function TableInner<T>({
   return (
     <>
       {cardRender && (
-        <div className="flex flex-col gap-4 md:hidden">
+        <div className="flex flex-col gap-2 xl:hidden">
           {data.map((item) => (
             <div
               key={keyExtractor(item)}
-              className="rounded-xl border border-border bg-card-bg p-4"
+              className="rounded-xl border border-border bg-card-bg px-3 py-2"
             >
               {cardRender(item)}
             </div>
@@ -45,7 +45,7 @@ function TableInner<T>({
         </div>
       )}
 
-      <div className={cardRender ? "hidden md:block" : "block"}>
+      <div className={cardRender ? "hidden xl:block" : "block"}>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-base">
             <thead>
@@ -53,7 +53,7 @@ function TableInner<T>({
                 {columns.map((col) => (
                   <th
                     key={col.key}
-                    className={`px-4 py-3 text-left font-medium text-muted ${col.className ?? ""}`}
+                    className={`whitespace-nowrap px-4 py-3 text-left font-medium text-muted ${col.className ?? ""}`}
                   >
                     {col.header}
                   </th>
@@ -69,7 +69,7 @@ function TableInner<T>({
                   {columns.map((col) => (
                     <td
                       key={col.key}
-                      className={`px-4 py-3 text-foreground ${col.className ?? ""}`}
+                      className={`whitespace-nowrap px-4 py-3 text-foreground ${col.className ?? ""}`}
                     >
                       {col.render
                         ? col.render(item)

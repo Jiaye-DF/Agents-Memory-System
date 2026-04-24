@@ -8,7 +8,6 @@ import { SocialMetrics } from "@/components/social/SocialMetrics";
 import { FavoriteButton } from "@/components/social/FavoriteButton";
 import type {
   RankingItem,
-  RankingOrderBy,
   RankingType,
   RankingTypeFilter,
 } from "@/types";
@@ -21,15 +20,6 @@ const TYPE_TABS: {
   { key: "agent", label: "Agents" },
   { key: "skill", label: "Skills" },
   { key: "script", label: "Scripts" },
-];
-
-const ORDER_TABS: {
-  key: RankingOrderBy;
-  label: string;
-}[] = [
-  { key: "created_at", label: "最新" },
-  { key: "download_count", label: "熱度" },
-  { key: "favorite_count", label: "收藏數" },
 ];
 
 const TYPE_LABEL: Record<RankingType, string> = {
@@ -164,34 +154,6 @@ const RankingTypeTabs = React.memo(function RankingTypeTabs({
   );
 });
 
-interface RankingOrderTabsProps {
-  value: RankingOrderBy;
-  onChange: (next: RankingOrderBy) => void;
-}
-
-const RankingOrderTabs = React.memo(function RankingOrderTabs({
-  value,
-  onChange,
-}: RankingOrderTabsProps): React.ReactNode {
-  return (
-    <div
-      role="tablist"
-      aria-label="排行榜排序"
-      className="inline-flex flex-wrap items-center gap-2"
-    >
-      {ORDER_TABS.map((t) => (
-        <TabButton
-          key={t.key}
-          active={value === t.key}
-          onClick={() => onChange(t.key)}
-        >
-          {t.label}
-        </TabButton>
-      ))}
-    </div>
-  );
-});
-
 interface RankingRowProps {
   item: RankingItem;
   showDownload: boolean;
@@ -247,12 +209,10 @@ export const RankingPanel = React.memo(
   function RankingPanel(): React.ReactNode {
     const [typeFilter, setTypeFilter] =
       useState<RankingTypeFilter>("all");
-    const [orderBy, setOrderBy] =
-      useState<RankingOrderBy>("download_count");
 
     const { data, isLoading, isFetching } = useGetRankingsQuery({
       type: typeFilter,
-      orderBy,
+      orderBy: "download_count",
     });
 
     const handleTypeChange = useCallback(
@@ -261,16 +221,9 @@ export const RankingPanel = React.memo(
       },
       []
     );
-    const handleOrderChange = useCallback(
-      (next: RankingOrderBy): void => {
-        setOrderBy(next);
-      },
-      []
-    );
 
     const items = data?.items ?? [];
-    // Agent 的 download_count 恆為 0；排序為 download_count 時對 Agent 不顯示欄位
-    const showDownload = orderBy !== "download_count" || typeFilter !== "agent";
+    // Agent 的 download_count 恆為 0，Agent 列不顯示下載數
     const emptyLabel = EMPTY_TYPE_LABEL[typeFilter];
 
     return (
@@ -279,18 +232,14 @@ export const RankingPanel = React.memo(
           <h2 className="text-lg font-semibold text-foreground">
             你最常用的
           </h2>
-          <div className="flex flex-wrap items-center gap-3">
-            <RankingTypeTabs
-              value={typeFilter}
-              onChange={handleTypeChange}
-            />
-            <span className="hidden h-4 w-px bg-border sm:inline-block" />
-            <RankingOrderTabs value={orderBy} onChange={handleOrderChange} />
-          </div>
+          <RankingTypeTabs
+            value={typeFilter}
+            onChange={handleTypeChange}
+          />
         </div>
 
         <p className="text-sm text-muted">
-          根據你擁有的資源統計；跨使用者公開排行將在後續版本推出。
+          根據你擁有的資源統計；公開熱度／收藏排行將整合至公開 Agents／Skills／Scripts 頁籤。
         </p>
 
         <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
@@ -306,7 +255,7 @@ export const RankingPanel = React.memo(
                 <RankingRow
                   key={`${item.type}:${item.uid}`}
                   item={item}
-                  showDownload={item.type !== "agent" && showDownload}
+                  showDownload={item.type !== "agent"}
                 />
               ))}
             </div>
