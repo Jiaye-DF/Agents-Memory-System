@@ -63,6 +63,14 @@ export type {
   MyFavoritesResponse,
 } from "./social";
 export type {
+  RankingType,
+  RankingTypeFilter,
+  RankingOrderBy,
+  RankingItemOwner,
+  RankingItem,
+  RankingResponse,
+} from "./dashboard";
+export type {
   ChatProject,
   ChatProjectCreateRequest,
   ChatProjectUpdateRequest,

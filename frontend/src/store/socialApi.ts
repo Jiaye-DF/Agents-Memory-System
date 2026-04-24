@@ -219,6 +219,7 @@ export const socialApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, arg) => [
         { type: "Favorites", id: arg.resourceType },
         "Favorites",
+        "Rankings",
       ],
     }),
 
@@ -250,6 +251,7 @@ export const socialApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, arg) => [
         { type: "Favorites", id: arg.resourceType },
         "Favorites",
+        "Rankings",
       ],
     }),
   }),

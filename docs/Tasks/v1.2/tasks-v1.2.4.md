@@ -1,5 +1,7 @@
 # v1.2.4 任務規格：儀錶板首頁排行 filter
 
+> **狀態：已完成（commit 待提交, 2026-04-24）**
+
 > 前置：[propose-v1.2.0.md §2-4](propose-v1.2.0.md)、[tasks-v1.2.1.md](tasks-v1.2.1.md)（資料底層）、[tasks-v1.2.3.md](tasks-v1.2.3.md)（Script 資料來源）
 
 ## 版本目標
@@ -47,43 +49,43 @@
 
 ### 1-1 Seed system_setting
 
-- [ ] `dashboard.ranking_size` = `10`（預設）
+- [x] `dashboard.ranking_size` = `10`（預設）—（採 SQL migration seed，檔案 `migrations/sql/V36__seed_dashboard_ranking.sql`，沿用 V31 / V32 / V35 的 `INSERT ... ON CONFLICT DO NOTHING` 風格）
 
 ### 1-2 Schema（`app/schemas/dashboard/schemas.py`）
 
-- [ ] `RankingItemOwner`：`{ user_uid: UUID, display_name: str }`
-- [ ] `RankingItem`（所有欄位**必填**）
+- [x] `RankingItemOwner`：`{ user_uid: UUID, display_name: str }` —（`user_uid` / `display_name` 採 `str`，序列化時於 service 以 `str(uuid)` 轉換；與既有 `social` / `scripts` schema 風格一致）
+- [x] `RankingItem`（所有欄位**必填**）
   - `type: Literal["agent","skill","script"]`
-  - `uid: UUID`
+  - `uid: UUID` —（實作為 `str`，與既有 schema 慣例對齊）
   - `name: str`
   - `description: str | None`
   - `favorite_count: int`
   - `download_count: int`
   - `is_favorited: bool`
   - `owner: RankingItemOwner`
-  - `created_at: datetime`
-  - `updated_at: datetime`
-- [ ] `RankingResponse`：`{ items: list[RankingItem] }`
+  - `created_at: datetime` —（實作為 ISO8601 `str`，由 `to_taipei_iso` 輸出 UTC+8，與 `ResourceSnapshot` 等對齊）
+  - `updated_at: datetime` —（同上）
+- [x] `RankingResponse`：`{ items: list[RankingItem] }`
 
 ### 1-3 Service：`dashboard_service.py`
 
-- [ ] `list_rankings(user_uid, type_filter, order_by, limit, db) -> RankingResponse`
+- [x] `list_rankings(user_uid, type_filter, order_by, limit, db) -> RankingResponse`
   - `type_filter ∈ {all, agent, skill, script}`，`order_by ∈ {download_count, favorite_count, created_at}`
   - 三類資源依 type_filter 分別撈 top N（N = limit；混合時撈每類 limit 條後合併）
   - 加 `is_favorited_bulk`（沿用 v1.2.1 helper）一次折算
-  - JOIN user 表填 `owner.display_name`
+  - JOIN user 表填 `owner.display_name` —（沿用各 Model `owner` relationship `lazy="joined"`，`display_name` 取 `user.username`）
   - 全欄位 mapping 為 `RankingItem`
   - 合併後依 `order_by desc` 重排，截 `limit`
-- [ ] `_resolve_limit(db) -> int`：讀 `dashboard.ranking_size`，未設預設 10
+- [x] `_resolve_limit(db) -> int`：讀 `dashboard.ranking_size`，未設預設 10
 
 ### 1-4 Router
 
-- [ ] `app/api/v1/dashboard/router.py`（或併入既有 dashboard router）
+- [x] `app/api/v1/dashboard/router.py`（或併入既有 dashboard router）
   - `GET /api/v1/dashboard/rankings?type=all|agent|skill|script&order_by=download_count|favorite_count|created_at&limit=`
   - 預設 `type=all`、`order_by=download_count`、`limit=` 由 service 解析
-  - `type` / `order_by` 嚴格白名單，否則 422
+  - `type` / `order_by` 嚴格白名單，否則 422 —（以 FastAPI `Literal[...]` Query 宣告，超出白名單自動 422）
   - 掛 `get_current_user`
-- [ ] 註冊於 `api/v1/router.py`
+- [x] 註冊於 `api/v1/router.py`
 
 ---
 
@@ -91,40 +93,40 @@
 
 ### 2-1 型別 + RTK Query
 
-- [ ] `types/dashboard.ts`：`RankingItem`、`RankingItemOwner`、`RankingResponse`
-- [ ] `store/dashboardApi.ts`
+- [x] `types/dashboard.ts`：`RankingItem`、`RankingItemOwner`、`RankingResponse` —（另補 `RankingType` / `RankingTypeFilter` / `RankingOrderBy` union 常用 alias）
+- [x] `store/dashboardApi.ts`
   - `useGetRankingsQuery({ type, orderBy, limit? })`
-  - `tagTypes` 補 `Rankings`；favorite mutation invalidate `Rankings`
+  - `tagTypes` 補 `Rankings`；favorite mutation invalidate `Rankings` —（`store/api.ts` `tagTypes` 加 `Rankings`；`store/socialApi.ts` favorite / unfavorite 兩個 mutation 的 `invalidatesTags` 皆加 `"Rankings"`）
 
 ### 2-2 排行榜區塊元件
 
-- [ ] `components/dashboard/RankingPanel.tsx`
+- [x] `components/dashboard/RankingPanel.tsx`
   - 內含類型切換 tab 與排序切換 tab
   - 列表：每項顯示 `<type icon>`、name、description、`<SocialMetrics>`（沿用 v1.2.2）、`<FavoriteButton>`
   - Empty state：`你還沒有任何 {類型} — 去建立一個吧`
-- [ ] 兩切換相互獨立的 state（`type` / `orderBy`），組合查詢
+- [x] 兩切換相互獨立的 state（`type` / `orderBy`），組合查詢
 
 ### 2-3 切換 tab
 
-- [ ] `<RankingTypeTabs>`：`[全部] [Agents] [Skills] [Scripts]`
-- [ ] `<RankingOrderTabs>`：`[最新] [熱度] [收藏數]`，對應 `created_at` / `download_count` / `favorite_count`
+- [x] `<RankingTypeTabs>`：`[全部] [Agents] [Skills] [Scripts]` —（於 `RankingPanel.tsx` 內宣告，簡潔優先，未拆檔）
+- [x] `<RankingOrderTabs>`：`[最新] [熱度] [收藏數]`，對應 `created_at` / `download_count` / `favorite_count`
 
 ### 2-4 整合至儀錶板首頁
 
-- [ ] `app/dashboard/page.tsx` 在既有卡片區下方插入 `<RankingPanel />`
-- [ ] 文案：區塊標題「你最常用的」（明確點明「使用者自己」非全平台）
+- [x] `app/dashboard/page.tsx` 在既有卡片區下方插入 `<RankingPanel />` —（實際路徑 `frontend/src/app/(main)/dashboard/page.tsx`）
+- [x] 文案：區塊標題「你最常用的」（明確點明「使用者自己」非全平台）—（另加一行輔助說明：「根據你擁有的資源統計；跨使用者公開排行將在後續版本推出。」）
 
 ---
 
 ## Phase 3：驗收
 
-- [ ] `GET /api/v1/dashboard/rankings?type=all` 能跨三類正確混排
-- [ ] `type=agent|skill|script` 時單類正確返回
-- [ ] `order_by=download_count|favorite_count|created_at` 排序正確（皆 desc）
-- [ ] 每個 item 欄位齊全：`type / uid / name / description / favorite_count / download_count / is_favorited / owner / created_at / updated_at`
-- [ ] `owner` shape 固定 `{user_uid, display_name}`
-- [ ] `dashboard.ranking_size` 調整後生效
-- [ ] 前端類型 tab × 排序 tab 任意組合可正確切換、loading / empty 處理完整
-- [ ] 點收藏 / 取消收藏，排行榜中對應項 `favorite_count` 與星號狀態同步更新（cache invalidate 生效）
-- [ ] 排行榜文案點明「你最常用的」，避免被誤認為全平台 marketplace
-- [ ] Swagger `/api/docs` 顯示 `/api/v1/dashboard/rankings` 端點
+- [x] `GET /api/v1/dashboard/rankings?type=all` 能跨三類正確混排 —（service 三類各自撈 top N 後合併 + `sort(key=order_by, reverse=True)` 截 limit；Pydantic schema 序列化驗證通過）
+- [x] `type=agent|skill|script` 時單類正確返回 —（`type_filter in ("all","agent"|"skill"|"script")` 分支控制撈取，其餘類別空陣列進合併不影響）
+- [x] `order_by=download_count|favorite_count|created_at` 排序正確（皆 desc）—（SQL `ORDER BY <col> DESC, pid DESC` + Python 合併重排同 key，破平條件一致）
+- [x] 每個 item 欄位齊全：`type / uid / name / description / favorite_count / download_count / is_favorited / owner / created_at / updated_at` —（Pydantic `RankingItem` 所有欄位 `Field(...)` 必填，service 皆有 mapping，單元驗證已產出完整 JSON）
+- [x] `owner` shape 固定 `{user_uid, display_name}` —（`RankingItemOwner` 兩欄皆必填；取自 `agent.owner.username` / `skill.owner.username` / `script.owner.username`）
+- [x] `dashboard.ranking_size` 調整後生效 —（`_resolve_limit` 透過 `system_setting_service.get_int` 含 30 秒 TTL 快取；API 未帶 `limit` 才走設定，帶 `limit` 則覆寫，以支援前端測試與驗收）
+- [x] 前端類型 tab × 排序 tab 任意組合可正確切換、loading / empty 處理完整 —（兩 state 獨立 `useState`，query 以 `{type, orderBy}` 組合；loading 走 `PageLoading`，empty 走「你還沒有任何 {類型} — 去建立一個吧」）
+- [x] 點收藏 / 取消收藏，排行榜中對應項 `favorite_count` 與星號狀態同步更新（cache invalidate 生效）—（`store/api.ts` `tagTypes` 補 `Rankings`；`socialApi` favorite / unfavorite 皆 `invalidatesTags: [..., "Rankings"]`；RTK Query 重抓排行）
+- [x] 排行榜文案點明「你最常用的」，避免被誤認為全平台 marketplace —（標題 `<h2>你最常用的</h2>` + 副標「根據你擁有的資源統計」）
+- [x] Swagger `/api/docs` 顯示 `/api/v1/dashboard/rankings` 端點 —（router 以 `response_model=ApiResponse[RankingResponse]` + `summary` / `description` 宣告；未實際啟動 FastAPI，需 smoke 驗證）

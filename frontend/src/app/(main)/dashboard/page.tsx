@@ -7,6 +7,7 @@ import { useListSkillsQuery } from "@/store/skillsApi";
 import { useListAgentLanguagesQuery } from "@/store/agentLanguagesApi";
 import { PageLoading } from "@/components/ui/Loading";
 import { Input } from "@/components/ui/Input";
+import { RankingPanel } from "@/components/dashboard/RankingPanel";
 import type { Agent, Skill } from "@/types";
 
 type TabKey = "agents" | "skills";
@@ -319,6 +320,8 @@ export default function DashboardPage(): React.ReactNode {
           </div>
         </div>
       )}
+
+      <RankingPanel />
     </div>
   );
 }

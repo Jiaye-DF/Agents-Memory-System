@@ -6,6 +6,7 @@ from app.api.v1.agent_templates.router import router as agent_templates_router
 from app.api.v1.agents.router import router as agents_router
 from app.api.v1.auth.router import router as auth_router
 from app.api.v1.chat.router import router as chat_router
+from app.api.v1.dashboard.router import router as dashboard_router
 from app.api.v1.health import router as health_router
 from app.api.v1.models.router import router as models_router
 from app.api.v1.scripts.router import router as scripts_router
@@ -21,6 +22,7 @@ v1_router.include_router(agent_languages_router)
 v1_router.include_router(agent_templates_router)
 v1_router.include_router(agents_router)
 v1_router.include_router(chat_router)
+v1_router.include_router(dashboard_router)
 v1_router.include_router(settings_router)
 v1_router.include_router(skills_router)
 v1_router.include_router(scripts_router)
