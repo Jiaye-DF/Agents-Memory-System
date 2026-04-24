@@ -52,6 +52,7 @@ export const baseApi = createApi({
     "OrphanChatSessions",
     "ChatMessages",
     "SkillSuggestions",
+    "Favorites",
   ],
   endpoints: () => ({}),
 });

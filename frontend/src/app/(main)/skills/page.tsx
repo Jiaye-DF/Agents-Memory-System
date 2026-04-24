@@ -5,7 +5,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PageLoading } from "@/components/ui/Loading";
+import { FilterNav } from "@/components/social/FilterNav";
+import { SocialMetrics } from "@/components/social/SocialMetrics";
+import { FavoriteButton } from "@/components/social/FavoriteButton";
+import { TombstoneCard } from "@/components/social/TombstoneCard";
 import { useAuth } from "@/hooks/useAuth";
+import { useDialog } from "@/hooks/useDialog";
 import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
 import { useConfirmMutation } from "@/hooks/useConfirmMutation";
 import {
@@ -13,7 +18,16 @@ import {
   useDeleteSkillMutation,
   useToggleSkillVisibilityMutation,
 } from "@/store/skillsApi";
-import type { Skill } from "@/types";
+import {
+  useListMyFavoritesQuery,
+  useUnfavoriteResourceMutation,
+} from "@/store/socialApi";
+import type {
+  Skill,
+  FilterScope,
+  MyFavoriteItem,
+  ResourceSnapshot,
+} from "@/types";
 import { parseSearch, matchByTextAndAuthor } from "@/utils/search";
 import { formatDateTime } from "@/utils/datetime";
 
@@ -90,16 +104,90 @@ const SkillRow = React.memo(function SkillRow({
         </div>
       </div>
 
-      {isOwner && (
-        <div className="flex shrink-0 items-center gap-2 md:ml-auto">
-          <Button size="sm" variant="secondary" onClick={handleToggle}>
-            {skill.visibility === "public" ? "設為私人" : "設為公開"}
-          </Button>
-          <Button size="sm" variant="destructive" onClick={handleDelete}>
-            刪除
-          </Button>
+      <div className="flex shrink-0 items-center gap-2 md:ml-auto">
+        <SocialMetrics
+          favoriteCount={skill.favorite_count}
+          downloadCount={skill.download_count}
+        />
+        <FavoriteButton
+          resourceType="skill"
+          resourceUid={skill.skill_uid}
+          isFavorited={skill.is_favorited}
+        />
+        {isOwner && (
+          <>
+            <Button size="sm" variant="secondary" onClick={handleToggle}>
+              {skill.visibility === "public" ? "設為私人" : "設為公開"}
+            </Button>
+            <Button size="sm" variant="destructive" onClick={handleDelete}>
+              刪除
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+});
+
+interface SnapshotRowProps {
+  resource: ResourceSnapshot;
+}
+
+const SnapshotRow = React.memo(function SnapshotRow({
+  resource,
+}: SnapshotRowProps): React.ReactNode {
+  return (
+    <div className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/skills/${resource.uid}`}
+            className="min-w-0 hover:cursor-pointer"
+          >
+            <h3 className="truncate text-lg font-semibold text-foreground hover:text-primary">
+              {resource.name}
+            </h3>
+          </Link>
+          {resource.visibility && (
+            <span
+              className={`shrink-0 rounded-xl px-2 py-0.5 text-sm font-medium ${
+                resource.visibility === "public"
+                  ? "bg-success/10 text-success"
+                  : "bg-muted-bg text-muted"
+              }`}
+            >
+              {resource.visibility === "public" ? "公開" : "私人"}
+            </span>
+          )}
+          {resource.owner_username && (
+            <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+              @{resource.owner_username}
+            </span>
+          )}
         </div>
-      )}
+        {resource.description && (
+          <p className="mt-1 line-clamp-1 text-base text-muted">
+            {resource.description}
+          </p>
+        )}
+        {resource.created_at && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+            <span>建立於 {formatDateTime(resource.created_at)}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2 md:ml-auto">
+        <SocialMetrics
+          favoriteCount={resource.favorite_count}
+          downloadCount={resource.download_count}
+        />
+        <FavoriteButton
+          resourceType="skill"
+          resourceUid={resource.uid}
+          isFavorited
+        />
+      </div>
     </div>
   );
 });
@@ -132,7 +220,9 @@ const FilterChip = React.memo(function FilterChip({
 
 export default function SkillsListPage(): React.ReactNode {
   const { userUid, isLoading: authLoading } = useAuth();
+  const { showDialog } = useDialog();
 
+  const [scope, setScope] = useState<FilterScope>("mine");
   const [query, setQuery] = useState<string>("");
   const [visibilityFilter, setVisibilityFilter] =
     useState<VisibilityFilter>("all");
@@ -140,19 +230,36 @@ export default function SkillsListPage(): React.ReactNode {
 
   const { data, isLoading, isFetching } = useListSkillsQuery(
     { limit: 50, cursor: null },
-    { skip: authLoading }
+    { skip: authLoading || scope === "favorites" }
+  );
+  const {
+    data: favoritesData,
+    isLoading: favLoading,
+    isFetching: favFetching,
+  } = useListMyFavoritesQuery(
+    { type: "skill", page: 1, size: 50 },
+    { skip: authLoading || scope !== "favorites" }
   );
 
   const [deleteSkill] = useDeleteSkillMutation();
   const [toggleVisibility] = useToggleSkillVisibilityMutation();
+  const [unfavorite, { isLoading: isUnfavoriting }] =
+    useUnfavoriteResourceMutation();
   const runToggleVisibility = useMutationWithDialog(toggleVisibility);
 
   const skills = useMemo((): Skill[] => data?.items ?? [], [data]);
 
+  const scopedSkills = useMemo((): Skill[] => {
+    if (scope === "mine") {
+      return skills.filter((s) => s.owner_uid === userUid);
+    }
+    return skills;
+  }, [skills, scope, userUid]);
+
   const parsed = useMemo(() => parseSearch(query), [query]);
 
   const filteredSkills = useMemo((): Skill[] => {
-    const matched = skills.filter((s) => {
+    const matched = scopedSkills.filter((s) => {
       if (visibilityFilter !== "all" && s.visibility !== visibilityFilter) {
         return false;
       }
@@ -168,7 +275,12 @@ export default function SkillsListPage(): React.ReactNode {
       return sortOrder === "newest" ? -diff : diff;
     });
     return sorted;
-  }, [skills, visibilityFilter, parsed, sortOrder]);
+  }, [scopedSkills, visibilityFilter, parsed, sortOrder]);
+
+  const favoriteItems = useMemo(
+    (): MyFavoriteItem[] => favoritesData?.items ?? [],
+    [favoritesData]
+  );
 
   const handleQueryChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -209,9 +321,41 @@ export default function SkillsListPage(): React.ReactNode {
     [runToggleVisibility]
   );
 
+  const handleTombstoneRemove = useCallback(
+    async (skillUid: string): Promise<void> => {
+      try {
+        await unfavorite({
+          resourceType: "skill",
+          resourceUid: skillUid,
+        }).unwrap();
+      } catch (err: unknown) {
+        const fallback = "從收藏移除失敗，請稍後再試";
+        const message = typeof err === "string" ? err : fallback;
+        showDialog({ type: "error", title: "操作失敗", message });
+      }
+    },
+    [unfavorite, showDialog]
+  );
+
+  const handleTombstoneRemoveSync = useCallback(
+    (skillUid: string): void => {
+      void handleTombstoneRemove(skillUid);
+    },
+    [handleTombstoneRemove]
+  );
+
+  const handleScopeChange = useCallback((next: FilterScope): void => {
+    setScope(next);
+  }, []);
+
   if (authLoading) {
     return <PageLoading />;
   }
+
+  const isFavoritesScope = scope === "favorites";
+  const showLoading = isFavoritesScope
+    ? favLoading || favFetching
+    : isLoading || isFetching;
 
   return (
     <div>
@@ -222,59 +366,91 @@ export default function SkillsListPage(): React.ReactNode {
         </Link>
       </div>
 
-      <div className="mb-4 flex flex-col gap-3">
-        <Input
-          placeholder="搜尋名稱、描述，或輸入 @作者 篩選（可多個）"
-          value={query}
-          onChange={handleQueryChange}
-        />
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="shrink-0 text-sm text-muted">可見性：</span>
-          <FilterChip
-            active={visibilityFilter === "all"}
-            onClick={() => setVisibilityFilter("all")}
-          >
-            全部
-          </FilterChip>
-          <FilterChip
-            active={visibilityFilter === "public"}
-            onClick={() => setVisibilityFilter("public")}
-          >
-            公開
-          </FilterChip>
-          <FilterChip
-            active={visibilityFilter === "private"}
-            onClick={() => setVisibilityFilter("private")}
-          >
-            私人
-          </FilterChip>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="shrink-0 text-sm text-muted">排序：</span>
-          <FilterChip
-            active={sortOrder === "newest"}
-            onClick={() => setSortOrder("newest")}
-          >
-            由新到舊
-          </FilterChip>
-          <FilterChip
-            active={sortOrder === "oldest"}
-            onClick={() => setSortOrder("oldest")}
-          >
-            由舊到新
-          </FilterChip>
-        </div>
-
+      <div className="mb-4">
+        <FilterNav value={scope} onChange={handleScopeChange} />
       </div>
 
+      {!isFavoritesScope && (
+        <div className="mb-4 flex flex-col gap-3">
+          <Input
+            placeholder="搜尋名稱、描述，或輸入 @作者 篩選（可多個）"
+            value={query}
+            onChange={handleQueryChange}
+          />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="shrink-0 text-sm text-muted">可見性：</span>
+            <FilterChip
+              active={visibilityFilter === "all"}
+              onClick={() => setVisibilityFilter("all")}
+            >
+              全部
+            </FilterChip>
+            <FilterChip
+              active={visibilityFilter === "public"}
+              onClick={() => setVisibilityFilter("public")}
+            >
+              公開
+            </FilterChip>
+            <FilterChip
+              active={visibilityFilter === "private"}
+              onClick={() => setVisibilityFilter("private")}
+            >
+              私人
+            </FilterChip>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="shrink-0 text-sm text-muted">排序：</span>
+            <FilterChip
+              active={sortOrder === "newest"}
+              onClick={() => setSortOrder("newest")}
+            >
+              由新到舊
+            </FilterChip>
+            <FilterChip
+              active={sortOrder === "oldest"}
+              onClick={() => setSortOrder("oldest")}
+            >
+              由舊到新
+            </FilterChip>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
-        {isLoading || isFetching ? (
+        {showLoading ? (
           <PageLoading />
-        ) : skills.length === 0 ? (
+        ) : isFavoritesScope ? (
+          favoriteItems.length === 0 ? (
+            <div className="py-12 text-center text-muted">
+              尚未收藏任何 Skill。
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {favoriteItems.map((item) =>
+                item.resource === null ? (
+                  <TombstoneCard
+                    key={item.user_favorite_uid}
+                    resourceType="skill"
+                    resourceUid={item.resource_uid}
+                    onRemove={handleTombstoneRemoveSync}
+                    isRemoving={isUnfavoriting}
+                  />
+                ) : (
+                  <SnapshotRow
+                    key={item.user_favorite_uid}
+                    resource={item.resource}
+                  />
+                )
+              )}
+            </div>
+          )
+        ) : scopedSkills.length === 0 ? (
           <div className="py-12 text-center text-muted">
-            尚無 Skills，點擊右上角上傳第一個 Skill。
+            {scope === "mine"
+              ? "尚無 Skills，點擊右上角上傳第一個 Skill。"
+              : "目前沒有可顯示的 Skill。"}
           </div>
         ) : filteredSkills.length === 0 ? (
           <div className="py-12 text-center text-muted">

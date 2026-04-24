@@ -36,7 +36,12 @@ export const skillsApi = baseApi.injectEndpoints({
           params,
         };
       },
-      providesTags: ["Skills"],
+      providesTags: (result) => [
+        "Skills",
+        ...(result?.items ?? []).map(
+          (s) => ({ type: "Skills" as const, id: s.skill_uid })
+        ),
+      ],
     }),
 
     getSkill: builder.query<Skill, string>({

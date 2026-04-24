@@ -26,7 +26,12 @@ export const agentsApi = baseApi.injectEndpoints({
           params,
         };
       },
-      providesTags: ["Agents"],
+      providesTags: (result) => [
+        "Agents",
+        ...(result?.items ?? []).map(
+          (a) => ({ type: "Agents" as const, id: a.agent_uid })
+        ),
+      ],
     }),
 
     getAgent: builder.query<Agent, string>({

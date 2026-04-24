@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore, useCallback } from "react";
+import { getAllThemeItems } from "@/theme/series";
 
 type Theme = "light" | "dark" | "cool" | "warm" | "purple";
 
@@ -46,11 +47,15 @@ function applyThemeToDOM(theme: Theme): void {
   }
 }
 
-export function useTheme(): {
+interface UseThemeReturn {
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  applyTheme: (theme: Theme) => void;
+  revertTo: (theme: Theme) => void;
   themes: readonly Theme[];
-} {
+}
+
+export function useTheme(): UseThemeReturn {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const setTheme = useCallback((newTheme: Theme): void => {
@@ -59,5 +64,25 @@ export function useTheme(): {
     emitChange();
   }, []);
 
-  return { theme, setTheme, themes: VALID_THEMES };
+  const applyTheme = useCallback((newTheme: Theme): void => {
+    localStorage.setItem(THEME_KEY, newTheme);
+    applyThemeToDOM(newTheme);
+    emitChange();
+  }, []);
+
+  const revertTo = useCallback((original: Theme): void => {
+    localStorage.setItem(THEME_KEY, original);
+    applyThemeToDOM(original);
+    emitChange();
+  }, []);
+
+  return { theme, setTheme, applyTheme, revertTo, themes: VALID_THEMES };
+}
+
+export function isValidTheme(value: string): value is Theme {
+  return VALID_THEMES.includes(value as Theme);
+}
+
+export function getRegisteredThemeIds(): string[] {
+  return getAllThemeItems().map((item) => item.id);
 }

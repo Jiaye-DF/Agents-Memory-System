@@ -7,7 +7,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { Dialog } from "@/components/ui/Dialog";
+import { Dialog, ContentDialog, type ContentDialogSize } from "@/components/ui/Dialog";
 
 type DialogType = "info" | "warning" | "error";
 
@@ -19,8 +19,21 @@ interface DialogConfig {
   onCancel?: () => void;
 }
 
+interface ContentDialogConfig {
+  title: string;
+  content: ReactNode;
+  size?: ContentDialogSize;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+  onDismiss?: () => void;
+  confirmLabel?: string;
+  cancelLabel?: string;
+}
+
 interface DialogContextValue {
   showDialog: (config: DialogConfig) => void;
+  showContentDialog: (config: ContentDialogConfig) => void;
+  closeContentDialog: () => void;
 }
 
 const DialogContext = createContext<DialogContextValue | null>(null);
@@ -33,6 +46,8 @@ export function DialogProvider({
   children,
 }: DialogProviderProps): React.ReactNode {
   const [dialogConfig, setDialogConfig] = useState<DialogConfig | null>(null);
+  const [contentDialogConfig, setContentDialogConfig] =
+    useState<ContentDialogConfig | null>(null);
 
   const showDialog = useCallback((config: DialogConfig): void => {
     setDialogConfig(config);
@@ -48,8 +63,33 @@ export function DialogProvider({
     setDialogConfig(null);
   }, [dialogConfig]);
 
+  const showContentDialog = useCallback((config: ContentDialogConfig): void => {
+    setContentDialogConfig(config);
+  }, []);
+
+  const closeContentDialog = useCallback((): void => {
+    setContentDialogConfig(null);
+  }, []);
+
+  const handleContentConfirm = useCallback((): void => {
+    contentDialogConfig?.onConfirm?.();
+    setContentDialogConfig(null);
+  }, [contentDialogConfig]);
+
+  const handleContentCancel = useCallback((): void => {
+    contentDialogConfig?.onCancel?.();
+    setContentDialogConfig(null);
+  }, [contentDialogConfig]);
+
+  const handleContentDismiss = useCallback((): void => {
+    contentDialogConfig?.onDismiss?.();
+    setContentDialogConfig(null);
+  }, [contentDialogConfig]);
+
   return (
-    <DialogContext.Provider value={{ showDialog }}>
+    <DialogContext.Provider
+      value={{ showDialog, showContentDialog, closeContentDialog }}
+    >
       {children}
       {dialogConfig && (
         <Dialog
@@ -59,6 +99,23 @@ export function DialogProvider({
           onConfirm={handleConfirm}
           onCancel={dialogConfig.type === "warning" ? handleCancel : undefined}
         />
+      )}
+      {contentDialogConfig && (
+        <ContentDialog
+          title={contentDialogConfig.title}
+          size={contentDialogConfig.size}
+          onConfirm={
+            contentDialogConfig.onConfirm ? handleContentConfirm : undefined
+          }
+          onCancel={
+            contentDialogConfig.onCancel ? handleContentCancel : undefined
+          }
+          onDismiss={handleContentDismiss}
+          confirmLabel={contentDialogConfig.confirmLabel}
+          cancelLabel={contentDialogConfig.cancelLabel}
+        >
+          {contentDialogConfig.content}
+        </ContentDialog>
       )}
     </DialogContext.Provider>
   );

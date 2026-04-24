@@ -40,10 +40,10 @@ interface ThemeItem {
 
 interface ThemeSeries {
   key: string;                  // 'atmosphere' / 'gemstone' / 'user-custom'
-  label: string;
+  labelZh: string;
   labelEn: string;
   source: 'builtin' | 'user';
-  themes: ThemeItem[];
+  items: ThemeItem[];
 }
 ```
 
@@ -102,12 +102,13 @@ interface ThemeSeries {
 
 ### 主題選擇 UI（ThemeSwitcher）
 
-- Header 主題按鈕開啟 **Content Dialog**，不用懸浮下拉（無法承載多系列擴充）
-- Dialog 內以系列分區（垂直），各系列下為主題卡片 grid
-- 卡片：色彩縮影 thumb（依 `colors` 動態繪製）+ `labelZh` / `labelEn`，選中以 `ring-primary` 標示
-- **即時套用**：點擊即套用全頁
-- **取消回復**：「取消」回復原主題；關閉（ESC / 遮罩 / X）**保留**當前選擇
-- `source: 'user'` 卡片右上角顯示「編輯 / 刪除」
+- Header 主題按鈕開啟 **Content Dialog**（`size = lg`），不用懸浮下拉（無法承載多系列擴充）
+- Dialog 內以系列分區（垂直），各系列下為主題卡片 grid（`grid-cols-2` / `sm:grid-cols-3`）
+- 卡片：色彩縮影 thumb（依 `colors.background` / `primary` / `accent` / `foreground` 動態繪製）+ `labelZh` / `labelEn` + `icon`，選中以 `ring-primary` 標示
+- **即時套用**：點擊卡片即套用全頁，無需按確認
+- **取消才回復**：按「取消」回復 Dialog 開啟前主題；ESC / 遮罩 / X 僅關閉，**保留**當前選擇
+- 主題狀態 hook（`useTheme`）提供 `applyTheme(id)` 與 `revertTo(id)` 供 Switcher 使用
+- `source: 'user'` 卡片右上角顯示「編輯 / 刪除」（v1.2 未實作）
 
 ---
 
@@ -123,7 +124,7 @@ Header 為全站共用，固定於頂部，結構如下：
 
 - **左側**：Sidebar 切換（☰）+ SVG 圖示 + 「Agents-Platform」文字（點擊回主頁）
 - **右側**：主題切換（🎨）+ `{Username}` + 登出
-- 主題按鈕行為見 [主題選擇 UI](#主題選擇-uithemeswitcher)
+- 主題按鈕**不**採用懸浮下拉（無法承載多系列擴充與使用者自訂）；詳細行為見 [主題選擇 UI](#主題選擇-uithemeswitcher)
 - Sidebar 按鈕循環三態：完整展開（圖示+文字）→ 收合（僅圖示）→ 完全隱藏
 - `md` 以下 Sidebar 預設隱藏，點擊以 overlay 展開
 - Header 高度固定，背景跟隨主題 CSS Variable
@@ -242,17 +243,22 @@ showDialog({ type: "error", title: "操作失敗", message: "無法取得資料"
 
 - 結構：`title` + `children`（JSX slot）+ 動作列
 - 尺寸 `sm` / `md` / `lg`（預設 `md`）
-- 即時副作用場景：`onConfirm` 保留變更、`onDismiss` 回復（ESC / 遮罩 / X 皆觸發 `onDismiss`）
+- 三段回調分工：
+  - `onConfirm`：使用者按「確認」，套用並關閉（即時副作用情境可省）
+  - `onCancel`：使用者按「取消」，由呼叫端明確回復副作用後關閉；缺省時「取消」按鈕不渲染
+  - `onDismiss`：ESC / 遮罩 / X，僅關閉、**不**回復（保留當前狀態）
 - `< sm` 自動轉底部滑出式（bottom sheet）
 
 ```typescript
 const { showContentDialog } = useDialog();
+// 即時套用 + 取消才回復
 showContentDialog({
   title: "選擇主題",
-  size: "md",
-  children: <ThemePicker />,
-  onDismiss: () => revertToOriginalTheme(),  // 回復副作用
-  onConfirm: () => persistThemeChoice(),     // 即時副作用場景可省
+  size: "lg",
+  content: <ThemeChooser />,
+  cancelLabel: "取消",
+  onCancel: () => revertTo(originalTheme),  // 取消時回復
+  // onDismiss 預設不提供即等同「保留當前選擇直接關閉」
 });
 ```
 

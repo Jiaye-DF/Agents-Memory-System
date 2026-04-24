@@ -8,6 +8,9 @@ export interface Skill {
   file_size: number;
   visibility: "public" | "private";
   is_active: boolean;
+  favorite_count: number;
+  download_count: number;
+  is_favorited: boolean;
   created_at: string;
   updated_at: string;
 }

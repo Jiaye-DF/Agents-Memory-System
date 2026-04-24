@@ -50,6 +50,14 @@ export type {
   PublicSettings,
 } from "./system-settings";
 export type {
+  ResourceType,
+  FilterScope,
+  FavoriteToggleResponse,
+  ResourceSnapshot,
+  MyFavoriteItem,
+  MyFavoritesResponse,
+} from "./social";
+export type {
   ChatProject,
   ChatProjectCreateRequest,
   ChatProjectUpdateRequest,

@@ -13,6 +13,13 @@ interface SidebarItem {
   adminOnly?: boolean;
 }
 
+interface SidebarGroup {
+  key: string;
+  label: string;
+  adminOnly?: boolean;
+  items: SidebarItem[];
+}
+
 interface SidebarProps {
   state: SidebarState;
   isOverlay: boolean;
@@ -20,96 +27,126 @@ interface SidebarProps {
   role?: string | null;
 }
 
-const SIDEBAR_ITEMS: SidebarItem[] = [
+const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
-    label: "儀表板",
-    href: "/dashboard",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
-      </svg>
-    ),
+    key: "overview",
+    label: "概覽",
+    items: [
+      {
+        label: "儀表板",
+        href: "/dashboard",
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
+            <rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
+            <rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
+            <rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        ),
+      },
+    ],
   },
   {
-    label: "Agent 管理",
-    href: "/agents",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M4 17C4 13.6863 6.68629 11 10 11C13.3137 11 16 13.6863 16 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
+    key: "resources",
+    label: "我的資源",
+    items: [
+      {
+        label: "Agent 管理",
+        href: "/agents",
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M4 17C4 13.6863 6.68629 11 10 11C13.3137 11 16 13.6863 16 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        ),
+      },
+      {
+        label: "Skill 管理",
+        href: "/skills",
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M10 3L12.5 8H17L13.5 11.5L15 17L10 13.5L5 17L6.5 11.5L3 8H7.5L10 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+          </svg>
+        ),
+      },
+      {
+        label: "Script 管理",
+        href: "/scripts",
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M6 4L2 10L6 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M14 4L18 10L14 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M12 3L8 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        ),
+      },
+    ],
   },
   {
-    label: "Skill 管理",
-    href: "/skills",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M10 3L12.5 8H17L13.5 11.5L15 17L10 13.5L5 17L6.5 11.5L3 8H7.5L10 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "使用者管理",
-    href: "/admin/users",
+    key: "admin",
+    label: "系統管理",
     adminOnly: true,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M13 7C13 8.65685 11.6569 10 10 10C8.34315 10 7 8.65685 7 7C7 5.34315 8.34315 4 10 4C11.6569 4 13 5.34315 13 7Z" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M5 16C5 13.2386 7.23858 11 10 11C12.7614 11 15 13.2386 15 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M15 4L17 6L15 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M17 6H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "LLM 模型管理",
-    href: "/admin/models",
-    adminOnly: true,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <rect x="4" y="4" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="7.5" y="7.5" width="5" height="5" rx="0.5" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M4 8H2M4 12H2M18 8H16M18 12H16M8 4V2M12 4V2M8 18V16M12 18V16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "語言管理",
-    href: "/admin/agent-languages",
-    adminOnly: true,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M3 10H17" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M10 3C12 5.5 13 7.5 13 10C13 12.5 12 14.5 10 17C8 14.5 7 12.5 7 10C7 7.5 8 5.5 10 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "Agent 範本",
-    href: "/admin/agent-templates",
-    adminOnly: true,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <rect x="3" y="4" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M6 8H14M6 11H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "系統設定",
-    href: "/admin/settings",
-    adminOnly: true,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M10 2V4M10 16V18M2 10H4M16 10H18M4.2 4.2L5.6 5.6M14.4 14.4L15.8 15.8M4.2 15.8L5.6 14.4M14.4 5.6L15.8 4.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
+    items: [
+      {
+        label: "使用者管理",
+        href: "/admin/users",
+        adminOnly: true,
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M13 7C13 8.65685 11.6569 10 10 10C8.34315 10 7 8.65685 7 7C7 5.34315 8.34315 4 10 4C11.6569 4 13 5.34315 13 7Z" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M5 16C5 13.2386 7.23858 11 10 11C12.7614 11 15 13.2386 15 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M15 4L17 6L15 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M17 6H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        ),
+      },
+      {
+        label: "LLM 模型管理",
+        href: "/admin/models",
+        adminOnly: true,
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="4" y="4" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+            <rect x="7.5" y="7.5" width="5" height="5" rx="0.5" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M4 8H2M4 12H2M18 8H16M18 12H16M8 4V2M12 4V2M8 18V16M12 18V16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        ),
+      },
+      {
+        label: "語言管理",
+        href: "/admin/agent-languages",
+        adminOnly: true,
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M3 10H17" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M10 3C12 5.5 13 7.5 13 10C13 12.5 12 14.5 10 17C8 14.5 7 12.5 7 10C7 7.5 8 5.5 10 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+          </svg>
+        ),
+      },
+      {
+        label: "Agent 範本",
+        href: "/admin/agent-templates",
+        adminOnly: true,
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="3" y="4" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M6 8H14M6 11H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        ),
+      },
+      {
+        label: "系統設定",
+        href: "/admin/settings",
+        adminOnly: true,
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M10 2V4M10 16V18M2 10H4M16 10H18M4.2 4.2L5.6 5.6M14.4 14.4L15.8 15.8M4.2 15.8L5.6 14.4M14.4 5.6L15.8 4.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        ),
+      },
+    ],
   },
 ];
 
@@ -131,14 +168,16 @@ export const Sidebar = React.memo(function Sidebar({
     onClose();
   }, [onClose]);
 
-  const visibleItems = useMemo(
-    (): SidebarItem[] =>
-      SIDEBAR_ITEMS.filter((item) => {
-        if (item.adminOnly && role !== "admin") return false;
-        return true;
-      }),
-    [role]
-  );
+  const visibleGroups = useMemo((): SidebarGroup[] => {
+    return SIDEBAR_GROUPS.map((group) => {
+      if (group.adminOnly && role !== "admin") return null;
+      const items = group.items.filter(
+        (item) => !(item.adminOnly && role !== "admin")
+      );
+      if (items.length === 0) return null;
+      return { ...group, items };
+    }).filter((g): g is SidebarGroup => g !== null);
+  }, [role]);
 
   if (state === "hidden" && !isOverlay) {
     return null;
@@ -146,6 +185,7 @@ export const Sidebar = React.memo(function Sidebar({
 
   const showChatSection = state === "expanded" || isOverlay;
   const handleChatSectionNavigate = isOverlay ? onClose : undefined;
+  const showGroupLabel = state === "expanded" || isOverlay;
 
   const sidebarContent = (
     <nav
@@ -176,27 +216,39 @@ export const Sidebar = React.memo(function Sidebar({
           </Link>
         )}
 
-        {visibleItems.map((item) => {
-          const isActive = pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={isOverlay ? onClose : undefined}
-              className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-base font-medium transition-colors hover:cursor-pointer hover:bg-sidebar-hover ${
-                isActive
-                  ? "bg-sidebar-active text-primary"
-                  : "text-foreground"
-              } ${state === "collapsed" && !isOverlay ? "justify-center" : ""}`}
-              title={state === "collapsed" && !isOverlay ? item.label : undefined}
-            >
-              <span className="shrink-0">{item.icon}</span>
-              {(state === "expanded" || isOverlay) && (
-                <span className="truncate">{item.label}</span>
-              )}
-            </Link>
-          );
-        })}
+        {visibleGroups.map((group, groupIndex) => (
+          <div key={group.key} className="flex flex-col gap-1">
+            {groupIndex > 0 && (
+              <hr className="my-2 border-t border-border" />
+            )}
+            {showGroupLabel && (
+              <div className="px-3 pt-1 pb-0.5 text-xs font-semibold uppercase tracking-wider text-muted">
+                {group.label}
+              </div>
+            )}
+            {group.items.map((item) => {
+              const isActive = pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={isOverlay ? onClose : undefined}
+                  className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-base font-medium transition-colors hover:cursor-pointer hover:bg-sidebar-hover ${
+                    isActive
+                      ? "bg-sidebar-active text-primary"
+                      : "text-foreground"
+                  } ${state === "collapsed" && !isOverlay ? "justify-center" : ""}`}
+                  title={state === "collapsed" && !isOverlay ? item.label : undefined}
+                >
+                  <span className="shrink-0">{item.icon}</span>
+                  {(state === "expanded" || isOverlay) && (
+                    <span className="truncate">{item.label}</span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </nav>
   );

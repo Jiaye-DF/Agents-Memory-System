@@ -155,25 +155,25 @@
 
 ### B-1 資料結構
 
-- [ ] `components/layout/Sidebar.tsx`
+- [x] `components/layout/Sidebar.tsx`
   - 新增 `SidebarGroup` interface：`{ key, label, adminOnly?, items: SidebarItem[] }`
   - 將既有 `SIDEBAR_ITEMS` 改為 `SidebarGroup[]`
-- [ ] 三組首發內容
+- [x] 三組首發內容
   - `overview`（公開）：儀表板
   - `resources`（公開）：Agent 管理 / Skill 管理 / **Script 管理（v1.2 新增）**
   - `admin`（adminOnly）：使用者管理 / LLM 模型管理 / 語言管理 / Agent 範本 / 系統設定
 
 ### B-2 渲染邏輯
 
-- [ ] 先依 `group.adminOnly` + 使用者 role 過濾整組（隱藏時連同 label / 分隔線都不渲染）
-- [ ] 組內仍保留 `item.adminOnly` 過濾（彈性）
-- [ ] 組間以 `<hr>` 分隔線 + group label
-- [ ] Collapsed 狀態：分隔線顯示，group label 隱藏
-- [ ] `md` 以下 overlay 模式維持既有行為
+- [x] 先依 `group.adminOnly` + 使用者 role 過濾整組（隱藏時連同 label / 分隔線都不渲染）
+- [x] 組內仍保留 `item.adminOnly` 過濾（彈性）
+- [x] 組間以 `<hr>` 分隔線 + group label
+- [x] Collapsed 狀態：分隔線顯示，group label 隱藏
+- [x] `md` 以下 overlay 模式維持既有行為
 
 ### B-3 Design-Base 規範
 
-- [ ] [docs/Design-Base/11-ui-ux.md](../../Design-Base/11-ui-ux.md) 於 §Header 後、頁面佈局前**新增 §Sidebar 節**
+- [x] [docs/Design-Base/11-ui-ux.md](../../Design-Base/11-ui-ux.md) 於 §Header 後、頁面佈局前**新增 §Sidebar 節**
   - 三態循環表（expanded `w-56` / collapsed `w-16` / hidden `w-0`）
   - `SidebarGroup` + `SidebarItem` 資料結構
   - 首發三組（overview / resources / admin）
@@ -186,22 +186,22 @@
 
 ### C-1 Dialog 元件擴充 Content Dialog
 
-- [ ] `components/ui/Dialog.tsx`（或對應檔案）
+- [x] `components/ui/Dialog.tsx`（或對應檔案）
   - 既有提示型（Info / Warning / Error）保留不動
   - 新增 Content Dialog 類型：
-    - props：`title`、`children`、`size?: 'sm'|'md'|'lg'`（預設 `md`）、`onConfirm?`、`onDismiss?`、`confirmLabel?`、`dismissLabel?`
+    - props：`title`、`children`、`size?: 'sm'|'md'|'lg'`（預設 `md`）、`onConfirm?`、`onDismiss?`、`confirmLabel?`、`dismissLabel?` —（已改為 `onCancel` / `onDismiss` 分離、`cancelLabel` 取代 `dismissLabel`，理由：ESC/遮罩/X 需保留選擇、「取消」才回復；兩者語意不同故拆兩個 callback）
     - ESC / 點遮罩 / X 觸發 `onDismiss`
     - `< sm` 螢幕轉 bottom sheet
   - 對外 API 補 `showContentDialog(...)`
-- [ ] 規範同步寫入 [docs/Design-Base/11-ui-ux.md](../../Design-Base/11-ui-ux.md) §Dialog 元件節（依 propose §2-6 異動清單）
+- [x] 規範同步寫入 [docs/Design-Base/11-ui-ux.md](../../Design-Base/11-ui-ux.md) §Dialog 元件節（依 propose §2-6 異動清單）
 
 ### C-2 Theme 資料結構
 
-- [ ] `theme/types.ts`
+- [x] `theme/types.ts`
   - `interface ThemeColors { background, foreground, primary, accent, ... }`
   - `interface ThemeItem { id, labelZh, labelEn, icon, source: 'builtin'|'user', colors: ThemeColors }`
   - `interface ThemeSeries { key, labelZh, labelEn, items: ThemeItem[] }`
-- [ ] 首發系列：光影 Atmosphere
+- [x] 首發系列：光影 Atmosphere（見 `theme/series.ts`）
   - `light` → 晨曦 Dawn
   - `dark` → 深夜 Midnight
   - `cool` → 霧境 Nordic
@@ -211,10 +211,10 @@
 
 ### C-3 ThemeSwitcher Dialog 化
 
-- [ ] `components/header/ThemeSwitcher.tsx` 重構
+- [x] `components/header/ThemeSwitcher.tsx` 重構 —（實際檔案位於 `components/layout/ThemeSwitcher.tsx`，沿用既有路徑）
   - 移除既有懸浮下拉
   - Header 按鈕點擊呼叫 `showContentDialog(<ThemeChooser />)`
-- [ ] `components/theme/ThemeChooser.tsx`
+- [x] `components/theme/ThemeChooser.tsx`
   - 系列分區（v1.2 內僅一組「光影 Atmosphere」）
   - 每張主題卡：
     - 色彩縮影 thumb（CSS 色塊，反映 `background / foreground / primary / accent`）
@@ -223,17 +223,17 @@
   - 點擊主題卡：**即時**套用全頁主題（無需確認）
   - Dialog 動作列：「取消」按鈕回復開啟前主題
   - ESC / 遮罩 / X：保留當前選擇（呼叫 `onDismiss` 但不還原）
-- [ ] 主題狀態：`useThemeContext()` 既有 hook 提供 `applyTheme(id)` 與 `revertTo(id)`
+- [x] 主題狀態：`useThemeContext()` 既有 hook 提供 `applyTheme(id)` 與 `revertTo(id)` —（以既有 `useTheme` hook 擴充 `applyTheme` / `revertTo` 兩個 method，未另開 context）
 
 ### C-4 Design-Base 規範
 
-- [ ] [docs/Design-Base/11-ui-ux.md](../../Design-Base/11-ui-ux.md) §佈景主題 整節重寫（依 propose §2-6 異動表）
+- [x] [docs/Design-Base/11-ui-ux.md](../../Design-Base/11-ui-ux.md) §佈景主題 整節重寫（依 propose §2-6 異動表）
   - 兩層結構（Series + Item）
   - TS interface 規範（`id` 不可改 / `colors` 為宣告式真相 / `source` 區分）
   - 光影系列命名表
   - 擴充協議（同族新增 / 跨族新增 / user 自訂）
   - 「主題選擇 UI（ThemeSwitcher）」獨立子節
-- [ ] §Header 主題按鈕段改寫為「指向 ThemeSwitcher 節 + 不採用懸浮下拉」
+- [x] §Header 主題按鈕段改寫為「指向 ThemeSwitcher 節 + 不採用懸浮下拉」
 
 ---
 

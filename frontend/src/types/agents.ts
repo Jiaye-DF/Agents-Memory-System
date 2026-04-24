@@ -23,6 +23,9 @@ export interface Agent {
   is_active: boolean;
   skill_uids: string[];
   skills: AgentSkillSummary[];
+  favorite_count: number;
+  download_count: number;
+  is_favorited: boolean;
   created_at: string;
   updated_at: string;
 }
