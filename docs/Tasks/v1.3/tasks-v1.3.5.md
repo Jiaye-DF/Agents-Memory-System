@@ -72,7 +72,7 @@
 
 ### 0-1 V44：建立 `project_memory` 表
 
-- [ ] `migrations/sql/V44__create_project_memory_table.sql`
+- [x] `migrations/sql/V44__create_project_memory_table.sql`
   - `pid BIGSERIAL PRIMARY KEY`
   - `project_memory_uid UUID NOT NULL DEFAULT gen_random_uuid()`
   - `chat_project_uid UUID NOT NULL`（含 FK `REFERENCES chat_project (chat_project_uid)`，project 刪除可由 service 層 hard delete 連動）
@@ -90,7 +90,7 @@
 
 ### 0-2 V45：建立 `user_memory` 表
 
-- [ ] `migrations/sql/V45__create_user_memory_table.sql`
+- [x] `migrations/sql/V45__create_user_memory_table.sql`
   - `pid BIGSERIAL PRIMARY KEY`
   - `user_memory_uid UUID NOT NULL DEFAULT gen_random_uuid()`
   - `owner_user_uid UUID NOT NULL`（含 FK `REFERENCES "user" (user_uid)`，user 停用 / 刪除可由 service 層 hard delete 連動）
@@ -108,7 +108,7 @@
 
 ### 0-3 V46：seed 三層 RAG / Aggregation 設定
 
-- [ ] `migrations/sql/V46__seed_three_layer_rag_settings.sql` 寫入 `system_setting`
+- [x] `migrations/sql/V46__seed_three_layer_rag_settings.sql` 寫入 `system_setting`
   - `rag.session.top_k = 10`
   - `rag.session.min_score = 0.7`
   - `rag.project.top_k = 5`
