@@ -27,6 +27,7 @@ from app.repositories import (
     chat_message_repository,
     chat_project_repository,
     chat_session_repository,
+    session_agent_repository,
     skill_repository,
 )
 from app.schemas.chat.schemas import (
@@ -52,10 +53,14 @@ DEFAULT_MODEL = "openai/gpt-4o-mini"
 HISTORY_WINDOW = 20
 MAX_RETRIES = 2
 RETRY_BACKOFF_SECONDS = (0.5, 1.5)
+# v1.3.3 多 Agent：軟性上限，可由 system_setting 覆寫
+DEFAULT_MAX_AGENTS_PER_SESSION = 5
 
 PROJECT_NOT_FOUND = "找不到指定的 Project"
 SESSION_NOT_FOUND = "找不到指定的 Session"
 AGENT_NOT_FOUND = "找不到指定的 Agent 或無權使用"
+AGENT_NOT_IN_SESSION = "agent_not_in_session"
+CANNOT_REMOVE_LAST_AGENT = "cannot_remove_last_agent"
 
 
 # ---------- helpers ----------
@@ -78,6 +83,7 @@ def _session_to_dict(
     agent_name: str | None,
     message_count: int,
     last_message_at,
+    agents: list[dict] | None = None,
 ) -> dict:
     return {
         "chat_session_uid": str(session.chat_session_uid),
@@ -86,7 +92,12 @@ def _session_to_dict(
             if session.chat_project_uid is not None
             else None
         ),
-        "agent_uid": str(session.agent_uid),
+        # v1.3.3：agent_uid 改 nullable（多 Agent 過渡期保留）
+        "agent_uid": (
+            str(session.agent_uid)
+            if session.agent_uid is not None
+            else None
+        ),
         "agent_name": agent_name,
         "title": session.title,
         "message_count": message_count,
@@ -94,7 +105,33 @@ def _session_to_dict(
         "is_active": session.is_active,
         "created_at": to_taipei_iso(session.created_at),
         "updated_at": to_taipei_iso(session.updated_at),
+        # v1.3.3：session_agent 中介表內容（已軟刪除過濾、primary 在前）
+        "agents": agents or [],
     }
+
+
+def _session_agent_pair_to_dict(
+    session_agent, agent_obj
+) -> dict:
+    """轉 (SessionAgent, Agent) tuple 為對外 dict（v1.3.3）。"""
+    return {
+        "session_agent_uid": str(session_agent.session_agent_uid),
+        "agent_uid": str(session_agent.agent_uid),
+        "agent_name": agent_obj.name if agent_obj is not None else None,
+        # avatar_url 目前 agent 表沒有；保留欄位給日後擴充
+        "agent_avatar_url": None,
+        "role": session_agent.role,
+        "created_at": to_taipei_iso(session_agent.created_at),
+    }
+
+
+async def _list_session_agents_dict(
+    chat_session_uid: str, db: AsyncSession
+) -> list[dict]:
+    pairs = await session_agent_repository.list_by_session(
+        chat_session_uid, db
+    )
+    return [_session_agent_pair_to_dict(sa, ag) for sa, ag in pairs]
 
 
 def _memory_to_dict(memory: ChatMemory) -> dict:
@@ -114,6 +151,7 @@ def _memory_to_dict(memory: ChatMemory) -> dict:
 def _message_to_dict(
     message: ChatMessage,
     attachments_map: dict[str, dict] | None = None,
+    agents_brief_map: dict[str, dict] | None = None,
 ) -> dict:
     attachment_uids: list[str] | None = None
     attachments: list[dict] | None = None
@@ -126,6 +164,15 @@ def _message_to_dict(
                 for u in attachment_uids
                 if u in attachments_map
             ]
+
+    # v1.3.3：訊息來源 Agent
+    responding_agent_uid: str | None = None
+    responding_agent: dict | None = None
+    if message.responding_agent_uid is not None:
+        responding_agent_uid = str(message.responding_agent_uid)
+        if agents_brief_map and responding_agent_uid in agents_brief_map:
+            responding_agent = agents_brief_map[responding_agent_uid]
+
     return {
         "chat_message_uid": str(message.chat_message_uid),
         "chat_session_uid": str(message.chat_session_uid),
@@ -139,6 +186,28 @@ def _message_to_dict(
         "created_at": to_taipei_iso(message.created_at),
         "attachment_uids": attachment_uids,
         "attachments": attachments,
+        "responding_agent_uid": responding_agent_uid,
+        "responding_agent": responding_agent,
+    }
+
+
+async def _agents_brief_map(
+    agent_uids: list[str], db: AsyncSession
+) -> dict[str, dict]:
+    """批次取 agents 簡要資訊（給訊息列表的 responding_agent 用），避免 N+1。"""
+    unique_uids = list({u for u in agent_uids if u})
+    if not unique_uids:
+        return {}
+    agents = await agent_repository.get_by_uids(
+        unique_uids, db, include_deleted=True
+    )
+    return {
+        str(a.agent_uid): {
+            "agent_uid": str(a.agent_uid),
+            "name": a.name,
+            "avatar_url": None,
+        }
+        for a in agents
     }
 
 
@@ -354,20 +423,24 @@ async def list_sessions(
     )
     session_uids = [str(s.chat_session_uid) for s in page.items]
     stats_map = await chat_session_repository.message_stats_map(session_uids, db)
-    agent_name_map: dict[str, str | None] = {}
-    for s in page.items:
-        agent_uid = str(s.agent_uid)
-        if agent_uid not in agent_name_map:
-            agent = await agent_repository.get_by_uid(agent_uid, db)
-            agent_name_map[agent_uid] = agent.name if agent else None
+
+    # v1.3.3：批次預取每個 session 的 agents（含 primary / member）
+    agents_per_session: dict[str, list[dict]] = {}
+    for sid in session_uids:
+        agents_per_session[sid] = await _list_session_agents_dict(sid, db)
 
     items = []
     for s in page.items:
-        count, last_at = stats_map.get(str(s.chat_session_uid), (0, None))
+        sid = str(s.chat_session_uid)
+        count, last_at = stats_map.get(sid, (0, None))
+        agents_dicts = agents_per_session.get(sid, [])
+        # 顯示用 agent_name：取 primary 那筆，沒有則 None
+        primary_dict = next(
+            (a for a in agents_dicts if a["role"] == "primary"), None
+        )
+        primary_name = primary_dict["agent_name"] if primary_dict else None
         items.append(
-            _session_to_dict(
-                s, agent_name_map.get(str(s.agent_uid)), count, last_at
-            )
+            _session_to_dict(s, primary_name, count, last_at, agents=agents_dicts)
         )
     return {
         "items": items,
@@ -382,13 +455,19 @@ async def get_session(
     session = await chat_session_repository.get_by_uid(chat_session_uid, db)
     session, _ = await _ensure_session_owner(session, user_uid, db)
 
-    agent = await agent_repository.get_by_uid(str(session.agent_uid), db)
+    agents_dicts = await _list_session_agents_dict(
+        str(session.chat_session_uid), db
+    )
+    primary_dict = next(
+        (a for a in agents_dicts if a["role"] == "primary"), None
+    )
+    primary_name = primary_dict["agent_name"] if primary_dict else None
     stats_map = await chat_session_repository.message_stats_map(
         [str(session.chat_session_uid)], db
     )
     count, last_at = stats_map.get(str(session.chat_session_uid), (0, None))
     return _session_to_dict(
-        session, agent.name if agent else None, count, last_at
+        session, primary_name, count, last_at, agents=agents_dicts
     )
 
 
@@ -425,6 +504,36 @@ async def _ensure_project_capacity(
         )
 
 
+def _resolve_create_agent_uids(data: ChatSessionCreateRequest) -> list[str]:
+    """合併 deprecated agent_uid 與 agent_uids；保序去重。第一個視為 primary。"""
+    candidates: list[str] = []
+    if data.agent_uids:
+        candidates.extend(data.agent_uids)
+    if data.agent_uid:
+        candidates.append(data.agent_uid)
+    return list(dict.fromkeys(candidates))
+
+
+async def _ensure_agent_visible(
+    agent_uid: str, user_uid: str, db: AsyncSession
+):
+    """共用：取 agent 並檢查 user 可見性（owner 或 public）。回傳 Agent。"""
+    agent = await agent_repository.get_by_uid(agent_uid, db)
+    if agent is None:
+        raise AppError(detail=AGENT_NOT_FOUND, response_code=404, status_code=404)
+    if str(agent.owner_uid) != user_uid and agent.visibility != "public":
+        raise AppError(detail=AGENT_NOT_FOUND, response_code=404, status_code=404)
+    return agent
+
+
+async def _get_max_agents_per_session(db: AsyncSession) -> int:
+    return await system_setting_service.get_int(
+        "multi_agent.max_per_session",
+        DEFAULT_MAX_AGENTS_PER_SESSION,
+        db,
+    )
+
+
 async def create_session(
     user_uid: str, data: ChatSessionCreateRequest, db: AsyncSession
 ) -> dict:
@@ -437,23 +546,53 @@ async def create_session(
     else:
         await _ensure_orphan_capacity(user_uid, db)
 
-    agent = await agent_repository.get_by_uid(data.agent_uid, db)
-    if agent is None:
+    # v1.3.3：解析 agent_uids（兼容 deprecated agent_uid）
+    agent_uids = _resolve_create_agent_uids(data)
+    if not agent_uids:
         raise AppError(detail=AGENT_NOT_FOUND, response_code=404, status_code=404)
-    if str(agent.owner_uid) != user_uid and agent.visibility != "public":
-        raise AppError(detail=AGENT_NOT_FOUND, response_code=404, status_code=404)
+
+    max_agents = await _get_max_agents_per_session(db)
+    if len(agent_uids) > max_agents:
+        raise AppError(
+            detail=f"每個 Session 最多掛 {max_agents} 個 Agent",
+            response_code=422,
+            status_code=422,
+        )
+
+    # 逐筆驗證可見性；第一筆作為 primary
+    agents_obj = []
+    for uid in agent_uids:
+        ag = await _ensure_agent_visible(uid, user_uid, db)
+        agents_obj.append(ag)
+    primary_agent = agents_obj[0]
 
     title = data.title or "未命名對話"
     session = await chat_session_repository.create(
         {
             "chat_project_uid": data.chat_project_uid,
             "owner_user_uid": user_uid,
-            "agent_uid": data.agent_uid,
+            # 向後相容欄位：寫入 primary 的 uid（v1.3.3 標 deprecated）
+            "agent_uid": str(primary_agent.agent_uid),
             "title": title,
         },
         db,
     )
-    return _session_to_dict(session, agent.name, 0, None)
+
+    # 寫入 session_agent：第一筆 primary，其餘 member
+    for idx, ag in enumerate(agents_obj):
+        await session_agent_repository.add(
+            str(session.chat_session_uid),
+            str(ag.agent_uid),
+            db,
+            role="primary" if idx == 0 else "member",
+        )
+
+    agents_dicts = await _list_session_agents_dict(
+        str(session.chat_session_uid), db
+    )
+    return _session_to_dict(
+        session, primary_agent.name, 0, None, agents=agents_dicts
+    )
 
 
 async def list_orphan_sessions(
@@ -464,20 +603,22 @@ async def list_orphan_sessions(
     )
     session_uids = [str(s.chat_session_uid) for s in page.items]
     stats_map = await chat_session_repository.message_stats_map(session_uids, db)
-    agent_name_map: dict[str, str | None] = {}
-    for s in page.items:
-        agent_uid = str(s.agent_uid)
-        if agent_uid not in agent_name_map:
-            agent = await agent_repository.get_by_uid(agent_uid, db)
-            agent_name_map[agent_uid] = agent.name if agent else None
+
+    agents_per_session: dict[str, list[dict]] = {}
+    for sid in session_uids:
+        agents_per_session[sid] = await _list_session_agents_dict(sid, db)
 
     items = []
     for s in page.items:
-        count, last_at = stats_map.get(str(s.chat_session_uid), (0, None))
+        sid = str(s.chat_session_uid)
+        count, last_at = stats_map.get(sid, (0, None))
+        agents_dicts = agents_per_session.get(sid, [])
+        primary_dict = next(
+            (a for a in agents_dicts if a["role"] == "primary"), None
+        )
+        primary_name = primary_dict["agent_name"] if primary_dict else None
         items.append(
-            _session_to_dict(
-                s, agent_name_map.get(str(s.agent_uid)), count, last_at
-            )
+            _session_to_dict(s, primary_name, count, last_at, agents=agents_dicts)
         )
     return {
         "items": items,
@@ -502,16 +643,25 @@ async def move_session(
         if session.chat_project_uid is not None
         else None
     )
+    sid = str(session.chat_session_uid)
+
+    async def _build_response() -> dict:
+        agents_dicts = await _list_session_agents_dict(sid, db)
+        primary_dict = next(
+            (a for a in agents_dicts if a["role"] == "primary"), None
+        )
+        primary_name = primary_dict["agent_name"] if primary_dict else None
+        stats_map_inner = await chat_session_repository.message_stats_map(
+            [sid], db
+        )
+        count, last_at = stats_map_inner.get(sid, (0, None))
+        return _session_to_dict(
+            session, primary_name, count, last_at, agents=agents_dicts
+        )
+
     if target_uid == current_uid:
         # 不變；直接回現況
-        agent = await agent_repository.get_by_uid(str(session.agent_uid), db)
-        stats_map = await chat_session_repository.message_stats_map(
-            [str(session.chat_session_uid)], db
-        )
-        count, last_at = stats_map.get(str(session.chat_session_uid), (0, None))
-        return _session_to_dict(
-            session, agent.name if agent else None, count, last_at
-        )
+        return await _build_response()
 
     if target_uid is not None:
         project = await chat_project_repository.get_by_uid(target_uid, db)
@@ -523,15 +673,7 @@ async def move_session(
     await chat_session_repository.update(
         session, {"chat_project_uid": target_uid}, db
     )
-
-    agent = await agent_repository.get_by_uid(str(session.agent_uid), db)
-    stats_map = await chat_session_repository.message_stats_map(
-        [str(session.chat_session_uid)], db
-    )
-    count, last_at = stats_map.get(str(session.chat_session_uid), (0, None))
-    return _session_to_dict(
-        session, agent.name if agent else None, count, last_at
-    )
+    return await _build_response()
 
 
 async def update_session(
@@ -553,15 +695,197 @@ async def update_session(
         )
     await chat_session_repository.update(session, update_data, db)
 
-    agent = await agent_repository.get_by_uid(str(session.agent_uid), db)
+    agents_dicts = await _list_session_agents_dict(
+        str(session.chat_session_uid), db
+    )
+    primary_dict = next(
+        (a for a in agents_dicts if a["role"] == "primary"), None
+    )
+    primary_name = primary_dict["agent_name"] if primary_dict else None
     stats_map = await chat_session_repository.message_stats_map(
         [str(session.chat_session_uid)], db
     )
     count, last_at = stats_map.get(str(session.chat_session_uid), (0, None))
     return _session_to_dict(
-        session, agent.name if agent else None, count, last_at
+        session, primary_name, count, last_at, agents=agents_dicts
     )
 
+
+# ---------- Session Agents (v1.3.3) ----------
+
+async def list_session_agents(
+    chat_session_uid: str, user_uid: str, db: AsyncSession
+) -> dict:
+    """列出 session 已掛 agents。"""
+    session = await chat_session_repository.get_by_uid(chat_session_uid, db)
+    await _ensure_session_owner(session, user_uid, db)
+    agents_dicts = await _list_session_agents_dict(chat_session_uid, db)
+    return {"agents": agents_dicts}
+
+
+async def add_agent_to_session(
+    chat_session_uid: str,
+    agent_uid: str,
+    user_uid: str,
+    db: AsyncSession,
+) -> dict:
+    """加掛 agent 至 session。
+    - 驗證 user 對 session 與 agent 的權限
+    - 超過 multi_agent.max_per_session 上限回 422
+    - 已存在且有效則直接 idempotent 回現況
+    - 軟刪過的 (session, agent) 會被復活為 member
+    """
+    session = await chat_session_repository.get_by_uid(chat_session_uid, db)
+    await _ensure_session_owner(session, user_uid, db)
+    await _ensure_agent_visible(agent_uid, user_uid, db)
+
+    # 上限檢查（軟刪不計）
+    current_count = await session_agent_repository.count_active(
+        chat_session_uid, db
+    )
+    existing = await session_agent_repository.get_pair(
+        chat_session_uid, agent_uid, db
+    )
+    will_increase = existing is None or existing.is_deleted
+    if will_increase:
+        max_agents = await _get_max_agents_per_session(db)
+        if current_count >= max_agents:
+            raise AppError(
+                detail=f"每個 Session 最多掛 {max_agents} 個 Agent",
+                response_code=422,
+                status_code=422,
+            )
+
+    await session_agent_repository.add(
+        chat_session_uid, agent_uid, db, role="member"
+    )
+    await db.commit()
+
+    agents_dicts = await _list_session_agents_dict(chat_session_uid, db)
+    return {"agents": agents_dicts}
+
+
+async def remove_agent_from_session(
+    chat_session_uid: str,
+    agent_uid: str,
+    user_uid: str,
+    db: AsyncSession,
+) -> dict:
+    """移除 agent；最後一個禁止移除；移除 primary 時 promote 加入時間最早的 member。"""
+    session = await chat_session_repository.get_by_uid(chat_session_uid, db)
+    await _ensure_session_owner(session, user_uid, db)
+
+    target = await session_agent_repository.get_pair(
+        chat_session_uid, agent_uid, db
+    )
+    if target is None or target.is_deleted:
+        raise AppError(
+            detail=AGENT_NOT_IN_SESSION,
+            response_code=422,
+            status_code=422,
+        )
+
+    current_count = await session_agent_repository.count_active(
+        chat_session_uid, db
+    )
+    if current_count <= 1:
+        raise AppError(
+            detail=CANNOT_REMOVE_LAST_AGENT,
+            response_code=422,
+            status_code=422,
+        )
+
+    was_primary = target.role == "primary"
+    ok = await session_agent_repository.remove(
+        chat_session_uid, agent_uid, db
+    )
+    if not ok:
+        raise AppError(
+            detail=AGENT_NOT_IN_SESSION,
+            response_code=422,
+            status_code=422,
+        )
+
+    # 移除 primary：promote 剩下加入時間最早的 member
+    if was_primary:
+        remaining = await session_agent_repository.list_by_session(
+            chat_session_uid, db
+        )
+        if remaining:
+            # 列表已 primary 在前 + created_at 升序；此時剩下都是 member
+            new_primary_sa, _ = remaining[0]
+            await session_agent_repository.set_primary(
+                chat_session_uid, str(new_primary_sa.agent_uid), db
+            )
+            # 同步把 chat_session.agent_uid（deprecated 欄位）改為新 primary
+            await chat_session_repository.update(
+                session, {"agent_uid": str(new_primary_sa.agent_uid)}, db
+            )
+
+    await db.commit()
+    agents_dicts = await _list_session_agents_dict(chat_session_uid, db)
+    return {"agents": agents_dicts}
+
+
+async def promote_primary(
+    chat_session_uid: str,
+    agent_uid: str,
+    user_uid: str,
+    db: AsyncSession,
+) -> dict:
+    """將指定 agent 設為 primary（必須是 session 成員）。"""
+    session = await chat_session_repository.get_by_uid(chat_session_uid, db)
+    await _ensure_session_owner(session, user_uid, db)
+
+    if not await session_agent_repository.is_member(
+        chat_session_uid, agent_uid, db
+    ):
+        raise AppError(
+            detail=AGENT_NOT_IN_SESSION,
+            response_code=422,
+            status_code=422,
+        )
+
+    try:
+        await session_agent_repository.set_primary(
+            chat_session_uid, agent_uid, db
+        )
+    except ValueError:
+        raise AppError(
+            detail=AGENT_NOT_IN_SESSION,
+            response_code=422,
+            status_code=422,
+        ) from None
+
+    # 同步 deprecated 欄位
+    await chat_session_repository.update(
+        session, {"agent_uid": agent_uid}, db
+    )
+    await db.commit()
+    agents_dicts = await _list_session_agents_dict(chat_session_uid, db)
+    return {"agents": agents_dicts}
+
+
+async def get_skill_suggestions_stub(
+    agent_uid: str,
+    user_uid: str,
+    db: AsyncSession,
+    scope: str | None = None,
+    scope_uid: str | None = None,
+) -> dict:
+    """v1.3.3 占位 endpoint：回空陣列 + hint='pending v1.3.6'。
+
+    驗證 agent 對 user 可見；若帶 scope=session 則順便驗 session 擁有權，
+    避免任何使用者在尚未上線時亂打。實際推薦邏輯由 v1.3.6 實作。
+    """
+    await _ensure_agent_visible(agent_uid, user_uid, db)
+    if scope == "session" and scope_uid:
+        session = await chat_session_repository.get_by_uid(scope_uid, db)
+        await _ensure_session_owner(session, user_uid, db)
+    return {"items": [], "hint": "pending v1.3.6"}
+
+
+# ---------- Session Lifecycle ----------
 
 async def delete_session(
     chat_session_uid: str, user_uid: str, db: AsyncSession
@@ -606,8 +930,19 @@ async def list_messages(
         list(set(all_uids)), db
     )
 
+    # v1.3.3：批次預取 responding_agent 的 brief（避免每筆訊息一次查詢）
+    agent_uids_in_messages = [
+        str(m.responding_agent_uid)
+        for m in page.items
+        if m.responding_agent_uid is not None
+    ]
+    agents_brief_map = await _agents_brief_map(agent_uids_in_messages, db)
+
     return {
-        "items": [_message_to_dict(m, attachments_map) for m in page.items],
+        "items": [
+            _message_to_dict(m, attachments_map, agents_brief_map)
+            for m in page.items
+        ],
         "next_cursor": page.next_cursor,
         "has_next": page.has_next,
     }
@@ -660,9 +995,15 @@ async def send_message(
     content: str,
     db: AsyncSession,
     attachment_uids: list[str] | None = None,
+    mentioned_agent_uid: str | None = None,
 ) -> AsyncIterator[str]:
     """
     SSE generator：yield `event: delta/done/error\\ndata: {...}\\n\\n` 字串。
+
+    v1.3.3 多 Agent：
+    - mentioned_agent_uid 給定時，必須為 session 成員（否則回 422 agent_not_in_session）
+    - 未給定時取 session 的 primary agent
+    - 同訊息只跑一個 Agent（序列；A → B 由前端連續發訊驅動）
     """
     # 1. 驗證 session 擁有權
     session = await chat_session_repository.get_by_uid(chat_session_uid, db)
@@ -672,8 +1013,37 @@ async def send_message(
         yield f"event: error\ndata: {json.dumps({'detail': exc.detail})}\n\n"
         return
 
-    # 2. 取 agent
-    agent = await agent_repository.get_by_uid(str(session.agent_uid), db)
+    # 2. 解析要回應的 agent（v1.3.3：mention 優先 → primary → fallback）
+    target_agent_uid: str | None = None
+    if mentioned_agent_uid:
+        is_member = await session_agent_repository.is_member(
+            chat_session_uid, mentioned_agent_uid, db
+        )
+        if not is_member:
+            yield (
+                f"event: error\ndata: "
+                f"{json.dumps({'detail': AGENT_NOT_IN_SESSION})}\n\n"
+            )
+            return
+        target_agent_uid = mentioned_agent_uid
+    else:
+        primary_sa = await session_agent_repository.get_primary(
+            chat_session_uid, db
+        )
+        if primary_sa is not None:
+            target_agent_uid = str(primary_sa.agent_uid)
+        elif session.agent_uid is not None:
+            # 過渡期 fallback：session_agent 尚未灌入時走舊欄位
+            target_agent_uid = str(session.agent_uid)
+
+    if target_agent_uid is None:
+        yield (
+            f"event: error\ndata: "
+            f"{json.dumps({'detail': '找不到對應的 Agent'})}\n\n"
+        )
+        return
+
+    agent = await agent_repository.get_by_uid(target_agent_uid, db)
     if agent is None:
         yield f"event: error\ndata: {json.dumps({'detail': '找不到對應的 Agent'})}\n\n"
         return
@@ -886,6 +1256,8 @@ async def send_message(
                 "cost_usd": cost_usd,
                 "model": model,
                 "finish_reason": finish_reason,
+                # v1.3.3：標記哪個 Agent 回的
+                "responding_agent_uid": str(agent.agent_uid),
             },
             db,
         )
