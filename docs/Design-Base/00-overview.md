@@ -124,6 +124,39 @@ Agents-Memory-System/
 
 ---
 
+## 時間 / 時區
+
+本專案所有「人類可讀的時間戳」一律以 **UTC+8（Asia/Taipei）** 表記，包含但不限於：
+
+- `docs/Tasks/**/fixed.md` 條目尾端的 `〔YYYY-MM-DD HH:MM:SS〕`
+- commit message body 中提及的時間
+- 後端 / 前端輸出顯示給使用者的 ISO 字串
+- log 中 user-facing 的時間敘述
+
+### 取得當前時間（給 AI / 自動化指令）
+
+本專案 host 預設時區即為 **UTC+8**，**直接使用 `date "+%Y-%m-%d %H:%M:%S"` 即可拿到 UTC+8 時間**。
+
+**禁止**以下寫法（在本專案 host 上會誤算）：
+
+- `TZ=Asia/Taipei date "+..."` — 部分 shell（如 git bash on Windows）會反向把 local 當 UTC 再轉一次，結果倒退 8 小時
+- `date -u` 後再人腦 +8 — 容易加錯日期邊界
+- 任何「再轉一次」的寫法
+
+需要明確 UTC 時，才使用 `date -u`。
+
+### 儲存層
+
+- PostgreSQL：時間欄位一律使用 `TIMESTAMPTZ`；應用層讀取後透過 `app/core/datetime.py::to_taipei_iso()` helper 統一輸出為 UTC+8 ISO 字串給前端 / log。**禁止**在多處自行實作時區轉換。
+- Redis：若需時間戳，存 epoch second（int）即可，不涉時區。
+
+### 例外
+
+- DB schema migration（`migrations/sql/V*__*.sql`）內的 `created_at` / `updated_at` `DEFAULT NOW()` 由 PG 自動填當前時間，無需手動處理。
+- 「機器對機器」的 ISO 8601 時間（如 OpenRouter API、Webhook）保留原時區資訊（含 `+00:00` / `+08:00` suffix），不主動剝奪。
+
+---
+
 ## 細部規範索引
 
 | 文件 | 涵蓋範圍 |

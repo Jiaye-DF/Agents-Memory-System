@@ -8,6 +8,7 @@ Claude Code 在任何專案共用的基本規範。專案特定設計請參考 [
 - 保持簡潔：不主動新增檔案、不過度抽象、不預先設計未存在的需求。
 - 不主動添加註解，除非 WHY 難以從程式碼推斷。
 - 遵循既有程式碼風格與命名慣例，不擅自重構無關區塊。
+- 時間 / 時區一律 **UTC+8（Asia/Taipei）**；取系統時間直接 `date "+%Y-%m-%d %H:%M:%S"`，**禁止** `TZ=Asia/Taipei date` 等再轉一次的寫法。詳見 [docs/Design-Base/00-overview.md § 時間 / 時區](docs/Design-Base/00-overview.md)。
 
 ## 開發前必檢查
 

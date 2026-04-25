@@ -410,9 +410,37 @@ const SettingRow = React.memo(function SettingRow({
   );
 });
 
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+const TabButton = React.memo(function TabButton({
+  active,
+  onClick,
+  children,
+}: TabButtonProps): React.ReactNode {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative px-4 py-2.5 text-base font-medium transition-colors hover:cursor-pointer ${
+        active ? "text-primary" : "text-muted hover:text-foreground"
+      }`}
+    >
+      {children}
+      {active && (
+        <span className="absolute inset-x-0 -bottom-px h-0.5 bg-primary" />
+      )}
+    </button>
+  );
+});
+
 export default function AdminSettingsPage(): React.ReactNode {
   const { authLoading, isAdmin, shouldBlockRender } = useAdminGuard();
   const [editTarget, setEditTarget] = useState<SystemSetting | null>(null);
+  const [activeGroup, setActiveGroup] = useState<string>(GROUP_ORDER[0]);
 
   const { data, isLoading, isFetching } = useListAdminSettingsQuery(undefined, {
     skip: authLoading || !isAdmin,
@@ -450,6 +478,11 @@ export default function AdminSettingsPage(): React.ReactNode {
     }
     return ordered;
   }, [items]);
+
+  const activeGroupData = useMemo(
+    () => groupedItems.find((g) => g.key === activeGroup) ?? null,
+    [groupedItems, activeGroup]
+  );
 
   const handleOpenEdit = useCallback((s: SystemSetting): void => {
     setEditTarget(s);
@@ -505,38 +538,52 @@ export default function AdminSettingsPage(): React.ReactNode {
           尚無系統設定
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
-          {groupedItems.map((group) => {
-            const meta = GROUP_META[group.key];
-            const title = meta?.title ?? group.key;
-            const description = meta?.description;
-            return (
-              <section key={group.key}>
-                <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1">
-                  <h2 className="text-lg font-semibold text-foreground">
-                    {title}
-                  </h2>
-                  <span className="font-mono text-sm text-muted">
-                    {group.key}.*
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-1 border-b border-border">
+            {groupedItems.map((group) => {
+              const meta = GROUP_META[group.key];
+              const title = meta?.title ?? group.key;
+              return (
+                <TabButton
+                  key={group.key}
+                  active={activeGroup === group.key}
+                  onClick={() => setActiveGroup(group.key)}
+                >
+                  {title} ({group.items.length})
+                </TabButton>
+              );
+            })}
+          </div>
+
+          {activeGroupData ? (
+            <section>
+              <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1">
+                <span className="font-mono text-sm text-muted">
+                  {activeGroupData.key}.*
+                </span>
+                {GROUP_META[activeGroupData.key]?.description && (
+                  <span className="text-sm text-muted">
+                    · {GROUP_META[activeGroupData.key].description}
                   </span>
-                  {description && (
-                    <span className="text-sm text-muted">· {description}</span>
-                  )}
+                )}
+              </div>
+              <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
+                <div className="divide-y divide-border">
+                  {activeGroupData.items.map((setting) => (
+                    <SettingRow
+                      key={setting.system_setting_uid}
+                      setting={setting}
+                      onEdit={handleOpenEdit}
+                    />
+                  ))}
                 </div>
-                <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
-                  <div className="divide-y divide-border">
-                    {group.items.map((setting) => (
-                      <SettingRow
-                        key={setting.system_setting_uid}
-                        setting={setting}
-                        onEdit={handleOpenEdit}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </section>
-            );
-          })}
+              </div>
+            </section>
+          ) : (
+            <div className="rounded-xl bg-card-bg py-12 text-center text-base text-muted shadow-sm">
+              此分類下尚無設定
+            </div>
+          )}
         </div>
       )}
 
