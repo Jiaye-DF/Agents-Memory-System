@@ -990,6 +990,9 @@ export function AgentForm({
                       : "border-input-border"
                   }`}
                 />
+                <p className="mt-1 text-sm text-muted">
+                  1024 ≈ 750 中文字；長分析 / code review 建議 4096+ 或留空。
+                </p>
                 {errors.max_tokens && (
                   <p className="mt-1 text-base text-destructive">
                     {errors.max_tokens}
