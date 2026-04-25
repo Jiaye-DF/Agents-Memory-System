@@ -62,42 +62,42 @@
 
 ### 1-1 共用結構化 log helper
 
-- [ ] `backend/app/workers/memory_worker.py` 頂部新增 `_log_event(step, session_uid, *, message_uids=None, outcome="ok", duration_ms=None, **extra)` 內部 helper
+- [x] `backend/app/workers/memory_worker.py` 頂部新增 `_log_event(step, session_uid, *, message_uids=None, outcome="ok", duration_ms=None, **extra)` 內部 helper
   - 將 `step` / `session_uid` / `message_uids` / `outcome` / `duration_ms` 加到 `extra` dict 後呼叫 `logger.info(...)`（warning / exception 走專屬 helper 或直接帶 `extra`）
   - 訊息格式：`"memory_worker step=%s session=%s outcome=%s duration_ms=%s"`，避免 logging f-string
-- [ ] log message 一律使用既有 `logger`（`logging.getLogger(__name__)`），不新增 logger 實例
+- [x] log message 一律使用既有 `logger`（`logging.getLogger(__name__)`），不新增 logger 實例
 
 ### 1-2 主迴圈 log
 
-- [ ] 啟動 log 由 `logger.info("memory_worker 啟動")` 改帶 `extra={"step": "boot"}`
-- [ ] BRPOP 取到 item 後新增 info：`step=enqueue`，欄位含 `session_uid` / `message_uid`
-- [ ] BRPOP 解析失敗保留 warning，`extra={"step": "enqueue", "outcome": "parse_error"}`
+- [x] 啟動 log 由 `logger.info("memory_worker 啟動")` 改帶 `extra={"step": "boot"}`
+- [x] BRPOP 取到 item 後新增 info：`step=enqueue`，欄位含 `session_uid` / `message_uid`
+- [x] BRPOP 解析失敗保留 warning，`extra={"step": "enqueue", "outcome": "parse_error"}`
 
 ### 1-3 Buffer / Batch flush log
 
-- [ ] 進入 `_process_batch` 前加 info：`step=buffer_flush`、欄位含 `session_uid` / `message_uids` / `reason`（`full` 或 `idle`）
-- [ ] `_process_batch` 失敗的 `logger.exception` 改帶 `extra={"step": "buffer_flush", "outcome": "exception"}`
+- [x] 進入 `_process_batch` 前加 info：`step=buffer_flush`、欄位含 `session_uid` / `message_uids` / `reason`（`full` 或 `idle`）
+- [x] `_process_batch` 失敗的 `logger.exception` 改帶 `extra={"step": "buffer_flush", "outcome": "exception"}`
 
 ### 1-4 Prefilter 階段 log
 
-- [ ] `_process_batch` 內 `kept` 計算前後加 info：`step=prefilter`，欄位 `total` / `kept` / `skipped`
-- [ ] 「全數被預篩掉」訊息升 info（從 debug），`extra={"step": "prefilter", "outcome": "all_skipped"}`
+- [x] `_process_batch` 內 `kept` 計算前後加 info：`step=prefilter`，欄位 `total` / `kept` / `skipped`
+- [x] 「全數被預篩掉」訊息升 info（從 debug），`extra={"step": "prefilter", "outcome": "all_skipped"}`
 
 ### 1-5 Extract / Embedding / Write 階段 log
 
-- [ ] 每次重試 attempt 前後分別記錄 `step=extract` 與 `step=embedding`，欄位含 `attempt`、`duration_ms`、`outcome`
-- [ ] `chat_memory_repository.create` 完成後既有 info 訊息保留，`extra={"step": "write", "outcome": "ok", "src_count": len(kept)}`
-- [ ] 重試失敗的 warning 統一帶 `extra={"step": "extract" 或 "embedding", "attempt": i+1, "outcome": "retry"}`
+- [x] 每次重試 attempt 前後分別記錄 `step=extract` 與 `step=embedding`，欄位含 `attempt`、`duration_ms`、`outcome`
+- [x] `chat_memory_repository.create` 完成後既有 info 訊息保留，`extra={"step": "write", "outcome": "ok", "src_count": len(kept)}`
+- [x] 重試失敗的 warning 統一帶 `extra={"step": "extract" 或 "embedding", "attempt": i+1, "outcome": "retry"}`
 
 ### 1-6 DLQ 階段 log
 
-- [ ] 推入 DLQ 成功 log 由既有 error 改為 `logger.error(... extra={"step": "dlq", "outcome": "pushed"})`
-- [ ] 推入 DLQ 失敗保留 exception，`extra={"step": "dlq", "outcome": "push_failed"}`
+- [x] 推入 DLQ 成功 log 由既有 error 改為 `logger.error(... extra={"step": "dlq", "outcome": "pushed"})`
+- [x] 推入 DLQ 失敗保留 exception，`extra={"step": "dlq", "outcome": "push_failed"}`
 
 ### 1-7 Image describe 階段 log
 
-- [ ] `_describe_image_attachments` 內單張失敗 warning 帶 `extra={"step": "image_describe", "attachment_uid": ...}`
-- [ ] 單張成功不額外 log（避免噪音），整體完成在呼叫端帶 `step=image_describe`、`outcome=ok`、`count=描述張數`（單則訊息一筆）
+- [x] `_describe_image_attachments` 內單張失敗 warning 帶 `extra={"step": "image_describe", "attachment_uid": ...}`
+- [x] 單張成功不額外 log（避免噪音），整體完成在呼叫端帶 `step=image_describe`、`outcome=ok`、`count=描述張數`（單則訊息一筆）
 
 ---
 

@@ -4,10 +4,12 @@ import json
 import logging
 import time
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
+from app.core.queue_keys import MEMORY_DLQ_KEY, MEMORY_QUEUE_KEY
 from app.core.redis import get_redis
 from app.models.chat_message import ChatMessage
 from app.repositories import (
@@ -18,14 +20,16 @@ from app.repositories import (
 from app.services import (
     llm_metering,
     memory_prefilter,
+    memory_trace_service,
     session_event_service,
     system_setting_service,
 )
 
 logger = logging.getLogger(__name__)
 
-QUEUE_KEY = "chat:memory:queue"
-DLQ_KEY = "chat:memory:dlq"
+# v1.3.1：常數抽至 app.core.queue_keys，但保留別名以維持既有引用
+QUEUE_KEY = MEMORY_QUEUE_KEY
+DLQ_KEY = MEMORY_DLQ_KEY
 BRPOP_TIMEOUT = 5
 MAX_RETRY = 3
 DEFAULT_EXTRACTOR_MODEL = "anthropic/claude-haiku-4-5"
@@ -39,9 +43,46 @@ DEFAULT_SKIP_RULES: dict = {
 }
 
 
+# ---------- v1.3.1：結構化 log helper ----------
+
+def _log_event(
+    step: str,
+    session_uid: str | None,
+    *,
+    message_uids: list[str] | None = None,
+    outcome: str = "ok",
+    duration_ms: int | None = None,
+    level: str = "info",
+    **extra: Any,
+) -> None:
+    """統一輸出結構化 log（沿用標準 logging，extra 帶 dict）。
+
+    訊息採 lazy formatting，避免 logging f-string；結構化欄位放 extra 供
+    後續 log shipping 解析。
+    """
+    payload: dict[str, Any] = {
+        "step": step,
+        "session_uid": session_uid,
+        "outcome": outcome,
+        "duration_ms": duration_ms,
+        "message_uids": message_uids,
+    }
+    if extra:
+        payload.update(extra)
+
+    msg = "memory_worker step=%s session=%s outcome=%s duration_ms=%s"
+    args = (step, session_uid, outcome, duration_ms)
+    fn = {
+        "info": logger.info,
+        "warning": logger.warning,
+        "error": logger.error,
+    }.get(level, logger.info)
+    fn(msg, *args, extra={"event": payload})
+
+
 async def run() -> None:
     """Memory Worker 主迴圈：消費 Redis 佇列 → 批次抽取 → embedding → 寫入 chat_memory。"""
-    logger.info("memory_worker 啟動")
+    _log_event("boot", None)
     buffer: dict[str, list[str]] = {}
     last_seen: dict[str, float] = {}
 
@@ -55,10 +96,16 @@ async def run() -> None:
         try:
             item = await redis.brpop(QUEUE_KEY, timeout=BRPOP_TIMEOUT)
         except asyncio.CancelledError:
-            logger.info("memory_worker 收到取消訊號，結束")
+            _log_event("boot", None, outcome="cancelled")
             raise
         except Exception as exc:
-            logger.warning("memory_worker BRPOP 失敗: %s", exc)
+            _log_event(
+                "enqueue",
+                None,
+                outcome="brpop_error",
+                level="warning",
+                error=str(exc),
+            )
             await asyncio.sleep(2)
             continue
 
@@ -71,8 +118,26 @@ async def run() -> None:
                 if sid and mid:
                     buffer.setdefault(sid, []).append(mid)
                     last_seen[sid] = time.time()
+                    _log_event(
+                        "enqueue",
+                        sid,
+                        message_uids=[str(mid)],
+                        buffered=len(buffer[sid]),
+                    )
+                    await memory_trace_service.record(
+                        sid,
+                        "enqueue",
+                        message_uids=[str(mid)],
+                        extra={"buffered": len(buffer[sid])},
+                    )
             except Exception as exc:
-                logger.warning("memory_worker 解析 queue item 失敗: %s", exc)
+                _log_event(
+                    "enqueue",
+                    None,
+                    outcome="parse_error",
+                    level="warning",
+                    error=str(exc),
+                )
 
         # 檢查 buffer 是否達批次條件
         if not buffer:
@@ -87,7 +152,13 @@ async def run() -> None:
                     "memory.idle_seconds", DEFAULT_IDLE_SECONDS, cfg_db
                 )
         except Exception as exc:
-            logger.warning("memory_worker 讀取設定失敗，使用預設: %s", exc)
+            _log_event(
+                "config",
+                None,
+                outcome="load_failed",
+                level="warning",
+                error=str(exc),
+            )
             batch_size = DEFAULT_BATCH_SIZE
             idle_s = DEFAULT_IDLE_SECONDS
 
@@ -100,12 +171,43 @@ async def run() -> None:
             is_idle = now - last_seen.get(sid, now) >= idle_s
             if not (is_full or is_idle):
                 continue
+            reason = "full" if is_full else "idle"
+            mids_snapshot = [str(m) for m in mids]
+            _log_event(
+                "buffer_flush",
+                sid,
+                message_uids=mids_snapshot,
+                reason=reason,
+            )
+            await memory_trace_service.record(
+                sid,
+                "buffer_flush",
+                message_uids=mids_snapshot,
+                extra={"reason": reason, "batch_size": len(mids_snapshot)},
+            )
             try:
                 async with AsyncSessionLocal() as db:
                     await _process_batch(sid, list(mids), db)
                     await db.commit()
             except Exception as exc:
-                logger.exception("memory_worker 處理批次失敗 session=%s: %s", sid, exc)
+                _log_event(
+                    "buffer_flush",
+                    sid,
+                    message_uids=mids_snapshot,
+                    outcome="exception",
+                    level="warning",
+                    error=str(exc),
+                )
+                logger.exception(
+                    "memory_worker 處理批次失敗 session=%s: %s", sid, exc
+                )
+                await memory_trace_service.record(
+                    sid,
+                    "buffer_flush",
+                    outcome="exception",
+                    message_uids=mids_snapshot,
+                    extra={"error": str(exc)},
+                )
             buffer.pop(sid, None)
             last_seen.pop(sid, None)
 
@@ -130,14 +232,19 @@ async def _describe_image_attachments(
     try:
         attachments = await chat_attachment_repository.list_by_uids(uids, db)
     except Exception as exc:
-        logger.warning(
-            "memory_worker 讀附件失敗 message=%s: %s",
-            message.chat_message_uid,
-            exc,
+        _log_event(
+            "image_describe",
+            session_uid,
+            message_uids=[str(message.chat_message_uid)],
+            outcome="load_attachment_failed",
+            level="warning",
+            error=str(exc),
         )
         return ""
 
     descriptions: list[str] = []
+    described_count = 0
+    started = time.time()
     for a in attachments:
         mime = (a.file_type or "").lower()
         if not mime.startswith("image/"):
@@ -159,13 +266,34 @@ async def _describe_image_attachments(
             )
             if desc:
                 descriptions.append(f"{a.file_name}：{desc}")
+                described_count += 1
         except Exception as exc:
-            logger.warning(
-                "memory_worker 產生圖片描述失敗 attachment=%s: %s",
-                a.chat_attachment_uid,
-                exc,
+            _log_event(
+                "image_describe",
+                session_uid,
+                outcome="single_failed",
+                level="warning",
+                attachment_uid=str(a.chat_attachment_uid),
+                error=str(exc),
             )
             continue
+
+    if described_count > 0:
+        duration_ms = int((time.time() - started) * 1000)
+        _log_event(
+            "image_describe",
+            session_uid,
+            message_uids=[str(message.chat_message_uid)],
+            duration_ms=duration_ms,
+            count=described_count,
+        )
+        await memory_trace_service.record(
+            session_uid,
+            "image_describe",
+            duration_ms=duration_ms,
+            message_uids=[str(message.chat_message_uid)],
+            extra={"count": described_count},
+        )
     return " / ".join(descriptions)
 
 
@@ -207,9 +335,37 @@ async def _process_batch(
     if not messages:
         return
 
+    total = len(messages)
     kept = [m for m in messages if not memory_prefilter.should_skip(m, rules)]
+    skipped = total - len(kept)
+    kept_uids = [str(m.chat_message_uid) for m in kept]
+    _log_event(
+        "prefilter",
+        session_uid,
+        message_uids=kept_uids,
+        total=total,
+        kept=len(kept),
+        skipped=skipped,
+    )
+    await memory_trace_service.record(
+        session_uid,
+        "prefilter",
+        message_uids=kept_uids,
+        extra={"total": total, "kept": len(kept), "skipped": skipped},
+    )
     if not kept:
-        logger.debug("memory_worker 全數被預篩掉 session=%s", session_uid)
+        _log_event(
+            "prefilter",
+            session_uid,
+            outcome="all_skipped",
+            total=total,
+        )
+        await memory_trace_service.record(
+            session_uid,
+            "prefilter",
+            outcome="all_skipped",
+            extra={"total": total},
+        )
         return
 
     # 組送給小模型的 messages；若 user 訊息帶圖片附件，先用 vision model 產描述
@@ -237,14 +393,54 @@ async def _process_batch(
     last_err: Exception | None = None
     for attempt in range(MAX_RETRY):
         try:
-            # v1.3.0：經 llm_metering 集中進入點
-            extract_result = await llm_metering.call_llm_metered(
-                purpose=llm_metering.PURPOSE_MEMORY_EXTRACT,
-                session_uid=session_uid,
-                user_uid=owner_user_uid,
-                messages=llm_messages,
-                model=model,
+            # ---- extract ----
+            extract_started = time.time()
+            try:
+                # v1.3.0：經 llm_metering 集中進入點
+                extract_result = await llm_metering.call_llm_metered(
+                    purpose=llm_metering.PURPOSE_MEMORY_EXTRACT,
+                    session_uid=session_uid,
+                    user_uid=owner_user_uid,
+                    messages=llm_messages,
+                    model=model,
+                )
+            except Exception:
+                duration_ms = int((time.time() - extract_started) * 1000)
+                _log_event(
+                    "extract",
+                    session_uid,
+                    message_uids=kept_uids,
+                    outcome="retry",
+                    duration_ms=duration_ms,
+                    level="warning",
+                    attempt=attempt + 1,
+                )
+                await memory_trace_service.record(
+                    session_uid,
+                    "extract",
+                    outcome="retry",
+                    duration_ms=duration_ms,
+                    message_uids=kept_uids,
+                    extra={"attempt": attempt + 1},
+                )
+                raise
+            extract_duration = int((time.time() - extract_started) * 1000)
+            _log_event(
+                "extract",
+                session_uid,
+                message_uids=kept_uids,
+                duration_ms=extract_duration,
+                attempt=attempt + 1,
             )
+            await memory_trace_service.record(
+                session_uid,
+                "extract",
+                duration_ms=extract_duration,
+                message_uids=kept_uids,
+                extra={"attempt": attempt + 1},
+            )
+
+            # ---- embedding ----
             embed_input = "，".join(
                 list(extract_result.keywords)
                 + list(extract_result.entities)
@@ -252,12 +448,50 @@ async def _process_batch(
             )
             if not embed_input.strip():
                 embed_input = combined[:1000]
-            vector = await llm_metering.call_llm_metered(
-                purpose=llm_metering.PURPOSE_EMBEDDING,
-                session_uid=session_uid,
-                user_uid=owner_user_uid,
-                text=embed_input,
+            embed_started = time.time()
+            try:
+                vector = await llm_metering.call_llm_metered(
+                    purpose=llm_metering.PURPOSE_EMBEDDING,
+                    session_uid=session_uid,
+                    user_uid=owner_user_uid,
+                    text=embed_input,
+                )
+            except Exception:
+                duration_ms = int((time.time() - embed_started) * 1000)
+                _log_event(
+                    "embedding",
+                    session_uid,
+                    message_uids=kept_uids,
+                    outcome="retry",
+                    duration_ms=duration_ms,
+                    level="warning",
+                    attempt=attempt + 1,
+                )
+                await memory_trace_service.record(
+                    session_uid,
+                    "embedding",
+                    outcome="retry",
+                    duration_ms=duration_ms,
+                    message_uids=kept_uids,
+                    extra={"attempt": attempt + 1},
+                )
+                raise
+            embed_duration = int((time.time() - embed_started) * 1000)
+            _log_event(
+                "embedding",
+                session_uid,
+                message_uids=kept_uids,
+                duration_ms=embed_duration,
+                attempt=attempt + 1,
             )
+            await memory_trace_service.record(
+                session_uid,
+                "embedding",
+                duration_ms=embed_duration,
+                message_uids=kept_uids,
+                extra={"attempt": attempt + 1},
+            )
+
             created = await chat_memory_repository.create(
                 {
                     "chat_session_uid": session_uid,
@@ -273,6 +507,22 @@ async def _process_batch(
                 "memory_worker 寫入記憶 session=%s, src=%s",
                 session_uid,
                 len(kept),
+            )
+            _log_event(
+                "write",
+                session_uid,
+                message_uids=kept_uids,
+                src_count=len(kept),
+                memory_uid=str(created.chat_memory_uid),
+            )
+            await memory_trace_service.record(
+                session_uid,
+                "write",
+                message_uids=kept_uids,
+                extra={
+                    "src_count": len(kept),
+                    "memory_uid": str(created.chat_memory_uid),
+                },
             )
             # v1.3.2：commit 前 publish memory_updated；失敗僅 warning，不影響主流程
             await session_event_service.publish_memory_updated(
@@ -300,6 +550,7 @@ async def _process_batch(
             return
         except Exception as exc:
             last_err = exc
+            # 階段層級的 retry log 已於 extract / embedding 內部寫入；此處保留總覽
             logger.warning(
                 "memory_worker 處理失敗 session=%s attempt=%s: %s",
                 session_uid,
@@ -322,11 +573,36 @@ async def _process_batch(
                 }
             ),
         )
-        logger.error(
-            "memory_worker 失敗超過上限，已推入 DLQ session=%s", session_uid
+        _log_event(
+            "dlq",
+            session_uid,
+            message_uids=[str(u) for u in message_uids],
+            outcome="pushed",
+            level="error",
+            error=str(last_err) if last_err else "unknown",
+        )
+        await memory_trace_service.record(
+            session_uid,
+            "dlq",
+            outcome="pushed",
+            message_uids=[str(u) for u in message_uids],
+            extra={"error": str(last_err) if last_err else "unknown"},
         )
     except Exception as exc:
+        _log_event(
+            "dlq",
+            session_uid,
+            outcome="push_failed",
+            level="error",
+            error=str(exc),
+        )
         logger.exception("memory_worker 推入 DLQ 失敗: %s", exc)
+        await memory_trace_service.record(
+            session_uid,
+            "dlq",
+            outcome="push_failed",
+            extra={"error": str(exc)},
+        )
 
     # v1.3.2：DLQ 進入時亦 publish memory_failed（前端本版不顯示 UI badge，僅記事件）
     await session_event_service.publish_memory_failed(
