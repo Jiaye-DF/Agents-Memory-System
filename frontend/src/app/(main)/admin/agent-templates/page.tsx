@@ -205,9 +205,20 @@ const TemplateFormDialog = React.memo(function TemplateFormDialog({
       if (mode === "create") {
         await onSubmit(base);
       } else {
-        const { template_key: _discard, ...rest } = base;
         const update: AgentTemplateUpdateRequest = {
-          ...rest,
+          label: base.label,
+          description: base.description,
+          name: base.name,
+          identity: base.identity,
+          language: base.language,
+          style: base.style,
+          role_prompt: base.role_prompt,
+          greeting: base.greeting,
+          temperature: base.temperature,
+          max_tokens: base.max_tokens,
+          response_format: base.response_format,
+          response_format_example: base.response_format_example,
+          sort_order: base.sort_order,
           is_active: values.is_active,
         };
         await onSubmit(update);

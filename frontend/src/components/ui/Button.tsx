@@ -13,6 +13,7 @@ interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   type?: "button" | "submit" | "reset";
+  title?: string;
   className?: string;
   onClick?: () => void;
 }
@@ -37,6 +38,7 @@ export const Button = React.memo(function Button({
   loading = false,
   disabled = false,
   type = "button",
+  title,
   className = "",
   onClick,
 }: ButtonProps): React.ReactNode {
@@ -45,6 +47,7 @@ export const Button = React.memo(function Button({
   return (
     <button
       type={type}
+      title={title}
       disabled={isDisabled}
       onClick={onClick}
       className={`inline-flex min-w-11 items-center justify-center gap-2 rounded-xl font-medium transition-colors hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${VARIANT_STYLES[variant]} ${SIZE_STYLES[size]} ${className}`}

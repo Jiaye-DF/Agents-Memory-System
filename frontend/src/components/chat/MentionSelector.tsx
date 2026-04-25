@@ -75,10 +75,36 @@ export const MentionSelector = forwardRef<
   { agents, value, onChange, textareaRef, onSelect }: MentionSelectorProps,
   ref,
 ): React.ReactNode {
-  const [open, setOpen] = useState<boolean>(false);
   const [activeIdx, setActiveIdx] = useState<number>(0);
   const [context, setContext] = useState<MentionContext | null>(null);
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    const updateContext = (): void => {
+      const caret = el.selectionStart ?? el.value.length;
+      setContext(findMentionContext(el.value, caret));
+      setActiveIdx(0);
+    };
+
+    el.addEventListener("input", updateContext);
+    el.addEventListener("keyup", updateContext);
+    el.addEventListener("click", updateContext);
+    el.addEventListener("select", updateContext);
+
+    return () => {
+      el.removeEventListener("input", updateContext);
+      el.removeEventListener("keyup", updateContext);
+      el.removeEventListener("click", updateContext);
+      el.removeEventListener("select", updateContext);
+    };
+  }, [textareaRef]);
+
+  const contextKey =
+    context === null ? null : `${value}:${context.trigger}:${context.query}`;
 
   // 過濾候選：不做模糊比對，採前綴 match（決策 #8）
   const candidates = useMemo((): SessionAgent[] => {
@@ -90,25 +116,8 @@ export const MentionSelector = forwardRef<
     );
   }, [agents, context]);
 
-  // 監聽 value / caret 變動更新 mention 狀態
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) {
-      setOpen(false);
-      setContext(null);
-      return;
-    }
-    const caret = el.selectionStart ?? value.length;
-    const ctx = findMentionContext(value, caret);
-    if (ctx === null) {
-      setOpen(false);
-      setContext(null);
-      return;
-    }
-    setContext(ctx);
-    setOpen(candidates.length > 0 || ctx.query === "");
-    setActiveIdx(0);
-  }, [value, textareaRef, candidates.length]);
+  const open =
+    context !== null && contextKey !== dismissedKey && candidates.length > 0;
 
   const commitSelection = useCallback(
     (agent: SessionAgent): void => {
@@ -119,8 +128,7 @@ export const MentionSelector = forwardRef<
       const next = `${before}${insertion}${after}`;
       onChange(next);
       onSelect(agent.agent_uid);
-      setOpen(false);
-      setContext(null);
+      setDismissedKey(contextKey);
       // 將 caret 移到 insertion 後
       setTimeout(() => {
         const el = textareaRef.current;
@@ -130,7 +138,7 @@ export const MentionSelector = forwardRef<
         el.setSelectionRange(pos, pos);
       }, 0);
     },
-    [context, value, onChange, onSelect, textareaRef],
+    [context, contextKey, value, onChange, onSelect, textareaRef],
   );
 
   useImperativeHandle(
@@ -158,14 +166,13 @@ export const MentionSelector = forwardRef<
         }
         if (event.key === "Escape") {
           event.preventDefault();
-          setOpen(false);
-          setContext(null);
+          setDismissedKey(contextKey);
           return true;
         }
         return false;
       },
     }),
-    [open, candidates, activeIdx, commitSelection],
+    [open, candidates, activeIdx, commitSelection, contextKey],
   );
 
   if (!open || candidates.length === 0) return null;
