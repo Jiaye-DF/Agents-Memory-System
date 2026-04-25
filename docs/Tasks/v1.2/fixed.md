@@ -297,6 +297,41 @@ TypeError: update() missing 2 required positional arguments: 'update_data' and '
 
 ---
 
+## 10. Agent 下載 / 收藏在儀錶板與管理頁顯示落差，Script 上傳描述應為必填  〔2026-04-25 09:17:38〕
+
+**問題**：
+
+1. **下載 Agent 不計數**：`agent_service.download_agent()` 直接回傳 markdown，未呼叫 `try_increment_download`，`Agent.download_count` 恆為 0，且關聯 Skills 也未連動。
+2. **儀錶板公開列表缺收藏 / 下載數與收藏按鈕**：`/dashboard` 三個公開頁籤的 row 整列為 `<Link>`，沒有 `SocialMetrics` 也沒有 `FavoriteButton`，使用者切「按熱度／按收藏」排序卻看不到對應數值，也無法直接收藏。
+3. **Agents 管理頁缺下載數**：`/agents` 兩處 `SocialMetrics` 只傳 `favoriteCount`，未傳 `downloadCount`，與 Skills / Scripts 管理頁不一致。
+4. **Script 上傳「描述」應為必填**：原 `ScriptUploadDialog` 描述欄為選填（placeholder `（選填）`）、後端 `Form(None)`，與本輪確認的規格不符。
+
+**根因**：
+
+- v1.2.1 §7 規格原訂「Agent 的 `download_count` 恆為 0（保留欄位，前端可隱藏），未來 export / import 用」— 但 Agent 下載已實作 `AGENTS.md` 產出（含關聯 Skills 清單），實質為使用行為，原規格已不適用。
+- 儀錶板與 Agents 管理頁的 `SocialMetrics` / `FavoriteButton` 在 v1.2.4 跨頁實作時未統一收尾。
+- Script 描述必填規格本輪確認，前後端原本皆允許空。
+
+**修正**：
+
+- **後端**：
+  - `agent_service.download_agent()` 結尾呼叫 `download_service.try_increment_download("agent", ...)`，並對所有未軟刪的關聯 Skills 各自 `try_increment_download("skill", ...)`（連動下載；收藏不連動，dedup keys 各自獨立）。
+  - `scripts/router.py` `description` 由 `Form(None, ...)` 改 `Form(..., ...)`，`script_service.create_script()` 簽名 `description: str` + 空字串 raise 422。
+- **前端**：
+  - `/dashboard` 的 AgentRow / SkillRow / ScriptRow 拆掉外層 `<Link>` 改為 RankingRow 同款結構（容器 `<div>` + 標題獨立 `<Link>` + `SocialMetrics` + `FavoriteButton`），三個 row 都顯示對應收藏 / 下載數。
+  - `RankingPanel` 移除 `showDownload` prop 與 `item.type !== "agent"` 判斷，所有類型一致顯示下載數。
+  - `/agents` 兩處 `SocialMetrics` 補上 `downloadCount`。
+  - `ScriptUploadDialog`：描述 label 加紅色 `*`、placeholder 改「輸入 Script 描述」、新增 `descriptionError` state、submit 驗證、payload 直接送 trim 字串。
+- **文件**：`tasks-v1.2.1.md` 規範表 #7 加註「已改為下載即計數，並連動關聯 Skills；收藏不連動」。
+
+**影響檔案**：
+
+- 後端：`backend/app/services/agent_service.py`、`backend/app/services/script_service.py`、`backend/app/api/v1/scripts/router.py`
+- 前端：`frontend/src/app/(main)/dashboard/page.tsx`、`frontend/src/app/(main)/agents/page.tsx`、`frontend/src/app/(main)/scripts/ScriptUploadDialog.tsx`、`frontend/src/components/dashboard/RankingPanel.tsx`
+- 文件：`docs/Tasks/v1.2/tasks-v1.2.1.md`
+
+---
+
 ## 處理狀態
 
 | # | 項目 | 狀態 | Commit |
@@ -310,6 +345,7 @@ TypeError: update() missing 2 required positional arguments: 'update_data' and '
 | 7 | 收藏 API 500 — `update` shadow 修正 + favorite_service helper 抽出 | ✅ 已修 | — 待 commit-all |
 | 8 | /scan-project 規範落差批量修補（Design-Base + 程式碼層） | ✅ 已修 | — 待 commit-all |
 | 9 | 排序 chip 全站統一為「軸前綴 + 方向 chip」格式（結清 §6 殘留） | ✅ 已修 | — 待 commit-all |
+| 10 | Agent 下載連動 Skills 計數 + 儀錶板 / 管理頁收藏下載顯示一致化 + Script 描述必填 | ✅ 已修 | — 待 commit-all |
 
 ---
 

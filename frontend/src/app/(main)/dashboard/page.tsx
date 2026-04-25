@@ -10,6 +10,8 @@ import { PageLoading } from "@/components/ui/Loading";
 import { Input } from "@/components/ui/Input";
 import { FilterChip } from "@/components/ui/FilterChip";
 import { RankingPanel } from "@/components/dashboard/RankingPanel";
+import { SocialMetrics } from "@/components/social/SocialMetrics";
+import { FavoriteButton } from "@/components/social/FavoriteButton";
 import type { Agent, Skill, Script } from "@/types";
 
 type TabKey = "agents" | "skills" | "scripts" | "favorites";
@@ -122,15 +124,15 @@ const AgentRow = React.memo(function AgentRow({
   languageLabel: string | null;
 }): React.ReactNode {
   return (
-    <Link
-      href={`/agents/${agent.agent_uid}`}
-      className="flex flex-col gap-2 px-4 py-3 transition-colors hover:cursor-pointer hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4"
-    >
+    <div className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <h3 className="truncate text-lg font-semibold text-foreground">
+          <Link
+            href={`/agents/${agent.agent_uid}`}
+            className="min-w-0 truncate text-lg font-semibold text-foreground hover:cursor-pointer hover:text-primary hover:underline"
+          >
             {agent.name}
-          </h3>
+          </Link>
           <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
             @{agent.owner_username ?? "未知"}
           </span>
@@ -141,11 +143,21 @@ const AgentRow = React.memo(function AgentRow({
           </p>
         )}
       </div>
-      <div className="flex shrink-0 flex-wrap gap-2 text-sm text-muted md:ml-auto">
+      <div className="flex shrink-0 flex-wrap items-center gap-3 text-sm text-muted md:ml-auto">
         {languageLabel && <span>語言：{languageLabel}</span>}
         {agent.model && <span>模型：{agent.model}</span>}
+        <SocialMetrics
+          favoriteCount={agent.favorite_count}
+          downloadCount={agent.download_count}
+        />
+        <FavoriteButton
+          resourceType="agent"
+          resourceUid={agent.agent_uid}
+          isFavorited={agent.is_favorited}
+          size="sm"
+        />
       </div>
-    </Link>
+    </div>
   );
 });
 
@@ -155,15 +167,15 @@ const SkillRow = React.memo(function SkillRow({
   skill: Skill;
 }): React.ReactNode {
   return (
-    <Link
-      href={`/skills/${skill.skill_uid}`}
-      className="flex flex-col gap-2 px-4 py-3 transition-colors hover:cursor-pointer hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4"
-    >
+    <div className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <h3 className="truncate text-lg font-semibold text-foreground">
+          <Link
+            href={`/skills/${skill.skill_uid}`}
+            className="min-w-0 truncate text-lg font-semibold text-foreground hover:cursor-pointer hover:text-primary hover:underline"
+          >
             {skill.name}
-          </h3>
+          </Link>
           <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
             @{skill.owner_username ?? "未知"}
           </span>
@@ -172,7 +184,19 @@ const SkillRow = React.memo(function SkillRow({
           {skill.description}
         </p>
       </div>
-    </Link>
+      <div className="flex shrink-0 items-center gap-3 text-sm text-muted md:ml-auto">
+        <SocialMetrics
+          favoriteCount={skill.favorite_count}
+          downloadCount={skill.download_count}
+        />
+        <FavoriteButton
+          resourceType="skill"
+          resourceUid={skill.skill_uid}
+          isFavorited={skill.is_favorited}
+          size="sm"
+        />
+      </div>
+    </div>
   );
 });
 
@@ -182,15 +206,15 @@ const ScriptRow = React.memo(function ScriptRow({
   script: Script;
 }): React.ReactNode {
   return (
-    <Link
-      href={`/scripts`}
-      className="flex flex-col gap-2 px-4 py-3 transition-colors hover:cursor-pointer hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4"
-    >
+    <div className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <h3 className="truncate text-lg font-semibold text-foreground">
+          <Link
+            href="/scripts"
+            className="min-w-0 truncate text-lg font-semibold text-foreground hover:cursor-pointer hover:text-primary hover:underline"
+          >
             {script.name}
-          </h3>
+          </Link>
           <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
             @{script.owner_username ?? "未知"}
           </span>
@@ -201,10 +225,20 @@ const ScriptRow = React.memo(function ScriptRow({
           </p>
         )}
       </div>
-      <div className="flex shrink-0 flex-wrap gap-2 text-sm text-muted md:ml-auto">
+      <div className="flex shrink-0 flex-wrap items-center gap-3 text-sm text-muted md:ml-auto">
         <span className="truncate">{script.file_name}</span>
+        <SocialMetrics
+          favoriteCount={script.favorite_count}
+          downloadCount={script.download_count}
+        />
+        <FavoriteButton
+          resourceType="script"
+          resourceUid={script.script_uid}
+          isFavorited={script.is_favorited}
+          size="sm"
+        />
       </div>
-    </Link>
+    </div>
   );
 });
 

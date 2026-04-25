@@ -49,7 +49,7 @@
 | 4 | 被刪除資源行為 | 收藏紀錄保留，前端顯示 tombstone 卡片，使用者自行清除 |
 | 5 | 下載計數時機 | `StreamingResponse` 即將回傳前才 +1（HEAD / 預覽不計） |
 | 6 | 下載 dedup | Redis `download:dedup:{resource_uid}:{user_uid}` TTL 24h |
-| 7 | Agent 的 `download_count` | v1.2 內恆為 0（保留欄位，前端可隱藏），未來 export / import 用 |
+| 7 | Agent 的 `download_count` | v1.2 內恆為 0（保留欄位，前端可隱藏），未來 export / import 用 —（已改為：下載 Agent `AGENTS.md` 時 Agent 計數 +1，並連動其關聯 Skills 各自計數 +1（同 user 24h Redis dedup 獨立判定）；收藏 Agent 不連動 Skills；前端列表與 RankingPanel 顯示下載數，見 commit 待提交） |
 
 ---
 

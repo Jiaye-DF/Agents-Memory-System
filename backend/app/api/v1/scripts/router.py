@@ -106,7 +106,7 @@ async def create_script(
         ..., description="對應每個檔案的相對路徑（與 files 數量一致）"
     ),
     name: str = Form(..., description="Script 名稱"),
-    description: str | None = Form(None, description="Script 描述（選填）"),
+    description: str = Form(..., description="Script 描述"),
     visibility: Literal["public", "private"] | None = Form(
         None,
         description="可見性：public / private；未指定時 DB DEFAULT 'private'",

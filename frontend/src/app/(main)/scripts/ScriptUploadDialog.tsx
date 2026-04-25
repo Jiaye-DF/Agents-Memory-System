@@ -62,6 +62,7 @@ export function ScriptUploadDialog({
   const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [nameError, setNameError] = useState<string>("");
+  const [descriptionError, setDescriptionError] = useState<string>("");
   const [fileError, setFileError] = useState<string>("");
 
   const [createScript, { isLoading }] = useCreateScriptMutation();
@@ -168,6 +169,7 @@ export function ScriptUploadDialog({
   const handleDescriptionChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
       setDescription(e.target.value);
+      setDescriptionError("");
     },
     []
   );
@@ -187,6 +189,10 @@ export function ScriptUploadDialog({
         setNameError("名稱為必填");
         hasError = true;
       }
+      if (!description.trim()) {
+        setDescriptionError("描述為必填");
+        hasError = true;
+      }
       if (selectedFiles.length === 0) {
         setFileError("請選擇檔案或資料夾");
         hasError = true;
@@ -196,7 +202,7 @@ export function ScriptUploadDialog({
       try {
         await createScript({
           name: name.trim(),
-          description: description.trim() || undefined,
+          description: description.trim(),
           visibility,
           files: selectedFiles,
           relativePaths: selectedFiles.map((f) => getRelativePath(f)),
@@ -367,15 +373,21 @@ export function ScriptUploadDialog({
             className="mb-1.5 block text-base font-medium text-foreground"
           >
             描述
+            <span className="ml-0.5 text-destructive">*</span>
           </label>
           <textarea
             id="script-description"
             value={description}
             onChange={handleDescriptionChange}
-            placeholder="（選填）"
+            placeholder="輸入 Script 描述"
             rows={3}
+            required
+            aria-invalid={descriptionError ? "true" : "false"}
             className="min-h-16 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
           />
+          {descriptionError && (
+            <p className="mt-1 text-base text-destructive">{descriptionError}</p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

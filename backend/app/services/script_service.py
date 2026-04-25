@@ -259,7 +259,7 @@ def _scripts_upload_dir() -> Path:
 async def create_script(
     user_uid: str,
     name: str,
-    description: str | None,
+    description: str,
     files: list[UploadFile],
     relative_paths: list[str],
     db: AsyncSession,
@@ -273,7 +273,13 @@ async def create_script(
             status_code=400,
         )
 
-    desc = (description or "").strip() or None
+    desc = (description or "").strip()
+    if not desc:
+        raise AppError(
+            detail="描述為必填",
+            response_code=400,
+            status_code=400,
+        )
 
     if visibility is not None and visibility not in ("public", "private"):
         raise AppError(

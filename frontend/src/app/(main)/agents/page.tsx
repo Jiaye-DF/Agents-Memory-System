@@ -106,7 +106,10 @@ const AgentRow = React.memo(function AgentRow({
       </div>
 
       <div className="flex shrink-0 items-center gap-2 md:ml-auto">
-        <SocialMetrics favoriteCount={agent.favorite_count} />
+        <SocialMetrics
+          favoriteCount={agent.favorite_count}
+          downloadCount={agent.download_count}
+        />
         <FavoriteButton
           resourceType="agent"
           resourceUid={agent.agent_uid}
@@ -183,7 +186,10 @@ const SnapshotRow = React.memo(function SnapshotRow({
       </div>
 
       <div className="flex shrink-0 items-center gap-2 md:ml-auto">
-        <SocialMetrics favoriteCount={resource.favorite_count} />
+        <SocialMetrics
+          favoriteCount={resource.favorite_count}
+          downloadCount={resource.download_count}
+        />
         <FavoriteButton
           resourceType="agent"
           resourceUid={resource.uid}

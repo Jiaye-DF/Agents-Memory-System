@@ -12,7 +12,7 @@ from app.repositories import (
 )
 from app.schemas.agents.schemas import AgentCreateRequest, AgentUpdateRequest
 from app.schemas.common import VisibilityRequest
-from app.services import system_setting_service
+from app.services import download_service, system_setting_service
 
 DEFAULT_MAX_SKILLS = 10
 NOT_FOUND_DETAIL = "找不到指定的 Agent"
@@ -316,5 +316,15 @@ async def download_agent(
         for s in skills:
             lines.append(f"- {s['name']}")
         lines.append("")
+
+    # Response 即將回傳前才 +1（同 user 24h Redis dedup）
+    # AGENTS.md 內含關聯 Skills 視為一併下載，連動 Skills 各自計數（dedup 獨立）
+    await download_service.try_increment_download(
+        "agent", agent_uid, user_uid, db
+    )
+    for s in skills:
+        await download_service.try_increment_download(
+            "skill", s["skill_uid"], user_uid, db
+        )
 
     return "\n".join(lines)

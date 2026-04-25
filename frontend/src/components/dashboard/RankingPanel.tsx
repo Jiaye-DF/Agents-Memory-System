@@ -130,12 +130,10 @@ const RankingTypeTabs = React.memo(function RankingTypeTabs({
 
 interface RankingRowProps {
   item: RankingItem;
-  showDownload: boolean;
 }
 
 const RankingRow = React.memo(function RankingRow({
   item,
-  showDownload,
 }: RankingRowProps): React.ReactNode {
   return (
     <div className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4">
@@ -166,7 +164,7 @@ const RankingRow = React.memo(function RankingRow({
       <div className="flex shrink-0 items-center gap-2 md:ml-auto">
         <SocialMetrics
           favoriteCount={item.favorite_count}
-          downloadCount={showDownload ? item.download_count : undefined}
+          downloadCount={item.download_count}
         />
         <FavoriteButton
           resourceType={item.type}
@@ -193,7 +191,6 @@ export const RankingPanel = React.memo(
     }, []);
 
     const items = data?.items ?? [];
-    // Agent 的 download_count 恆為 0，Agent 列不顯示下載數
     const emptyLabel = EMPTY_TYPE_LABEL[typeFilter];
 
     return (
@@ -221,7 +218,6 @@ export const RankingPanel = React.memo(
                 <RankingRow
                   key={`${item.type}:${item.uid}`}
                   item={item}
-                  showDownload={item.type !== "agent"}
                 />
               ))}
             </div>
