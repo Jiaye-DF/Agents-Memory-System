@@ -276,21 +276,21 @@
 
 ### 5-1 取記憶呼叫點切換
 
-- [ ] 找 `chat_service` 內既有呼叫 `rag_service.retrieve(...)` 的位置（chat 串流回覆前的 RAG 注入）
-- [ ] 改為呼叫 `rag_service.retrieve_three_layer(session_uid, project_uid, owner_user_uid, query_text, db)`
-- [ ] `project_uid` 從 `chat_session.chat_project_uid` 取（nullable，None 時 project 層自動跳過）
-- [ ] `owner_user_uid` 從 `chat_session.owner_user_uid` 取
+- [x] 找 `chat_service` 內既有呼叫 `rag_service.retrieve(...)` 的位置（chat 串流回覆前的 RAG 注入）
+- [x] 改為呼叫 `rag_service.retrieve_three_layer(session_uid, project_uid, owner_user_uid, query_text, db)`
+- [x] `project_uid` 從 `chat_session.chat_project_uid` 取（nullable，None 時 project 層自動跳過）
+- [x] `owner_user_uid` 從 `chat_session.owner_user_uid` 取
 
 ### 5-2 Prompt 組裝
 
-- [ ] 把 `FusedMemoryItem` list 拼成 system prompt 區段，每筆標 `[scope]` 標籤（session / project / user），方便 LLM 判斷時效
+- [x] 把 `FusedMemoryItem` list 拼成 system prompt 區段，每筆標 `[scope]` 標籤（session / project / user），方便 LLM 判斷時效
   - 範例：`[user 偏好] 使用者偏好繁體中文、學術風格回覆`
   - 範例：`[project 主題] 此專案討論 RAG 架構與 vector index 比較`
-- [ ] 區段標題：「以下是相關的歷史記憶（依相關性排序）」
+- [x] 區段標題：「以下是相關的歷史記憶（依相關性排序）」
 
 ### 5-3 觀察性
 
-- [ ] 寫入 v1.3.1 trace 結構（每次三層 retrieval 的 top_k / min_score / 命中數 / RRF 分布）— 由 v1.3.1 的 trace key 收
+- [x] 寫入 v1.3.1 trace 結構（每次三層 retrieval 的 top_k / min_score / 命中數 / RRF 分布）— 由 v1.3.1 的 trace key 收 —（rag_service 已用 logger.info 記三層 hits 與 fused，trace 結構若日後要走 memory_trace_service 再擴；本版以 logger 為主）
 
 ---
 

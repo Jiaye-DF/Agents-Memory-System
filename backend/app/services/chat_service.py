@@ -353,6 +353,38 @@ async def _build_system_prompt(
     return "\n".join(lines).strip()
 
 
+def _build_three_layer_memory_section(
+    fused_items: list,  # list[FusedMemoryItem]
+) -> str:
+    """v1.3.5：把 RRF 融合後的記憶拼成 system prompt 區段。
+
+    每筆標 [scope] 標籤（session / project / user）方便 LLM 判斷時效性與抽象層級：
+        [user 偏好] 使用者偏好繁體中文、學術風格回覆
+        [project 主題] 此專案討論 RAG 架構與 vector index 比較
+        [session] 上一輪確認 schema 用 1536 維 embedding
+    """
+    if not fused_items:
+        return ""
+
+    scope_label = {
+        "session": "session",
+        "project": "project 主題",
+        "user": "user 偏好",
+    }
+
+    lines: list[str] = ["", "## 以下是相關的歷史記憶（依相關性排序）", "<memory>"]
+    for item in fused_items:
+        label = scope_label.get(item.scope, item.scope)
+        topic = item.topic or "(未命名主題)"
+        keywords = ", ".join(list(item.keywords or []))
+        if keywords:
+            lines.append(f"[{label}] {topic} | keywords: {keywords}")
+        else:
+            lines.append(f"[{label}] {topic}")
+    lines.append("</memory>")
+    return "\n".join(lines)
+
+
 # ---------- Project ----------
 
 async def list_projects(
@@ -1237,23 +1269,37 @@ async def send_message(
         model = cheap_model
 
     # 5. 組 messages（system + 最近 N 則）
-    # v1.1.2：先以 user content 檢索 session 記憶，注入 system prompt
-    try:
-        memories = await rag_service.retrieve(chat_session_uid, content, db)
-    except Exception as exc:
-        logger.warning("RAG 檢索失敗，忽略: %s", exc)
-        memories = []
-
-    # v1.3.0：metering 用 — RAG 命中筆數與 top-1 score
-    rag_hit_count: int = len(memories) if memories else 0
+    # v1.3.5：改走三層 RAG 融合（session + project + user → RRF）
+    fused_items: list = []
+    rag_hit_count: int = 0
     rag_max_score: float | None = None
-    if memories:
-        # rag_service.retrieve 回 list[ChatMemory]（取分數需從另一條 path 取，此處保守留 None）
-        # 若需精確 score 後續可改 retrieve 回 (memory, score) tuple；此版只記命中數即可
-        rag_max_score = None
+    try:
+        project_uid_for_rag = (
+            str(session.chat_project_uid)
+            if session.chat_project_uid is not None
+            else None
+        )
+        owner_user_uid_for_rag = str(session.owner_user_uid)
+        rag_result = await rag_service.retrieve_three_layer(
+            chat_session_uid,
+            project_uid_for_rag,
+            owner_user_uid_for_rag,
+            content,
+            db,
+        )
+        fused_items = list(rag_result.get("fused", []) or [])
+        rag_hit_count = len(fused_items)
+        if fused_items:
+            rag_max_score = float(fused_items[0].rrf_score)
+    except Exception as exc:
+        logger.warning("三層 RAG 檢索失敗，忽略: %s", exc)
+        fused_items = []
 
     try:
-        system_prompt = await _build_system_prompt(agent, db, memories=memories)
+        system_prompt = await _build_system_prompt(agent, db, memories=None)
+        memory_section = _build_three_layer_memory_section(fused_items)
+        if memory_section:
+            system_prompt = f"{system_prompt}\n{memory_section}"
     except Exception as exc:
         logger.exception("組 system prompt 失敗: %s", exc)
         system_prompt = f"[Agent: {agent.name}]"
