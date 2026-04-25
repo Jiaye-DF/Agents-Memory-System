@@ -4,6 +4,7 @@ import React, { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { SidebarState } from "@/hooks/useSidebar";
+import { useListSkillSuggestionsQuery } from "@/store/agenticApi";
 import { ChatSection } from "./ChatSection";
 
 interface SidebarItem {
@@ -11,6 +12,8 @@ interface SidebarItem {
   href: string;
   icon: React.ReactNode;
   adminOnly?: boolean;
+  /** v1.3.6：可選的右側計數徽章 key（由 Sidebar 元件解析後渲染） */
+  badgeKey?: "skill-suggestions";
 }
 
 interface SidebarGroup {
@@ -77,6 +80,17 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
             <path d="M6 4L2 10L6 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M14 4L18 10L14 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M12 3L8 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        ),
+      },
+      {
+        label: "Skill 建議",
+        href: "/skill-suggestions",
+        badgeKey: "skill-suggestions",
+        icon: (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M10 3L12.5 7L17 7.5L13.5 11L14.5 16L10 13.5L5.5 16L6.5 11L3 7.5L7.5 7L10 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+            <circle cx="15.5" cy="14.5" r="2" fill="currentColor" />
           </svg>
         ),
       },
@@ -228,6 +242,7 @@ export const Sidebar = React.memo(function Sidebar({
             )}
             {group.items.map((item) => {
               const isActive = pathname.startsWith(item.href);
+              const showLabel = state === "expanded" || isOverlay;
               return (
                 <Link
                   key={item.href}
@@ -241,8 +256,11 @@ export const Sidebar = React.memo(function Sidebar({
                   title={state === "collapsed" && !isOverlay ? item.label : undefined}
                 >
                   <span className="shrink-0">{item.icon}</span>
-                  {(state === "expanded" || isOverlay) && (
-                    <span className="truncate">{item.label}</span>
+                  {showLabel && (
+                    <span className="truncate flex-1">{item.label}</span>
+                  )}
+                  {showLabel && item.badgeKey === "skill-suggestions" && (
+                    <SkillSuggestionsPendingBadge />
                   )}
                 </Link>
               );
@@ -269,3 +287,26 @@ export const Sidebar = React.memo(function Sidebar({
 
   return sidebarContent;
 });
+
+
+/**
+ * v1.3.6：sidebar Skill 建議入口的 pending 計數徽章。
+ * 抽成獨立元件，避免在 Sidebar 主迴圈內每個 item 都觸發 query。
+ */
+function SkillSuggestionsPendingBadge(): React.ReactNode {
+  const { data } = useListSkillSuggestionsQuery({
+    status: "pending",
+    page: 1,
+    size: 1,
+  });
+  const count = data?.total ?? 0;
+  if (count === 0) return null;
+  return (
+    <span
+      className="ml-auto inline-flex min-w-6 items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-xs font-medium text-white"
+      title={`${count} 則待處理建議`}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
