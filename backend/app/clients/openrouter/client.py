@@ -269,7 +269,7 @@ async def generate_skill_suggestion(
     }
 
 
-async def fetch_model_ids() -> set[str]:
+async def _fetch_models_payload() -> list[dict]:
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(OPENROUTER_MODELS_URL)
@@ -282,13 +282,41 @@ async def fetch_model_ids() -> set[str]:
             response_code=503,
             status_code=503,
         ) from exc
-
     data = payload.get("data") or []
+    return [item for item in data if isinstance(item, dict)]
+
+
+async def fetch_model_ids() -> set[str]:
+    items = await _fetch_models_payload()
     return {
         item["id"].lower()
-        for item in data
+        for item in items
         if isinstance(item.get("id"), str)
     }
+
+
+async def fetch_models_catalog() -> list[dict]:
+    """回傳 OpenRouter 模型清單的精簡欄位（id / name / context_length）。
+
+    供 admin 新增模型時用 Combobox 篩選，避免使用者自由輸入導致 typo。
+    """
+    items = await _fetch_models_payload()
+    catalog: list[dict] = []
+    for item in items:
+        raw_id = item.get("id")
+        if not isinstance(raw_id, str) or "/" not in raw_id:
+            continue
+        name = item.get("name")
+        ctx = item.get("context_length")
+        catalog.append(
+            {
+                "id": raw_id.lower(),
+                "name": name if isinstance(name, str) and name else raw_id,
+                "context_length": int(ctx) if isinstance(ctx, (int, float)) else None,
+            }
+        )
+    catalog.sort(key=lambda x: x["id"])
+    return catalog
 
 
 async def stream_chat_completion(

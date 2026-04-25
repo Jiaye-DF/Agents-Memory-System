@@ -27,3 +27,9 @@ export interface LlmModelUpdateRequest {
   is_default?: boolean;
   max_output_tokens?: number | null;
 }
+
+export interface OpenRouterModelInfo {
+  id: string;
+  name: string;
+  context_length: number | null;
+}

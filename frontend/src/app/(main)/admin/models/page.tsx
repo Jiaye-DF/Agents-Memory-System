@@ -1,6 +1,8 @@
 "use client";
 
 import React, {
+  useEffect,
+  useRef,
   useState,
   useCallback,
   useMemo,
@@ -19,14 +21,20 @@ import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
 import { useConfirmMutation } from "@/hooks/useConfirmMutation";
 import {
   useListAdminModelsQuery,
+  useListOpenRouterCatalogQuery,
   useCreateModelMutation,
   useUpdateModelMutation,
   useDeleteModelMutation,
 } from "@/store/modelsApi";
-import type { LlmModelAdmin } from "@/types";
+import type { LlmModelAdmin, OpenRouterModelInfo } from "@/types";
 import { formatDateTime } from "@/utils/datetime";
 
 const MODEL_ID_REGEX = /^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9.-]*$/;
+
+function deriveVendor(modelId: string): string {
+  const head = modelId.split("/")[0];
+  return head ? head : "openrouter";
+}
 
 type FormMode = "create" | "edit";
 
@@ -35,10 +43,191 @@ interface FormState {
   model?: LlmModelAdmin;
 }
 
+interface ModelComboboxProps {
+  catalog: OpenRouterModelInfo[];
+  loading: boolean;
+  loadError: boolean;
+  value: string;
+  onSelect: (info: OpenRouterModelInfo) => void;
+  disabled?: boolean;
+  error?: string;
+}
+
+const ModelCombobox = React.memo(function ModelCombobox({
+  catalog,
+  loading,
+  loadError,
+  value,
+  onSelect,
+  disabled = false,
+  error,
+}: ModelComboboxProps): React.ReactNode {
+  const [open, setOpen] = useState<boolean>(false);
+  const [search, setSearch] = useState<string>("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo((): OpenRouterModelInfo[] => {
+    const term = search.trim().toLowerCase();
+    if (!term) return catalog;
+    return catalog.filter(
+      (m) =>
+        m.id.toLowerCase().includes(term) ||
+        m.name.toLowerCase().includes(term)
+    );
+  }, [catalog, search]);
+
+  const handleToggle = useCallback((): void => {
+    if (disabled) return;
+    setOpen((v) => {
+      const next = !v;
+      if (next) setSearch("");
+      return next;
+    });
+  }, [disabled]);
+
+  const handlePick = useCallback(
+    (info: OpenRouterModelInfo): void => {
+      onSelect(info);
+      setOpen(false);
+    },
+    [onSelect]
+  );
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function handleClickOutside(e: MouseEvent): void {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function handleEscape(e: KeyboardEvent): void {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  const triggerBorder = error ? "border-destructive" : "border-input-border";
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={handleToggle}
+        disabled={disabled}
+        className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border ${triggerBorder} bg-input-bg px-3 py-2 text-left text-base transition-colors hover:cursor-pointer focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50`}
+      >
+        {value ? (
+          <span className="truncate font-mono text-foreground">{value}</span>
+        ) : (
+          <span className="text-muted">點此搜尋並選擇 OpenRouter 模型</span>
+        )}
+        <svg
+          className={`shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`}
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M4 6L8 10L12 6"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
+
+      {open && (
+        <div className="absolute left-0 right-0 z-20 mt-1 flex max-h-80 flex-col overflow-hidden rounded-xl border border-border bg-card-bg shadow-lg">
+          <div className="border-b border-border p-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="輸入關鍵字篩選 (e.g. claude, gpt-4)"
+              autoFocus
+              className="min-h-10 w-full rounded-lg border border-input-border bg-input-bg px-3 py-1.5 text-base text-foreground placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
+            />
+          </div>
+
+          <div className="overflow-y-auto">
+            {loading ? (
+              <div className="px-3 py-4 text-center text-sm text-muted">
+                載入 OpenRouter 模型清單中...
+              </div>
+            ) : loadError ? (
+              <div className="px-3 py-4 text-center text-sm text-destructive">
+                取得 OpenRouter 模型清單失敗，請稍後再試
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="px-3 py-4 text-center text-sm text-muted">
+                找不到符合的模型
+              </div>
+            ) : (
+              <ul className="py-1">
+                {filtered.slice(0, 200).map((info) => {
+                  const vendor = deriveVendor(info.id);
+                  const isSelected = info.id === value;
+                  return (
+                    <li key={info.id}>
+                      <button
+                        type="button"
+                        onClick={() => handlePick(info)}
+                        className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors hover:cursor-pointer hover:bg-muted-bg/60 ${
+                          isSelected ? "bg-primary/10" : ""
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                            {vendor}
+                          </span>
+                          <span className="truncate font-mono text-sm text-foreground">
+                            {info.id}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted">
+                          <span className="truncate">{info.name}</span>
+                          {info.context_length != null && (
+                            <span className="shrink-0">
+                              · ctx {info.context_length.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+                {filtered.length > 200 && (
+                  <li className="px-3 py-2 text-center text-xs text-muted">
+                    顯示前 200 筆，請輸入關鍵字縮小範圍
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
 interface FormDialogProps {
   mode: FormMode;
   initial?: LlmModelAdmin;
   submitting: boolean;
+  catalog: OpenRouterModelInfo[];
+  catalogLoading: boolean;
+  catalogError: boolean;
   onSubmit: (data: {
     model_id: string;
     display_name: string;
@@ -53,6 +242,9 @@ const FormDialog = React.memo(function FormDialog({
   mode,
   initial,
   submitting,
+  catalog,
+  catalogLoading,
+  catalogError,
   onSubmit,
   onClose,
 }: FormDialogProps): React.ReactNode {
@@ -72,13 +264,22 @@ const FormDialog = React.memo(function FormDialog({
   const [modelIdError, setModelIdError] = useState<string>("");
   const [displayNameError, setDisplayNameError] = useState<string>("");
   const [maxOutputTokensError, setMaxOutputTokensError] = useState<string>("");
+  const lastAutoFilledNameRef = useRef<string>("");
 
   const title = mode === "create" ? "新增 LLM 模型" : "編輯 LLM 模型";
 
-  const handleModelIdChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>): void => {
-      setModelId(e.target.value.toLowerCase());
+  const handleModelSelect = useCallback(
+    (info: OpenRouterModelInfo): void => {
+      setModelId(info.id);
       setModelIdError("");
+      setDisplayName((prev) => {
+        const userEdited =
+          prev.trim() !== "" && prev !== lastAutoFilledNameRef.current;
+        if (userEdited) return prev;
+        lastAutoFilledNameRef.current = info.name;
+        return info.name;
+      });
+      setDisplayNameError("");
     },
     []
   );
@@ -124,12 +325,10 @@ const FormDialog = React.memo(function FormDialog({
       if (mode === "create") {
         const trimmedId = modelId.trim();
         if (!trimmedId) {
-          setModelIdError("Model ID 為必填");
+          setModelIdError("請選擇要新增的模型");
           hasError = true;
         } else if (!MODEL_ID_REGEX.test(trimmedId)) {
-          setModelIdError(
-            "格式須為 <vendor>/<slug>，例如 anthropic/claude-sonnet-4"
-          );
+          setModelIdError("選到的模型 ID 格式異常，請重新挑選");
           hasError = true;
         }
       }
@@ -184,19 +383,20 @@ const FormDialog = React.memo(function FormDialog({
             htmlFor="model-id-input"
             className="mb-1.5 block text-base font-medium text-foreground"
           >
-            Model ID
+            模型
             {mode === "create" && (
               <span className="ml-0.5 text-destructive">*</span>
             )}
           </label>
           {mode === "create" ? (
-            <Input
-              id="model-id-input"
-              placeholder="anthropic/claude-sonnet-4"
+            <ModelCombobox
+              catalog={catalog}
+              loading={catalogLoading}
+              loadError={catalogError}
               value={modelId}
-              onChange={handleModelIdChange}
-              error={modelIdError}
+              onSelect={handleModelSelect}
               disabled={submitting}
+              error={modelIdError}
             />
           ) : (
             <div className="min-h-11 w-full rounded-xl border border-input-border bg-muted-bg px-3 py-2 font-mono text-base text-muted">
@@ -370,7 +570,7 @@ const ModelCard = React.memo(function ModelCard({
       </div>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
         <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-          {model.provider}
+          {deriveVendor(model.model_id)}
         </span>
         <span className="truncate font-mono">{model.model_id}</span>
         <span>·</span>
@@ -397,6 +597,19 @@ export default function AdminModelsPage(): React.ReactNode {
   const { data, isLoading, isFetching } = useListAdminModelsQuery(
     { limit: pagination.limit, cursor: pagination.cursor },
     { skip: authLoading || !isAdmin }
+  );
+
+  const isCreateMode = formState?.mode === "create";
+  const {
+    data: catalogData,
+    isFetching: catalogFetching,
+    isError: catalogIsError,
+  } = useListOpenRouterCatalogQuery(undefined, {
+    skip: !isCreateMode,
+  });
+  const catalogItems = useMemo(
+    (): OpenRouterModelInfo[] => catalogData?.items ?? [],
+    [catalogData]
   );
 
   const [createModel, { isLoading: creating }] = useCreateModelMutation();
@@ -566,10 +779,10 @@ export default function AdminModelsPage(): React.ReactNode {
     () => [
       {
         key: "provider",
-        header: "Provider",
+        header: "供應商",
         render: (model: LlmModelAdmin): React.ReactNode => (
           <span className="rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
-            {model.provider}
+            {deriveVendor(model.model_id)}
           </span>
         ),
       },
@@ -785,6 +998,9 @@ export default function AdminModelsPage(): React.ReactNode {
           mode={formState.mode}
           initial={formState.model}
           submitting={submitting}
+          catalog={catalogItems}
+          catalogLoading={catalogFetching}
+          catalogError={catalogIsError}
           onSubmit={handleSubmitForm}
           onClose={handleCloseForm}
         />

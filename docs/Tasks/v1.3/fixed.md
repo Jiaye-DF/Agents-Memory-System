@@ -175,3 +175,49 @@ v1.3.6 sub-agent 實作此頁時自行寫 button class 而非沿用既有 `<Filt
 **影響檔案**
 
 - [frontend/src/app/(main)/skill-suggestions/page.tsx](../../../frontend/src/app/(main)/skill-suggestions/page.tsx)
+
+---
+
+## 6. /admin/models「供應商」顯示與語言不一致 + 新增模型可自由輸入易 typo〔2026-04-26 00:25:00〕
+
+**問題**
+
+[admin/models](../../../frontend/src/app/(main)/admin/models/page.tsx) 頁面有兩個 UI / 流程缺陷：
+
+- 表格 Provider 欄位全列顯示 "OpenRouter"（gateway 名），但「供應商」篩選 chip 卻顯示 `anthropic / google / openai`（從 `model_id` 第一段派生），同一概念兩個來源 → 使用者看不懂哪個才是真實 vendor
+- 表頭 `Provider`（英）與篩選 label `供應商`（中）對同一欄位用兩種語言
+- 新增模型對話框讓使用者自由輸入 Model ID 字串，雖有 regex 驗證，但仍會打錯 vendor / slug，提交後才被後端 `verify_model_id` 拒絕，UX 差
+
+**根因**
+
+- 後端 [llm_model_service.create_model](../../../backend/app/services/llm_model_service.py) 把 `provider` 硬寫成 `DEFAULT_PROVIDER = "OpenRouter"`，與 model_id 隱含的真實 vendor 脫鉤；前端篩選又改用 `model_id.split("/")[0]` 派生，兩條路 → 顯示不一致
+- 表頭 label 沿用 v1.0 早期英文 placeholder，沒回頭跟篩選 / 表單對齊中文化
+- 新增模型 UX 缺一個「從 OpenRouter 官方清單挑選」的入口；既有 [openrouter_service.verify_model_id](../../../backend/app/services/openrouter_service.py) 與 [client.fetch_model_ids](../../../backend/app/clients/openrouter/client.py) 已能取得清單，但只用於 server-side 驗證，沒暴露給前端
+
+**修正**
+
+- 後端
+  - [client.py](../../../backend/app/clients/openrouter/client.py)：拆出 `_fetch_models_payload()`，新增 `fetch_models_catalog()` 回傳 `id / name / context_length` 精簡欄位
+  - [openrouter_service.py](../../../backend/app/services/openrouter_service.py)：新增 `list_openrouter_models()` 含 1 小時 cache（與既有 `get_valid_model_ids` 同 TTL）
+  - [admin/router.py](../../../backend/app/api/v1/admin/router.py)：新增 `GET /admin/llm-models/openrouter-catalog`（路由放在 `/{llm_model_uid}` 之前避免被 path param 吃掉）
+  - [llm_model_service.py](../../../backend/app/services/llm_model_service.py)：移除 `DEFAULT_PROVIDER` 硬寫，新增 `_derive_provider(model_id)` helper；`_to_dict` / `create_model` 一律以 `model_id` 第一段為準。舊資料的 `provider="OpenRouter"` 由 `_to_dict` 派生覆寫，不需 migration
+- 前端
+  - [models.ts](../../../frontend/src/types/models.ts) / [modelsApi.ts](../../../frontend/src/store/modelsApi.ts)：新增 `OpenRouterModelInfo` 與 `useListOpenRouterCatalogQuery`
+  - [admin/models/page.tsx](../../../frontend/src/app/(main)/admin/models/page.tsx)：
+    - 表頭 `Provider` → `供應商`；列值改用 `deriveVendor(model.model_id)` 與篩選對齊
+    - 新增 inline `ModelCombobox`：trigger 顯示已選 `model_id`，下拉含搜尋框 + 篩選後清單（vendor tag / id / name / context_length）；最多渲染前 200 筆避免長清單卡頓
+    - FormDialog create 模式以 Combobox 取代 `<Input>`；選定後自動帶入 OpenRouter `name` 至「顯示名稱」欄位（使用者後續手改則不再覆寫，由 `lastAutoFilledNameRef` 判定）
+    - `useListOpenRouterCatalogQuery` 用 `skip: !isCreateMode` 避免關閉對話框時無謂呼叫
+
+**影響檔案**
+
+- [backend/app/clients/openrouter/client.py](../../../backend/app/clients/openrouter/client.py)
+- [backend/app/clients/openrouter/\_\_init\_\_.py](../../../backend/app/clients/openrouter/__init__.py)
+- [backend/app/services/openrouter_service.py](../../../backend/app/services/openrouter_service.py)
+- [backend/app/services/llm_model_service.py](../../../backend/app/services/llm_model_service.py)
+- [backend/app/schemas/models/schemas.py](../../../backend/app/schemas/models/schemas.py)
+- [backend/app/api/v1/admin/router.py](../../../backend/app/api/v1/admin/router.py)
+- [frontend/src/types/models.ts](../../../frontend/src/types/models.ts)
+- [frontend/src/types/index.ts](../../../frontend/src/types/index.ts)
+- [frontend/src/store/modelsApi.ts](../../../frontend/src/store/modelsApi.ts)
+- [frontend/src/app/(main)/admin/models/page.tsx](../../../frontend/src/app/(main)/admin/models/page.tsx)

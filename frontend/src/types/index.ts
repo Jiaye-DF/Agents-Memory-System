@@ -37,6 +37,7 @@ export type {
   LlmModelAdmin,
   LlmModelCreateRequest,
   LlmModelUpdateRequest,
+  OpenRouterModelInfo,
 } from "./models";
 export type {
   AgentLanguage,

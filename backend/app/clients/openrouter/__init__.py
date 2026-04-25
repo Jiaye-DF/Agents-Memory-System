@@ -12,8 +12,8 @@
 > 透過 ``from app.clients.openrouter import client as openrouter_client`` 使用。
 
 工具型函式（``model_supports_vision`` / ``image_bytes_to_data_url`` /
-``fetch_model_ids`` / ``EMBEDDING_MODEL`` / ``EMBEDDING_DIMENSIONS``）不涉
-LLM 計費，不在集中進入點守則範圍內，可自由 import。
+``fetch_model_ids`` / ``fetch_models_catalog`` / ``EMBEDDING_MODEL`` /
+``EMBEDDING_DIMENSIONS``）不涉 LLM 計費，不在集中進入點守則範圍內，可自由 import。
 """
 
 from app.clients.openrouter.client import (
@@ -23,6 +23,7 @@ from app.clients.openrouter.client import (
     embed,
     extract_memory,
     fetch_model_ids,
+    fetch_models_catalog,
     image_bytes_to_data_url,
     model_supports_vision,
     generate_skill_suggestion,
@@ -36,6 +37,7 @@ __all__ = [
     "embed",
     "extract_memory",
     "fetch_model_ids",
+    "fetch_models_catalog",
     "image_bytes_to_data_url",
     "model_supports_vision",
     "generate_skill_suggestion",

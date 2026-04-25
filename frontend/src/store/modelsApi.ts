@@ -5,10 +5,15 @@ import type {
   LlmModelAdmin,
   LlmModelCreateRequest,
   LlmModelUpdateRequest,
+  OpenRouterModelInfo,
 } from "@/types";
 
 interface ListModelsResponse {
   items: LlmModel[];
+}
+
+interface OpenRouterCatalogResponse {
+  items: OpenRouterModelInfo[];
 }
 
 interface ListAdminModelsParams {
@@ -45,6 +50,13 @@ export const modelsApi = baseApi.injectEndpoints({
         };
       },
       providesTags: ["AdminLlmModels"],
+    }),
+
+    listOpenRouterCatalog: builder.query<OpenRouterCatalogResponse, void>({
+      query: () => ({
+        method: "get",
+        path: "/admin/llm-models/openrouter-catalog",
+      }),
     }),
 
     getAdminModel: builder.query<LlmModelAdmin, string>({
@@ -91,6 +103,7 @@ export const modelsApi = baseApi.injectEndpoints({
 export const {
   useListModelsQuery,
   useListAdminModelsQuery,
+  useListOpenRouterCatalogQuery,
   useGetAdminModelQuery,
   useCreateModelMutation,
   useUpdateModelMutation,

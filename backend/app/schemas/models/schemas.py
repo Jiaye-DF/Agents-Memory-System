@@ -82,3 +82,15 @@ class LlmModelAdminResponse(BaseModel):
     max_output_tokens: int | None
     created_at: str
     updated_at: str
+
+
+class OpenRouterModelInfo(BaseModel):
+    """OpenRouter catalog 單一模型摘要。"""
+
+    id: str
+    name: str
+    context_length: int | None = None
+
+
+class OpenRouterCatalogData(BaseModel):
+    items: list[OpenRouterModelInfo]

@@ -33,6 +33,7 @@ from app.schemas.models.schemas import (
     LlmModelAdminResponse,
     LlmModelCreateRequest,
     LlmModelUpdateRequest,
+    OpenRouterCatalogData,
 )
 from app.schemas.response import (
     ApiResponse,
@@ -49,6 +50,7 @@ from app.services import (
     agent_language_service,
     agent_template_service,
     llm_model_service,
+    openrouter_service,
     skill_factory_service,
     system_setting_service,
 )
@@ -177,6 +179,22 @@ async def create_llm_model(
 ) -> JSONResponse:
     result = await llm_model_service.create_model(data, db)
     return success(data=result, response_code=201)
+
+
+@router.get(
+    "/llm-models/openrouter-catalog",
+    response_model=ApiResponse[OpenRouterCatalogData],
+    summary="取得 OpenRouter 可選模型清單（給新增模型 Combobox 用）",
+    description=(
+        "回傳 OpenRouter 目前公開的模型清單摘要（id / name / context_length），"
+        "於後端 cache 1 小時。供 admin 新增 LLM 模型時，以下拉選單篩選取代自由輸入。"
+    ),
+)
+async def list_openrouter_catalog(
+    _current_user: TokenPayload = require_role("admin"),
+) -> JSONResponse:
+    items = await openrouter_service.list_openrouter_models()
+    return success(data={"items": items})
 
 
 @router.get(

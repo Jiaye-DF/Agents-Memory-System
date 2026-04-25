@@ -1,11 +1,6 @@
 "use client";
 
-import React, {
-  useState,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import React, { useState, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -37,10 +32,7 @@ import {
 import type { FileTreeNode, SkillUsageResponse } from "@/types";
 import { formatDateTime } from "@/utils/datetime";
 import { detectLanguage } from "@/utils/language";
-import {
-  isEditable,
-  FILE_EDIT_MAX_BYTES,
-} from "@/utils/editableExtensions";
+import { isEditable, FILE_EDIT_MAX_BYTES } from "@/utils/editableExtensions";
 
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024;
 const BLOCKED_EXTENSIONS = [".exe"];
@@ -83,7 +75,7 @@ const TreeNode = React.memo(function TreeNode({
 
   const fullPath = useMemo(
     (): string => (parentPath ? `${parentPath}/${node.name}` : node.name),
-    [parentPath, node.name]
+    [parentPath, node.name],
   );
 
   const handleToggle = useCallback((): void => {
@@ -246,9 +238,7 @@ function CodeViewer({
 
   if (error || !data) {
     return (
-      <div className="p-6 text-center text-danger">
-        無法載入檔案內容。
-      </div>
+      <div className="p-6 text-center text-danger">無法載入檔案內容。</div>
     );
   }
 
@@ -327,7 +317,7 @@ function CodeEditor({
 
   const byteLength = useMemo(
     (): number => new TextEncoder().encode(content).length,
-    [content]
+    [content],
   );
   const overLimit = byteLength > FILE_EDIT_MAX_BYTES;
 
@@ -335,7 +325,7 @@ function CodeEditor({
     (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
       setContent(e.target.value);
     },
-    []
+    [],
   );
 
   const handleSave = useCallback((): void => {
@@ -377,6 +367,7 @@ function CodeEditor({
         value={content}
         onChange={handleChange}
         spellCheck={false}
+        aria-label="編輯程式碼"
         className="block max-h-[65vh] min-h-[40vh] w-full resize-y bg-card-bg p-3 font-mono text-sm leading-relaxed text-foreground focus:outline-none"
       />
     </div>
@@ -408,8 +399,8 @@ function UsageDialog({
         ) : (
           <>
             <p className="text-base text-foreground">
-              目前有 <span className="font-semibold">{usage.count}</span>{" "}
-              個 Agent 使用此 Skill，更新後會立即套用。
+              目前有 <span className="font-semibold">{usage.count}</span> 個
+              Agent 使用此 Skill，更新後會立即套用。
             </p>
             {usage.count > 0 && (
               <div className="max-h-60 overflow-auto rounded-xl border border-border bg-muted-bg/30 p-2">
@@ -469,7 +460,7 @@ function ReuploadDialog({
 
   const totalSize = useMemo(
     (): number => selectedFiles.reduce((sum, f) => sum + f.size, 0),
-    [selectedFiles]
+    [selectedFiles],
   );
 
   const topFolder = useMemo((): string | null => {
@@ -527,7 +518,7 @@ function ReuploadDialog({
       }
       return true;
     },
-    [showDialog]
+    [showDialog],
   );
 
   const handleFiles = useCallback(
@@ -537,7 +528,7 @@ function ReuploadDialog({
         setSelectedFiles(files);
       }
     },
-    [validateFiles]
+    [validateFiles],
   );
 
   const handleFileInputChange = useCallback(
@@ -547,7 +538,7 @@ function ReuploadDialog({
       handleFiles(Array.from(list));
       e.target.value = "";
     },
-    [handleFiles]
+    [handleFiles],
   );
 
   const handleDrop = useCallback(
@@ -557,7 +548,7 @@ function ReuploadDialog({
       const dropped = Array.from(e.dataTransfer.files ?? []);
       if (dropped.length > 0) handleFiles(dropped);
     },
-    [handleFiles]
+    [handleFiles],
   );
 
   const handleDragOver = useCallback(
@@ -565,7 +556,7 @@ function ReuploadDialog({
       e.preventDefault();
       setIsDragOver(true);
     },
-    []
+    [],
   );
 
   const handleDragLeave = useCallback(
@@ -573,7 +564,7 @@ function ReuploadDialog({
       e.preventDefault();
       setIsDragOver(false);
     },
-    []
+    [],
   );
 
   const handleSelectFiles = useCallback((): void => {
@@ -601,7 +592,8 @@ function ReuploadDialog({
     <ModalDialog title="重新上傳 Skill" onClose={onClose} size="md">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted">
-          重新上傳後將完整覆蓋原有檔案內容，且已使用此 Skill 的 Agent 會立即套用新內容。
+          重新上傳後將完整覆蓋原有檔案內容，且已使用此 Skill 的 Agent
+          會立即套用新內容。
         </p>
         <div
           onDrop={handleDrop}
@@ -634,9 +626,7 @@ function ReuploadDialog({
           />
           {selectedFiles.length > 0 ? (
             <div className="w-full text-center">
-              <p className="text-base font-medium text-foreground">
-                {summary}
-              </p>
+              <p className="text-base font-medium text-foreground">{summary}</p>
               <div className="mt-3 flex justify-center gap-2">
                 <Button
                   size="sm"
@@ -658,9 +648,7 @@ function ReuploadDialog({
             </div>
           ) : (
             <div className="text-center">
-              <p className="text-base text-muted">
-                拖曳 .zip 或多個檔案至此處
-              </p>
+              <p className="text-base text-muted">拖曳 .zip 或多個檔案至此處</p>
               <p className="mt-1 text-sm text-muted">
                 總大小上限 50 MB，禁止上傳 .exe
               </p>
@@ -685,9 +673,7 @@ function ReuploadDialog({
             </div>
           )}
         </div>
-        {fileError && (
-          <p className="text-base text-destructive">{fileError}</p>
-        )}
+        {fileError && <p className="text-base text-destructive">{fileError}</p>}
         <div className="mt-2 flex justify-end gap-3">
           <button
             type="button"
@@ -726,7 +712,7 @@ export default function SkillDetailPage(): React.ReactNode {
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState<string>("");
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(
-    null
+    null,
   );
   const [showReupload, setShowReupload] = useState<boolean>(false);
 
@@ -742,7 +728,7 @@ export default function SkillDetailPage(): React.ReactNode {
 
   const { data: usage, isFetching: usageFetching } = useGetSkillUsageQuery(
     uid,
-    { skip: authLoading || !skill || !pendingAction }
+    { skip: authLoading || !skill || !pendingAction },
   );
 
   const [reuploadSkill, { isLoading: reuploading }] =
@@ -763,7 +749,7 @@ export default function SkillDetailPage(): React.ReactNode {
     (path: string, currentContent: string): void => {
       setPendingAction({ type: "edit", path, content: currentContent });
     },
-    []
+    [],
   );
 
   const handleRequestReupload = useCallback((): void => {
@@ -818,7 +804,7 @@ export default function SkillDetailPage(): React.ReactNode {
         });
       }
     },
-    [skill, editingPath, uid, updateSkillFile, showDialog]
+    [skill, editingPath, uid, updateSkillFile, showDialog],
   );
 
   const handleSubmitReupload = useCallback(
@@ -848,7 +834,7 @@ export default function SkillDetailPage(): React.ReactNode {
         });
       }
     },
-    [skill, uid, reuploadSkill, showDialog]
+    [skill, uid, reuploadSkill, showDialog],
   );
 
   const handleCloseReupload = useCallback((): void => {
@@ -891,9 +877,7 @@ export default function SkillDetailPage(): React.ReactNode {
   if (skillError || !skill) {
     return (
       <div>
-        <h1 className="mb-4 text-3xl font-bold text-foreground">
-          Skill 詳情
-        </h1>
+        <h1 className="mb-4 text-3xl font-bold text-foreground">Skill 詳情</h1>
         <div className="rounded-xl bg-card-bg p-6 text-center shadow-sm">
           <p className="text-muted">找不到指定的 Skill。</p>
           <Button className="mt-4" variant="secondary" onClick={handleBack}>
@@ -1044,9 +1028,7 @@ export default function SkillDetailPage(): React.ReactNode {
           title={
             pendingAction.type === "edit" ? "確認編輯檔案" : "確認重新上傳"
           }
-          confirmLabel={
-            pendingAction.type === "edit" ? "繼續編輯" : "繼續上傳"
-          }
+          confirmLabel={pendingAction.type === "edit" ? "繼續編輯" : "繼續上傳"}
           usage={usage}
           usageLoading={usageFetching}
           onConfirm={handleConfirmUsage}
