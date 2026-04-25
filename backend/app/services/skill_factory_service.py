@@ -24,13 +24,12 @@ from fastapi import UploadFile
 from starlette.datastructures import Headers
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.openrouter import generate_skill_suggestion
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.core.redis import get_redis
 from app.models.chat_memory import ChatMemory
 from app.repositories import chat_memory_repository, chat_session_repository
-from app.services import skill_service, system_setting_service
+from app.services import llm_metering, skill_service, system_setting_service
 
 logger = logging.getLogger(__name__)
 
@@ -266,7 +265,14 @@ async def analyze_session(
         llm_input,
     )
     try:
-        suggestion_raw = await generate_skill_suggestion(llm_input, model=model)
+        # v1.3.0：經 llm_metering 集中進入點記成本 / 延遲
+        suggestion_raw = await llm_metering.call_llm_metered(
+            purpose=llm_metering.PURPOSE_SKILL_FACTORY,
+            session_uid=session_uid,
+            user_uid=user_uid,
+            memories_payload=llm_input,
+            model=model,
+        )
     except AppError as exc:
         logger.warning(
             "skill_factory: llm_call_failed session_uid=%s detail=%s",

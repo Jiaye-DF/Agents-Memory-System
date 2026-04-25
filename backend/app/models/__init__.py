@@ -6,6 +6,7 @@ from app.models.chat_memory import ChatMemory, MemoryBase
 from app.models.chat_message import ChatMessage, MessageBase
 from app.models.chat_project import ChatProject
 from app.models.chat_session import ChatSession
+from app.models.llm_call_log import LlmCallLog, LlmCallLogBase
 from app.models.llm_model import LlmModel
 from app.models.script import Script
 from app.models.skill import Skill
@@ -25,6 +26,8 @@ __all__ = [
     "ChatMessage",
     "ChatProject",
     "ChatSession",
+    "LlmCallLog",
+    "LlmCallLogBase",
     "LlmModel",
     "Script",
     "Skill",

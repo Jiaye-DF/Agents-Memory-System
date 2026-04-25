@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     OPENROUTER_HTTP_REFERER: str = "http://localhost:3000"
     OPENROUTER_APP_TITLE: str = "Agents Memory System"
 
+    # v1.3.0：LLM 成本 metrics — counterfactual baseline 用的 expensive 模型 id
+    # 用於 llm_metering wrapper 計算 baseline_cost_usd（假設全走此模型會花多少）
+    LLM_BASELINE_EXPENSIVE_MODEL: str = "anthropic/claude-sonnet-4-6"
+
     LINE_CHANNEL_ACCESS_TOKEN: str = ""
     LINE_CHANNEL_SECRET: str = ""
 

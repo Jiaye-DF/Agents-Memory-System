@@ -7,9 +7,6 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.openrouter import describe_image
-from app.clients.openrouter import embed as openrouter_embed
-from app.clients.openrouter import extract_memory
 from app.core.database import AsyncSessionLocal
 from app.core.redis import get_redis
 from app.models.chat_message import ChatMessage
@@ -18,7 +15,7 @@ from app.repositories import (
     chat_memory_repository,
     chat_message_repository,
 )
-from app.services import memory_prefilter, system_setting_service
+from app.services import llm_metering, memory_prefilter, system_setting_service
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +109,9 @@ async def _describe_image_attachments(
     message: ChatMessage,
     model: str,
     db: AsyncSession,
+    *,
+    session_uid: str,
+    user_uid: str | None,
 ) -> str:
     """
     對訊息帶的圖片附件各產一句中文描述；
@@ -144,7 +144,14 @@ async def _describe_image_attachments(
             raw = path.read_bytes()
             b64 = base64.b64encode(raw).decode("ascii")
             data_url = f"data:{mime};base64,{b64}"
-            desc = await describe_image(data_url, model=model)
+            # v1.3.0：經 llm_metering 集中進入點記成本 / 延遲
+            desc = await llm_metering.call_llm_metered(
+                purpose=llm_metering.PURPOSE_IMAGE_DESCRIBE,
+                session_uid=session_uid,
+                user_uid=user_uid,
+                image_data_url=data_url,
+                model=model,
+            )
             if desc:
                 descriptions.append(f"{a.file_name}：{desc}")
         except Exception as exc:
@@ -178,6 +185,14 @@ async def _process_batch(
     if not image_describe_model:
         image_describe_model = DEFAULT_IMAGE_DESCRIBE_MODEL
 
+    # v1.3.0：metering 用 — 透傳 user_uid 到 LLM 呼叫
+    from app.repositories import chat_session_repository as _csr
+
+    session_obj = await _csr.get_by_uid(session_uid, db)
+    owner_user_uid: str | None = (
+        str(session_obj.owner_user_uid) if session_obj else None
+    )
+
     # 讀訊息
     messages: list[ChatMessage] = []
     for mid in message_uids:
@@ -198,7 +213,11 @@ async def _process_batch(
     for m in kept:
         text = memory_prefilter.truncate_for_extraction(m.content, max_tokens)
         image_desc = await _describe_image_attachments(
-            m, image_describe_model, db
+            m,
+            image_describe_model,
+            db,
+            session_uid=session_uid,
+            user_uid=owner_user_uid,
         )
         merged = text
         if image_desc:
@@ -213,7 +232,14 @@ async def _process_batch(
     last_err: Exception | None = None
     for attempt in range(MAX_RETRY):
         try:
-            extract_result = await extract_memory(llm_messages, model=model)
+            # v1.3.0：經 llm_metering 集中進入點
+            extract_result = await llm_metering.call_llm_metered(
+                purpose=llm_metering.PURPOSE_MEMORY_EXTRACT,
+                session_uid=session_uid,
+                user_uid=owner_user_uid,
+                messages=llm_messages,
+                model=model,
+            )
             embed_input = "，".join(
                 list(extract_result.keywords)
                 + list(extract_result.entities)
@@ -221,7 +247,12 @@ async def _process_batch(
             )
             if not embed_input.strip():
                 embed_input = combined[:1000]
-            vector = await openrouter_embed(embed_input)
+            vector = await llm_metering.call_llm_metered(
+                purpose=llm_metering.PURPOSE_EMBEDDING,
+                session_uid=session_uid,
+                user_uid=owner_user_uid,
+                text=embed_input,
+            )
             await chat_memory_repository.create(
                 {
                     "chat_session_uid": session_uid,
@@ -240,21 +271,13 @@ async def _process_batch(
             )
             # v1.1.7：觸發 Skill 工廠（不阻塞；由 skill_factory_worker 獨立消費）
             try:
-                from app.repositories import chat_session_repository
-
-                session_obj = await chat_session_repository.get_by_uid(
-                    session_uid, db
-                )
-                owner_uid = (
-                    str(session_obj.owner_user_uid) if session_obj else None
-                )
-                if owner_uid:
+                if owner_user_uid:
                     redis = get_redis()
                     await redis.lpush(
                         "skill_factory_queue",
                         json.dumps(
                             {
-                                "user_uid": owner_uid,
+                                "user_uid": owner_user_uid,
                                 "session_uid": session_uid,
                             }
                         ),

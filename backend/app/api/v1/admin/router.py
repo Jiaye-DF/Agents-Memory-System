@@ -5,6 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, require_role
 from app.core.response import success
+from app.schemas.admin.metrics_schemas import (
+    CostMetricsResponse,
+    GroupByKey,
+    RangeKey,
+)
 from app.schemas.admin.schemas import RoleResponse, UserResponse, UserUpdateRequest
 from app.schemas.agent_languages.schemas import (
     AgentLanguageCreateRequest,
@@ -32,6 +37,7 @@ from app.schemas.settings.schemas import (
     SystemSettingUpdateRequest,
 )
 from app.services import (
+    admin_metrics_service,
     admin_service,
     agent_language_service,
     agent_template_service,
@@ -384,4 +390,36 @@ async def get_skill_factory_recent_logs(
 ) -> JSONResponse:
     """讀取 agentic:skill:log Redis stream 最近 N 筆事件（開發者觀察用）。"""
     result = await skill_factory_service.list_recent_logs(limit)
+    return success(data=result)
+
+
+# ============================================================
+# v1.3.0 LLM 呼叫成本 / 延遲 metrics（admin only）
+# ============================================================
+
+
+@router.get(
+    "/metrics/cost",
+    response_model=ApiResponse[CostMetricsResponse],
+    summary="取得 LLM 呼叫成本 metrics（actual / counterfactual baseline / 省了多少）",
+    description=(
+        "依 range（today / 7d / 30d / month）+ group_by（route / model / user / "
+        "session / purpose）切片回傳 actual / baseline 成本與省下的金額。\n"
+        "資料來源為 llm_call_log 表（運營資料，30 天保留）。\n"
+        "詳見 docs/Arch/01-observability-and-metrics.md §5-5。"
+    ),
+)
+async def get_cost_metrics(
+    _current_user: TokenPayload = require_role("admin"),
+    range: RangeKey = Query("today", description="查詢區間"),
+    group_by: GroupByKey = Query("route", description="切片維度"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """成本 metrics 查詢端點（admin 限定）。
+
+    response shape 對齊 docs/Arch/01-observability-and-metrics.md §5-5；
+    空資料時 `total_actual_usd` / `total_baseline_usd` / `saved_usd` 皆為 0、
+    `breakdown` 為空陣列（不 raise）。
+    """
+    result = await admin_metrics_service.get_cost_metrics(range, group_by, db)
     return success(data=result)

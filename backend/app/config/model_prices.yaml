@@ -1,0 +1,27 @@
+# 來源：OpenRouter 官方價格；更新時於對應 model 加 # updated: YYYY-MM-DD
+# 單位：$/M tokens（百萬 tokens 美元數）
+# 欄位：input / output / cache_read / cache_creation
+#   * cache_read  ≈ input × 0.1（Anthropic prompt cache 讀取）
+#   * cache_creation ≈ input × 1.25（Anthropic prompt cache 寫入）
+# 模型不在此表時，llm_pricing.compute_cost 會 log warning 並回 0（不擋呼叫）
+
+# Anthropic Claude Haiku 4.5（cheap 路線預設）
+"anthropic/claude-haiku-4-5":
+  input: 1.0
+  output: 5.0
+  cache_read: 0.1
+  cache_creation: 1.25
+
+# Anthropic Claude Sonnet 4.6（expensive 路線預設、baseline 計價基準）
+"anthropic/claude-sonnet-4-6":
+  input: 3.0
+  output: 15.0
+  cache_read: 0.3
+  cache_creation: 3.75
+
+# OpenAI text-embedding-3-small（embedding 統一模型）
+"openai/text-embedding-3-small":
+  input: 0.02
+  output: 0
+  cache_read: 0
+  cache_creation: 0

@@ -137,6 +137,10 @@ async def generate_skill_suggestion(
     呼叫 OpenRouter 小模型，以 JSON schema 結構化輸出產出單一 Skill 候選。
     memories_payload 為已序列化的記憶摘要字串（由 skill_factory_service 組好）。
     失敗直接拋 AppError，由 worker 端記錄並跳過。
+
+    **內部 API**：外部請呼叫 ``app.services.llm_metering.call_llm_metered``
+    （purpose='skill_factory'）。集中進入點規範見
+    docs/Arch/01-observability-and-metrics.md §2-3。
     """
     if not settings.OPENROUTER_API_KEY:
         raise AppError(
@@ -302,6 +306,10 @@ async def stream_chat_completion(
             {"type": "text", "text": "..."},
             {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}},
         ]
+
+    **內部 API**：外部請呼叫 ``app.services.llm_metering.call_llm_metered_stream``
+    （purpose='chat'）。集中進入點規範見
+    docs/Arch/01-observability-and-metrics.md §2-3。
     """
     if not settings.OPENROUTER_API_KEY:
         raise AppError(
@@ -377,6 +385,10 @@ async def embed(text: str) -> list[float]:
     """
     呼叫 OpenRouter embeddings 端點，將文字轉為 1536 維向量。
     統一使用 OpenRouter 管理 key，避免多來源憑證分散。
+
+    **內部 API**：外部請呼叫 ``app.services.llm_metering.call_llm_metered``
+    （purpose='embedding'）。集中進入點規範見
+    docs/Arch/01-observability-and-metrics.md §2-3。
     """
     cleaned = (text or "").strip()
     if not cleaned:
@@ -450,6 +462,10 @@ async def extract_memory(
     """
     呼叫 OpenRouter 小模型，以 JSON schema 結構化輸出抽取記憶欄位。
     失敗直接拋 AppError 由呼叫端決定重試 / DLQ。
+
+    **內部 API**：外部請呼叫 ``app.services.llm_metering.call_llm_metered``
+    （purpose='memory_extract'）。集中進入點規範見
+    docs/Arch/01-observability-and-metrics.md §2-3。
     """
     if not settings.OPENROUTER_API_KEY:
         raise AppError(
@@ -554,6 +570,10 @@ async def describe_image(image_data_url: str, model: str) -> str:
 
     image_data_url：`data:image/png;base64,...` 格式。
     失敗直接拋 AppError，由呼叫端決定 fallback。
+
+    **內部 API**：外部請呼叫 ``app.services.llm_metering.call_llm_metered``
+    （purpose='image_describe'）。集中進入點規範見
+    docs/Arch/01-observability-and-metrics.md §2-3。
     """
     if not settings.OPENROUTER_API_KEY:
         raise AppError(

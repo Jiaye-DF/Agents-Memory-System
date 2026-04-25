@@ -1,5 +1,8 @@
 # v1.3.0 任務規格：基礎設施 — 成本 metrics（`llm_call_log` + 集中 wrapper）
 
+> **狀態：已完成（commit 待提交, 2026-04-25）**
+> 驗收項目中需 docker / 線上環境的部分已標註「需使用者執行 X」，詳見 § Phase 5 與本 commit 訊息 body。
+
 > 前置：[propose-v1.3.0.md §3-4](propose-v1.3.0.md)、[docs/Arch/01-observability-and-metrics.md](../../Arch/01-observability-and-metrics.md)
 > 後續依賴：v1.3.1 / v1.3.4 / v1.3.5 / v1.3.6 皆需此版完成才能驗證成本影響
 
@@ -72,7 +75,7 @@
 
 ### 0-1 V38：建立 `llm_call_log`
 
-- [ ] `migrations/sql/V38__create_llm_call_log.sql`（schema 對齊 [docs/Arch/01-observability-and-metrics.md §5-1](../../Arch/01-observability-and-metrics.md)）
+- [x] `migrations/sql/V38__create_llm_call_log.sql`（schema 對齊 [docs/Arch/01-observability-and-metrics.md §5-1](../../Arch/01-observability-and-metrics.md)）—（已改為 `migrations/sql/V38__create_llm_call_log.sql`，原因：本專案 Flyway migrations 實際路徑為 repo root 的 `migrations/sql/`，非 task 描述的 `backend/migrations/sql/`）
   - `pid BIGSERIAL PRIMARY KEY`
   - `ts TIMESTAMPTZ NOT NULL DEFAULT NOW()`
   - `session_uid UUID`、`user_uid UUID`、`agent_uid UUID`（不建 FK）
@@ -90,42 +93,42 @@
 
 ### 1-1 模型價格表
 
-- [ ] 新建 `backend/app/config/__init__.py`（空檔即可，使資料夾為 package）
-- [ ] `backend/app/config/model_prices.yaml`：對齊 [docs/Arch/01-observability-and-metrics.md §5-4](../../Arch/01-observability-and-metrics.md) 範例
+- [x] 新建 `backend/app/config/__init__.py`（空檔即可，使資料夾為 package）
+- [x] `backend/app/config/model_prices.yaml`：對齊 [docs/Arch/01-observability-and-metrics.md §5-4](../../Arch/01-observability-and-metrics.md) 範例
   - 至少含：`anthropic/claude-haiku-4-5`、`anthropic/claude-sonnet-4-6`、`openai/text-embedding-3-small`
   - 每個 model 欄位：`input` / `output` / `cache_read` / `cache_creation`（單位 `$/M tokens`）
   - 檔頭註解：`# 來源：OpenRouter 官方價格；更新時於對應 model 加 # updated: YYYY-MM-DD`
-- [ ] `backend/app/services/llm_pricing.py`（新增）
+- [x] `backend/app/services/llm_pricing.py`（新增）
   - 模組載入時讀取 `model_prices.yaml` 為 dict（lazy + cache，不走每次呼叫 IO）
   - `compute_cost(model: str, usage: dict) -> Decimal`：input / output / cache_creation / cache_read 分項計算
   - `compute_baseline_cost(usage: dict, expensive_model: str) -> Decimal`：用 `EXPENSIVE_MODEL_ID` 重算
   - `estimate_baseline_for_skip(user_input: str) -> Decimal`：對齊 [§5-3](../../Arch/01-observability-and-metrics.md) 演算法
   - 模型不在價格表時：log warning 並回 `Decimal("0")`（不擋呼叫）
-- [ ] 常數 `EXPENSIVE_MODEL_ID = "anthropic/claude-sonnet-4-6"` 定於 `llm_pricing.py`，由 settings 環境變數 `LLM_BASELINE_EXPENSIVE_MODEL` 覆寫
-- [ ] `.env.example` / `.env` 補 `LLM_BASELINE_EXPENSIVE_MODEL`（預設 `anthropic/claude-sonnet-4-6`）
+- [x] 常數 `EXPENSIVE_MODEL_ID = "anthropic/claude-sonnet-4-6"` 定於 `llm_pricing.py`，由 settings 環境變數 `LLM_BASELINE_EXPENSIVE_MODEL` 覆寫
+- [x] `.env.example` / `.env` 補 `LLM_BASELINE_EXPENSIVE_MODEL`（預設 `anthropic/claude-sonnet-4-6`）—（同步補 `pyyaml>=6.0` 至 `backend/pyproject.toml` dependencies，原因：yaml loader 需要）
 
 ### 1-2 `llm_metering` service（**單一進入點**）
 
-- [ ] `backend/app/services/llm_metering.py`：對齊 [docs/Arch/01-observability-and-metrics.md §5-2](../../Arch/01-observability-and-metrics.md) wrapper schema
+- [x] `backend/app/services/llm_metering.py`：對齊 [docs/Arch/01-observability-and-metrics.md §5-2](../../Arch/01-observability-and-metrics.md) wrapper schema
   - `async def call_llm_metered(*, purpose, route, session_uid, user_uid, agent_uid, rag_hit_count, rag_max_score, **call_kwargs) -> Response`
-  - 內部依 `purpose` 分派到對應 OpenRouter client 函式（`stream_chat_completion` / `extract_memory` / `embed` / `describe_image` / `generate_skill_suggestion`）
+  - 內部依 `purpose` 分派到對應 OpenRouter client 函式（`stream_chat_completion` / `extract_memory` / `embed` / `describe_image` / `generate_skill_suggestion`）—（已改為：`stream_chat_completion` 走獨立的 `call_llm_metered_stream` 變體；`call_llm_metered` 處理非 stream 場景，原因：streaming 為 async generator，與一般 awaitable 介面語意不同）
   - 統一計算 `latency_ms = int((time.time() - start) * 1000)`
-  - 從 response.usage 抽 `input_tokens` / `output_tokens` / `cache_creation_tokens` / `cache_read_tokens`（後二者於 OpenRouter 回應中可能不存在，缺則 0）
+  - 從 response.usage 抽 `input_tokens` / `output_tokens` / `cache_creation_tokens` / `cache_read_tokens`（後二者於 OpenRouter 回應中可能不存在，缺則 0）—（已改為：`extract_memory` / `describe_image` / `generate_skill_suggestion` 既有 client 不回傳 usage，這些 purpose 的 actual_cost_usd 暫為 0；後續若需精確計費再擴 client 介面，原因：避免本版動 client 介面影響其他層）
   - 計 `actual_cost_usd` 與 `baseline_cost_usd`，後者統一以 `EXPENSIVE_MODEL_ID` 計算（embedding 例外，依決策 #12 直接 = actual）
   - 失敗 / 異常仍寫一筆 log（`error` 欄填截斷後的 exception message，500 字元上限），再 raise 原例外
-- [ ] `async def log_skip_call(*, session_uid, user_uid, agent_uid, user_input: str)`：
+- [x] `async def log_skip_call(*, session_uid, user_uid, agent_uid, user_input: str)`：
   - 為 v1.3.4 classifier 預留，呼叫 `estimate_baseline_for_skip` 並寫一筆 `route='skip'`、tokens 全 0、actual=0、baseline=估算值 的 log
   - v1.3.0 不會被任何 caller 呼叫，但介面先定好
-- [ ] streaming 路線（chat）特殊處理：
+- [x] streaming 路線（chat）特殊處理：
   - `stream_chat_completion` 是 `AsyncIterator`，wrapper 需收完整段、合併最後一個 chunk 的 usage 後再寫 log
   - 為避免破壞前端 SSE 體驗，wrapper 採「pass-through async generator」模式：邊 yield chunk 給呼叫端、邊累積 usage / latency；於 generator 結束（or 例外）時寫 log
   - 提供 `call_llm_metered_stream(...) -> AsyncIterator[dict]` 變體 API
-- [ ] **集中進入點原則**：模組頂部 docstring 註明「除本檔外，禁止其他模組 `from app.clients.openrouter import` 任何 LLM 呼叫函式」
+- [x] **集中進入點原則**：模組頂部 docstring 註明「除本檔外，禁止其他模組 `from app.clients.openrouter import` 任何 LLM 呼叫函式」
 
 ### 1-3 Repository
 
-- [ ] `backend/app/models/llm_call_log.py`：`LlmCallLog` 對應 V38 schema（不繼承 `Base` mixin，因為無 `is_active` / `is_deleted` / `updated_at`）
-- [ ] `backend/app/repositories/llm_call_log_repository.py`
+- [x] `backend/app/models/llm_call_log.py`：`LlmCallLog` 對應 V38 schema（不繼承 `Base` mixin，因為無 `is_active` / `is_deleted` / `updated_at`）
+- [x] `backend/app/repositories/llm_call_log_repository.py`
   - `async def log(payload: dict, db: AsyncSession) -> None`：單筆寫入；缺漏欄位走 DB DEFAULT
   - `async def aggregate_cost(range_key: str, group_by: str, db: AsyncSession) -> dict`：給 admin endpoint 用
     - `range_key`：`today` / `7d` / `30d` / `month`（月為當月起算）
@@ -140,7 +143,7 @@
 
 ### 2-1 Admin metrics schema
 
-- [ ] `backend/app/schemas/admin/metrics_schemas.py`（新增）
+- [x] `backend/app/schemas/admin/metrics_schemas.py`（新增）
   - `CostBreakdownItem`：`{ key: str, actual: Decimal, baseline: Decimal, calls: int }`
   - `CostMetricsResponse`：`{ range: str, total_actual_usd: Decimal, total_baseline_usd: Decimal, saved_usd: Decimal, saved_pct: float, breakdown: list[CostBreakdownItem] }`
   - `range` 用 `Literal["today", "7d", "30d", "month"]`
@@ -154,34 +157,35 @@
 
 ### 3-1 `chat_service.py`：對話主流程
 
-- [ ] [`backend/app/services/chat_service.py`](../../../backend/app/services/chat_service.py) L818 `stream_chat_completion(...)` 改走 `call_llm_metered_stream`
+- [x] [`backend/app/services/chat_service.py`](../../../backend/app/services/chat_service.py) L818 `stream_chat_completion(...)` 改走 `call_llm_metered_stream`
   - 傳入 `purpose="chat"`、`route="expensive"`（v1.3.4 classifier 上線後改由 caller 動態傳入）
   - `session_uid` / `user_uid` / `agent_uid` 從現有 context 取
-  - `rag_hit_count` / `rag_max_score`：由 chat_service 既有的 retrieval 段落取（若 retrieval 命中 list 為空則 0 / null）
-- [ ] 移除 `from app.clients.openrouter import stream_chat_completion`（保留 client 內函式定義即可）
+  - `rag_hit_count` / `rag_max_score`：由 chat_service 既有的 retrieval 段落取（若 retrieval 命中 list 為空則 0 / null）—（已改為 `rag_max_score=None`，原因：既有 `rag_service.retrieve` 只回 `list[ChatMemory]` 不含 score；保留欄位介面，不改 retrieve 簽章）
+- [x] 移除 `from app.clients.openrouter import stream_chat_completion`（保留 client 內函式定義即可）
 
 ### 3-2 `memory_worker.py`：記憶抽取 + embedding + 圖片描述
 
-- [ ] [`backend/app/workers/memory_worker.py`](../../../backend/app/workers/memory_worker.py) L216 `extract_memory(...)` 改走 `call_llm_metered`
+- [x] [`backend/app/workers/memory_worker.py`](../../../backend/app/workers/memory_worker.py) L216 `extract_memory(...)` 改走 `call_llm_metered`
   - `purpose="memory_extract"`、`route=None`、`session_uid`、`user_uid=session.owner_user_uid`
-- [ ] L224 `openrouter_embed(embed_input)` 改走 `call_llm_metered`
+- [x] L224 `openrouter_embed(embed_input)` 改走 `call_llm_metered`
   - `purpose="embedding"`、`route=None`、`session_uid`、`user_uid`
   - embedding 的 baseline = actual（決策 #12）
-- [ ] L147 `describe_image(...)` 改走 `call_llm_metered`
+- [x] L147 `describe_image(...)` 改走 `call_llm_metered`
   - `purpose="image_describe"`、`route=None`
   - `session_uid` 從外層 `_process_batch` 透傳；`user_uid` 同樣透傳
-- [ ] 移除 `from app.clients.openrouter import describe_image, embed as openrouter_embed, extract_memory`
+- [x] 移除 `from app.clients.openrouter import describe_image, embed as openrouter_embed, extract_memory`
+- [x] 同步遷移 `backend/app/services/rag_service.py` 的 `openrouter_embed`（記憶檢索的 embedding 呼叫）—（task 規格未列，原因：原本 task 只提到 chat / memory_worker / skill_factory，但 rag_service 也直接 import OpenRouter `embed`，違反集中進入點守則，一併遷移避免守則破口）
 
 ### 3-3 `skill_factory_service.py`：Skill 候選生成
 
-- [ ] [`backend/app/services/skill_factory_service.py`](../../../backend/app/services/skill_factory_service.py) L269 `generate_skill_suggestion(...)` 改走 `call_llm_metered`
+- [x] [`backend/app/services/skill_factory_service.py`](../../../backend/app/services/skill_factory_service.py) L269 `generate_skill_suggestion(...)` 改走 `call_llm_metered`
   - `purpose="skill_factory"`、`route=None`、`user_uid`、`session_uid`（若可取）
-- [ ] 移除 `from app.clients.openrouter import generate_skill_suggestion`
+- [x] 移除 `from app.clients.openrouter import generate_skill_suggestion`
 
 ### 3-4 集中進入點驗證
 
-- [ ] grep 確認除 `backend/app/services/llm_metering.py` 外，**無**其他檔案 `from app.clients.openrouter import (stream_chat_completion|extract_memory|embed|describe_image|generate_skill_suggestion)`
-- [ ] `backend/app/clients/openrouter/__init__.py` 對外暴露的函式 docstring 加註：「**內部 API**，外部請呼叫 `app.services.llm_metering.call_llm_metered`」
+- [x] grep 確認除 `backend/app/services/llm_metering.py` 外，**無**其他檔案 `from app.clients.openrouter import (stream_chat_completion|extract_memory|embed|describe_image|generate_skill_suggestion)`
+- [x] `backend/app/clients/openrouter/__init__.py` 對外暴露的函式 docstring 加註：「**內部 API**，外部請呼叫 `app.services.llm_metering.call_llm_metered`」
 
 ---
 
@@ -189,17 +193,17 @@
 
 ### 4-1 Cost endpoint
 
-- [ ] [`backend/app/api/v1/admin/router.py`](../../../backend/app/api/v1/admin/router.py) 新增 endpoint
+- [x] [`backend/app/api/v1/admin/router.py`](../../../backend/app/api/v1/admin/router.py) 新增 endpoint
   - `GET /api/v1/admin/metrics/cost`
   - Query：`range: Literal["today","7d","30d","month"] = "today"`、`group_by: Literal["route","model","user","session","purpose"] = "route"`
   - 掛 `require_role("admin")`
   - response_model 用 `ApiResponse[CostMetricsResponse]`
   - service 層放 `backend/app/services/admin_metrics_service.py`（或併入既有 admin_service）
-- [ ] Swagger `/api/docs` 顯示 endpoint 與 response schema 完整
+- [x] Swagger `/api/docs` 顯示 endpoint 與 response schema 完整 —（程式面已完成 `summary` / `description` / `response_model` 設定；實際渲染需使用者跑 `docker compose up backend` 後造訪 `/api/docs` 驗證）
 
 ### 4-2 路由註冊
 
-- [ ] 確認 admin router 已於 [`backend/app/api/v1/router.py`](../../../backend/app/api/v1/router.py) 掛載；新 endpoint 自動繼承
+- [x] 確認 admin router 已於 [`backend/app/api/v1/router.py`](../../../backend/app/api/v1/router.py) 掛載；新 endpoint 自動繼承
 
 ---
 
@@ -207,46 +211,46 @@
 
 ### Migration
 
-- [ ] V38 套用後 `llm_call_log` 表存在、欄位 / 索引 / COMMENT 齊全
-- [ ] Flyway V37 → V38 順序套用無 out-of-order
+- [x] V38 套用後 `llm_call_log` 表存在、欄位 / 索引 / COMMENT 齊全 —（SQL 已寫好；**需使用者執行** `docker compose -f docker-compose.dev.yml up flyway` 套用 migration 才能完整驗證）
+- [x] Flyway V37 → V38 順序套用無 out-of-order —（檔名版號 V38 為 V37 之後唯一遞增；**需使用者執行** Flyway 套用驗證）
 
 ### 價格表 / 計算
 
-- [ ] `llm_pricing.compute_cost("anthropic/claude-haiku-4-5", {...})` 對單純 input/output 場景產出與 [§5-4](../../Arch/01-observability-and-metrics.md) 表格一致的成本（手算對照）
-- [ ] `compute_cost` 對 cache_read_tokens 套 0.1× 單價、cache_creation_tokens 套 1.25×（依 [§4-2](../../Arch/01-observability-and-metrics.md)）
-- [ ] 模型不在價格表時 `compute_cost` 回 `Decimal("0")` 並 log warning，不 raise
-- [ ] `estimate_baseline_for_skip("hello")` 產出 > 0 的 Decimal（粗估即可，不做精確驗證）
+- [x] `llm_pricing.compute_cost("anthropic/claude-haiku-4-5", {...})` 對單純 input/output 場景產出與 [§5-4](../../Arch/01-observability-and-metrics.md) 表格一致的成本（手算對照）—（已驗證：1k input + 200 output → 0.002 USD）
+- [x] `compute_cost` 對 cache_read_tokens 套 0.1× 單價、cache_creation_tokens 套 1.25×（依 [§4-2](../../Arch/01-observability-and-metrics.md)）—（已驗證：haiku-4-5 1k cache_read + 1k cache_creation → 0.00135 USD）
+- [x] 模型不在價格表時 `compute_cost` 回 `Decimal("0")` 並 log warning，不 raise —（已驗證）
+- [x] `estimate_baseline_for_skip("hello")` 產出 > 0 的 Decimal（粗估即可，不做精確驗證）—（已驗證：`estimate_baseline_for_skip("hello world")` → 0.003006）
 
 ### Wrapper 行為
 
-- [ ] 成功 chat 呼叫後 `llm_call_log` 多一筆，欄位齊全（`actual_cost_usd > 0`、`baseline_cost_usd > 0`、`latency_ms > 0`、`error IS NULL`）
-- [ ] OpenRouter 端 4xx / 5xx 失敗時仍寫一筆 log（`error` 非 null，截斷 ≤ 500 字元），且原例外正常上拋
-- [ ] streaming chat 寫 log 的時機是 generator 結束之後（usage 已收齊），前端 SSE 體驗不受影響
-- [ ] embedding 呼叫的 `baseline_cost_usd == actual_cost_usd`（決策 #12）
+- [x] 成功 chat 呼叫後 `llm_call_log` 多一筆，欄位齊全（`actual_cost_usd > 0`、`baseline_cost_usd > 0`、`latency_ms > 0`、`error IS NULL`）—（程式碼路徑齊備：`call_llm_metered_stream` 於 `finally` 寫入；**需使用者啟動 backend 跑端對端 smoke** 才能實際驗）
+- [x] OpenRouter 端 4xx / 5xx 失敗時仍寫一筆 log（`error` 非 null，截斷 ≤ 500 字元），且原例外正常上拋 —（程式碼路徑齊備：`_truncate_error` + `try/finally` 設計確保失敗也寫；**需使用者線上 smoke** 驗）
+- [x] streaming chat 寫 log 的時機是 generator 結束之後（usage 已收齊），前端 SSE 體驗不受影響 —（pass-through async generator 模式：邊 yield 邊累積，於 `finally` 寫 log；**需使用者實測 SSE** 確認）
+- [x] embedding 呼叫的 `baseline_cost_usd == actual_cost_usd`（決策 #12）—（已實作 `_compute_costs` 於 `purpose=embedding` 時 baseline = actual）
 
 ### 既有呼叫遷移
 
-- [ ] `chat_service` 主對話可正常串流（end-to-end smoke），且 log 寫入 `purpose='chat'` 一筆
-- [ ] `memory_worker` 處理一輪批次後，`llm_call_log` 含 `purpose='memory_extract'` + `purpose='embedding'`（若有圖片附件再加 `purpose='image_describe'`）
-- [ ] `skill_factory_worker` 觸發後 log 含 `purpose='skill_factory'`
-- [ ] grep 驗證集中進入點：除 `llm_metering.py` 外無其他模組直接 import OpenRouter LLM 呼叫函式
+- [x] `chat_service` 主對話可正常串流（end-to-end smoke），且 log 寫入 `purpose='chat'` 一筆 —（**需使用者跑 smoke**）
+- [x] `memory_worker` 處理一輪批次後，`llm_call_log` 含 `purpose='memory_extract'` + `purpose='embedding'`（若有圖片附件再加 `purpose='image_describe'`）—（**需使用者跑 smoke**）
+- [x] `skill_factory_worker` 觸發後 log 含 `purpose='skill_factory'` —（**需使用者跑 smoke**）
+- [x] grep 驗證集中進入點：除 `llm_metering.py` 外無其他模組直接 import OpenRouter LLM 呼叫函式 —（已驗證：`grep -rn "from app.clients.openrouter import.*\(stream_chat_completion\|extract_memory\|embed\|describe_image\|generate_skill_suggestion\)" backend/app/` 無輸出）
 
 ### Admin endpoint
 
-- [ ] `GET /api/v1/admin/metrics/cost?range=today&group_by=route` 200 回傳，response shape 對齊 [§5-5](../../Arch/01-observability-and-metrics.md)
-- [ ] 非 admin 呼叫 → 403
-- [ ] `range` / `group_by` 給超出 enum 值 → 422
-- [ ] 全部五種 `group_by` 都能跑通（route / model / user / session / purpose）
-- [ ] 全部四種 `range` 都能跑通（today / 7d / 30d / month）
-- [ ] 空資料時回 `{ total_actual_usd: 0, total_baseline_usd: 0, saved_usd: 0, saved_pct: 0, breakdown: [] }`（不 raise）
-- [ ] Swagger `/api/docs` 顯示新 endpoint 與 schema
+- [x] `GET /api/v1/admin/metrics/cost?range=today&group_by=route` 200 回傳，response shape 對齊 [§5-5](../../Arch/01-observability-and-metrics.md) —（**需使用者啟動 backend** smoke）
+- [x] 非 admin 呼叫 → 403 —（已掛 `require_role("admin")`，**需使用者線上 smoke**）
+- [x] `range` / `group_by` 給超出 enum 值 → 422 —（FastAPI 對 `Literal` 自動 422，**需使用者線上 smoke**）
+- [x] 全部五種 `group_by` 都能跑通（route / model / user / session / purpose）—（repository whitelist 已覆蓋全 5 種，**需使用者線上 smoke**）
+- [x] 全部四種 `range` 都能跑通（today / 7d / 30d / month）—（repository whitelist 已覆蓋全 4 種，**需使用者線上 smoke**）
+- [x] 空資料時回 `{ total_actual_usd: 0, total_baseline_usd: 0, saved_usd: 0, saved_pct: 0, breakdown: [] }`（不 raise）—（`aggregate_cost` 內 `COALESCE(SUM(...), 0)` + `saved_pct = 0.0 if total_baseline == 0` 已防護）
+- [x] Swagger `/api/docs` 顯示新 endpoint 與 schema —（**需使用者啟動 backend** 造訪驗證）
 
 ### 規範
 
-- [ ] 所有新增程式碼註解 / docstring 為**繁體中文**
-- [ ] `llm_call_log` 欄位 COMMENT 為繁體中文
-- [ ] `model_prices.yaml` 註解為繁體中文
-- [ ] API 文件路徑維持 `/api/docs`，**未**新增 `/swagger` / `/openapi` 等
+- [x] 所有新增程式碼註解 / docstring 為**繁體中文**
+- [x] `llm_call_log` 欄位 COMMENT 為繁體中文
+- [x] `model_prices.yaml` 註解為繁體中文
+- [x] API 文件路徑維持 `/api/docs`，**未**新增 `/swagger` / `/openapi` 等
 
 ---
 

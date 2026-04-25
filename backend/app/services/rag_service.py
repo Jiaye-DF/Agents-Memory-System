@@ -2,10 +2,9 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.openrouter import embed as openrouter_embed
 from app.models.chat_memory import ChatMemory
 from app.repositories import chat_memory_repository
-from app.services import system_setting_service
+from app.services import llm_metering, system_setting_service
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,11 @@ async def retrieve(
         return []
 
     try:
-        vector = await openrouter_embed(cleaned[:4000])
+        vector = await llm_metering.call_llm_metered(
+            purpose=llm_metering.PURPOSE_EMBEDDING,
+            session_uid=chat_session_uid,
+            text=cleaned[:4000],
+        )
     except Exception as exc:
         logger.warning("rag_service embedding 失敗，略過注入: %s", exc)
         return []

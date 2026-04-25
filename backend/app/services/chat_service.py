@@ -7,10 +7,7 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.openrouter import (
-    model_supports_vision,
-    stream_chat_completion,
-)
+from app.clients.openrouter import model_supports_vision
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.core.pagination import paginate
@@ -38,6 +35,7 @@ from app.schemas.chat.schemas import (
 )
 from app.services import (
     chat_attachment_service,
+    llm_metering,
     rag_service,
     system_setting_service,
 )
@@ -726,6 +724,14 @@ async def send_message(
         logger.warning("RAG 檢索失敗，忽略: %s", exc)
         memories = []
 
+    # v1.3.0：metering 用 — RAG 命中筆數與 top-1 score
+    rag_hit_count: int = len(memories) if memories else 0
+    rag_max_score: float | None = None
+    if memories:
+        # rag_service.retrieve 回 list[ChatMemory]（取分數需從另一條 path 取，此處保守留 None）
+        # 若需精確 score 後續可改 retrieve 回 (memory, score) tuple；此版只記命中數即可
+        rag_max_score = None
+
     try:
         system_prompt = await _build_system_prompt(agent, db, memories=memories)
     except Exception as exc:
@@ -815,7 +821,16 @@ async def send_message(
         usage = None
         finish_reason = None
         try:
-            async for chunk in stream_chat_completion(
+            # v1.3.0：經 llm_metering 集中進入點，記錄成本 / 延遲 / RAG 命中
+            # route='expensive'：v1.3.4 classifier 上線後改由 caller 動態傳入
+            async for chunk in llm_metering.call_llm_metered_stream(
+                purpose=llm_metering.PURPOSE_CHAT,
+                route="expensive",
+                session_uid=chat_session_uid,
+                user_uid=user_uid,
+                agent_uid=str(agent.agent_uid),
+                rag_hit_count=rag_hit_count,
+                rag_max_score=rag_max_score,
                 messages=messages,
                 model=model,
                 temperature=agent.temperature,
