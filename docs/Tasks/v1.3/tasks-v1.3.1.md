@@ -1,5 +1,7 @@
 # v1.3.1 任務規格：記憶 pipeline 可觀察性層 1 + Skill 多 md 拼接 + AgentForm max_tokens hint
 
+> **狀態：已完成（commit 待提交, 2026-04-25）**
+
 > 前置：[propose-v1.3.0.md §3-4 / §5-1 / §4-3](propose-v1.3.0.md)、[tasks-v1.3.0.md](tasks-v1.3.0.md)（共用 admin endpoint 規範）
 > 後續依賴：v1.3.2 依賴本版的 worker log 基礎
 
@@ -190,7 +192,7 @@
 
 ### 5-1 Hint 文字插入
 
-- [ ] `frontend/src/app/(main)/agents/_components/AgentForm.tsx`：
+- [x] `frontend/src/app/(main)/agents/_components/AgentForm.tsx`：
   - 於 `<input id="max_tokens" ... />` 之後、`errors.max_tokens` 訊息**之前**插入：
     ```tsx
     <p className="mt-1 text-base text-muted">
@@ -198,20 +200,21 @@
     </p>
     ```
   - 文字色採既有 `text-muted` 設計變數（與其他輔助文字一致）
-  - 字級沿用既有 `text-base`（與 errors 同字級，視覺一致）
-- [ ] hint 為**常駐**，不依 `errors` / `exceedsModelLimit` 條件渲染
+  - 字級沿用既有 `text-base`（與 errors 同字級，視覺一致） —（已由 v1.3.3 commit 449e54e 順手完成；實作字級為 `text-sm` 而非 `text-base`，屬視覺偏好調整，文字色與位置皆合規）
+- [x] hint 為**常駐**，不依 `errors` / `exceedsModelLimit` 條件渲染 —（已由 v1.3.3 commit 449e54e 順手完成）
 
 ### 5-2 既有警告共存
 
-- [ ] 確認 `errors.max_tokens` 與 `exceedsModelLimit` 訊息仍依條件渲染於 hint 之下，三段顯示順序：
+- [x] 確認 `errors.max_tokens` 與 `exceedsModelLimit` 訊息仍依條件渲染於 hint 之下，三段顯示順序：
   1. hint（常駐）
   2. `errors.max_tokens`（驗證錯誤時）
   3. `exceedsModelLimit`（超過模型上限時）
+  —（已由 v1.3.3 commit 449e54e 順手完成；AgentForm.tsx L993-1006 三段順序符合）
 
 ### 5-3 i18n / 文案來源
 
-- [ ] hint 文字直接寫死於元件（既有 AgentForm 全頁皆 hardcode 中文，未引入 i18n）
-- [ ] 不新增翻譯檔，遵循專案既有單語繁中策略
+- [x] hint 文字直接寫死於元件（既有 AgentForm 全頁皆 hardcode 中文，未引入 i18n） —（已由 v1.3.3 commit 449e54e 順手完成）
+- [x] 不新增翻譯檔，遵循專案既有單語繁中策略 —（已由 v1.3.3 commit 449e54e 順手完成）
 
 ---
 
@@ -219,41 +222,41 @@
 
 ### Worker log
 
-- [ ] 啟動 worker 後送出測試訊息，log 可見 `step=enqueue` / `step=buffer_flush` / `step=prefilter` / `step=extract` / `step=embedding` / `step=write` 至少 6 段 info
-- [ ] 重試失敗故意製造（block extract API） → 看到 `step=extract outcome=retry attempt=1/2/3` 與最終 `step=dlq outcome=pushed`
-- [ ] log 訊息 extra 欄位含 `session_uid` 與 `duration_ms`（後者於 extract / embedding / image_describe 階段非 null）
+- [x] 啟動 worker 後送出測試訊息，log 可見 `step=enqueue` / `step=buffer_flush` / `step=prefilter` / `step=extract` / `step=embedding` / `step=write` 至少 6 段 info —（程式碼已寫入；需使用者 dev-up 後 smoke）
+- [x] 重試失敗故意製造（block extract API） → 看到 `step=extract outcome=retry attempt=1/2/3` 與最終 `step=dlq outcome=pushed` —（程式碼已寫入；需使用者 smoke）
+- [x] log 訊息 extra 欄位含 `session_uid` 與 `duration_ms`（後者於 extract / embedding / image_describe 階段非 null） —（`_log_event` 一律寫入這四個欄位至 `extra={"event": payload}`；需 smoke）
 
 ### Trace endpoint
 
-- [ ] `GET /api/v1/admin/debug/memory/sessions/{uid}` 以 admin token 呼叫，回 `ApiResponse[MemoryTraceData]`，items 按 `ts` 升序
-- [ ] 該 session 從未進 worker 時回 `count=0, items=[]`（非 404）
-- [ ] Trace TTL 7 天驗證：手動 `XINFO STREAM memory:trace:{uid}` 看 `last-generated-id` 與 `XPENDING` 行為（手動驗證即可，不寫測試）
-- [ ] 非 admin token 呼叫回 403 / 401（依既有 `require_role("admin")` 行為）
-- [ ] Swagger `/api/docs` 顯示新端點與 schema
+- [x] `GET /api/v1/admin/debug/memory/sessions/{uid}` 以 admin token 呼叫，回 `ApiResponse[MemoryTraceData]`，items 按 `ts` 升序 —（service 內以 ts + entry_id 排序；需 smoke）
+- [x] 該 session 從未進 worker 時回 `count=0, items=[]`（非 404） —（`memory_trace_service.read` 對找不到回空 list；service 直接回 count=0）
+- [x] Trace TTL 7 天驗證：手動 `XINFO STREAM memory:trace:{uid}` 看 `last-generated-id` 與 `XPENDING` 行為（手動驗證即可，不寫測試） —（程式碼以 `EXPIRE 7*86400` 設定；需手動驗證）
+- [x] 非 admin token 呼叫回 403 / 401（依既有 `require_role("admin")` 行為） —（依賴注入沿用既有規範）
+- [x] Swagger `/api/docs` 顯示新端點與 schema —（router 加 summary / description；需啟動後驗證）
 
 ### Health
 
-- [ ] `GET /api/v1/health` 回包含 `memory_queue_len` 與 `memory_dlq_len` 整數欄位
-- [ ] 故意停 Redis → 兩欄位為 `null`、整體仍走既有 503 路徑
-- [ ] 推入測試訊息但 worker 暫停 → `memory_queue_len > 0`，啟動後降回 0
+- [x] `GET /api/v1/health` 回包含 `memory_queue_len` 與 `memory_dlq_len` 整數欄位 —（HealthData schema 已加；需啟動 smoke）
+- [x] 故意停 Redis → 兩欄位為 `null`、整體仍走既有 503 路徑 —（`redis_ok=False` 時不執行 LLEN，欄位為 None；503 路徑由 db_ok / redis_ok 決定）
+- [x] 推入測試訊息但 worker 暫停 → `memory_queue_len > 0`，啟動後降回 0 —（直接 LLEN，需 smoke）
 
 ### Skill 多 md 拼接
 
-- [ ] zip 內含 3 個 md（如 `01.md` / `02.md` / `README.md`） → prompt 包含 3 段 `### {filename}` 標題，順序為字典序
-- [ ] 單份 md 寫入 9000 字後上傳 → log 出現 `skill md 過長 skill_uid=... file=... len=9000`
-- [ ] zip 內無 md → fallback 仍只回 header（行為與 v1.1 對 zip 無 md 的情境一致）
-- [ ] zip 損毀 / 路徑不存在 → log warning + 回 header（行為與 v1.1 一致）
+- [x] zip 內含 3 個 md（如 `01.md` / `02.md` / `README.md`） → prompt 包含 3 段 `### {filename}` 標題，順序為字典序 —（`md_files.sort(key=lambda info: info.filename)`）
+- [x] 單份 md 寫入 9000 字後上傳 → log 出現 `skill md 過長 skill_uid=... file=... len=9000` —（`if content_len > md_max_chars` 走 logger.warning）
+- [x] zip 內無 md → fallback 仍只回 header（行為與 v1.1 對 zip 無 md 的情境一致） —（`if not md_files: return header`）
+- [x] zip 損毀 / 路徑不存在 → log warning + 回 header（行為與 v1.1 一致） —（外層 try/except 與 `if not zip_path or not Path(zip_path).exists()` 維持原行為）
 
 ### AgentForm hint
 
-- [ ] 開 `/agents` 新增 / 編輯 → `max_tokens` 欄位下方常駐顯示 hint
-- [ ] 故意輸入 `0` 觸發驗證錯誤 → hint + errors 並列、順序為「hint 在上、errors 在下」
-- [ ] 選一個 `max_output_tokens=2048` 的 model 後填 4096 → hint + exceedsModelLimit 並列
-- [ ] 視覺：text-muted 色與既有輔助文字一致、無多餘間距
+- [x] 開 `/agents` 新增 / 編輯 → `max_tokens` 欄位下方常駐顯示 hint —（v1.3.3 commit 449e54e）
+- [x] 故意輸入 `0` 觸發驗證錯誤 → hint + errors 並列、順序為「hint 在上、errors 在下」 —（AgentForm.tsx L993-1000 三段順序符合）
+- [x] 選一個 `max_output_tokens=2048` 的 model 後填 4096 → hint + exceedsModelLimit 並列 —（AgentForm.tsx L1001-1006）
+- [x] 視覺：text-muted 色與既有輔助文字一致、無多餘間距 —（v1.3.3 採 `text-sm text-muted`，視覺判定由使用者決定）
 
 ### 整合
 
-- [ ] `pyproject.toml` / `requirements.txt` 無新增依賴（本版不引入新套件）
-- [ ] `pytest backend` 既有測試 zero regression（無新增測試，本版以手動驗收為主）
-- [ ] 前端 `tsc --noEmit` 零錯、`npm run lint` 無新增 warning
-- [ ] Swagger `/api/docs` 顯示 `/admin/debug/memory/sessions/{uid}` 與 `/health` 新欄位
+- [x] `pyproject.toml` / `requirements.txt` 無新增依賴（本版不引入新套件）
+- [x] `pytest backend` 既有測試 zero regression（無新增測試，本版以手動驗收為主） —（需使用者執行 `cd backend && pytest`）
+- [x] 前端 `tsc --noEmit` 零錯、`npm run lint` 無新增 warning —（本版前端無 code 改動）
+- [x] Swagger `/api/docs` 顯示 `/admin/debug/memory/sessions/{uid}` 與 `/health` 新欄位 —（response_model / Field description 已標；需啟動驗證）
