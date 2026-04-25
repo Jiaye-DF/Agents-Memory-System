@@ -15,7 +15,12 @@ from app.repositories import (
     chat_memory_repository,
     chat_message_repository,
 )
-from app.services import llm_metering, memory_prefilter, system_setting_service
+from app.services import (
+    llm_metering,
+    memory_prefilter,
+    session_event_service,
+    system_setting_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -253,7 +258,7 @@ async def _process_batch(
                 user_uid=owner_user_uid,
                 text=embed_input,
             )
-            await chat_memory_repository.create(
+            created = await chat_memory_repository.create(
                 {
                     "chat_session_uid": session_uid,
                     "source_chat_message_uids": [m.chat_message_uid for m in kept],
@@ -268,6 +273,10 @@ async def _process_batch(
                 "memory_worker 寫入記憶 session=%s, src=%s",
                 session_uid,
                 len(kept),
+            )
+            # v1.3.2：commit 前 publish memory_updated；失敗僅 warning，不影響主流程
+            await session_event_service.publish_memory_updated(
+                session_uid, str(created.chat_memory_uid)
             )
             # v1.1.7：觸發 Skill 工廠（不阻塞；由 skill_factory_worker 獨立消費）
             try:
@@ -318,3 +327,10 @@ async def _process_batch(
         )
     except Exception as exc:
         logger.exception("memory_worker 推入 DLQ 失敗: %s", exc)
+
+    # v1.3.2：DLQ 進入時亦 publish memory_failed（前端本版不顯示 UI badge，僅記事件）
+    await session_event_service.publish_memory_failed(
+        session_uid,
+        [str(u) for u in message_uids],
+        str(last_err) if last_err else "unknown",
+    )

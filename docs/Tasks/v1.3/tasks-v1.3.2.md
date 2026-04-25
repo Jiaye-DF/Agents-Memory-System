@@ -68,7 +68,7 @@
 
 ### 1-1 事件型別與 channel 命名
 
-- [ ] 新增 `backend/app/services/session_event_service.py`（或併入既有 `chat_service.py` 同層 service，視專案模組組織）：
+- [x] 新增 `backend/app/services/session_event_service.py`（或併入既有 `chat_service.py` 同層 service，視專案模組組織）：
   - 常數：`MEMORY_CHANNEL_FMT = "chat:session:{session_uid}:memory"`
   - 事件型別字串集中：`EVENT_MEMORY_UPDATED = "memory_updated"`、`EVENT_MEMORY_FAILED = "memory_failed"`、`EVENT_SESSION_ARCHIVED = "session_archived"`（後者僅常數，無觸發）
   - 函式 `async def publish_memory_updated(session_uid: str, memory_uid: str) -> None`：包 try / except，失敗只 log warning
@@ -77,18 +77,18 @@
 
 ### 1-2 memory_worker 寫完後 publish
 
-- [ ] `backend/app/workers/memory_worker.py:225-240` `chat_memory_repository.create(...)` 成功後：
+- [x] `backend/app/workers/memory_worker.py:225-240` `chat_memory_repository.create(...)` 成功後：
   - 取回新建 row 的 `chat_memory_uid`（若 `create` 未回傳，補回傳）
   - 呼叫 `session_event_service.publish_memory_updated(session_uid, str(memory_uid))`
   - publish 失敗：log warning，**不** raise（不影響主流程、不退入 DLQ）
-- [ ] `backend/app/workers/memory_worker.py:279-297` DLQ 進入時：
+- [x] `backend/app/workers/memory_worker.py:279-297` DLQ 進入時：
   - 呼叫 `session_event_service.publish_memory_failed(session_uid, message_uids, str(last_err))`
   - 失敗一樣只 log warning
 
 ### 1-3 Repository 層回傳 uid 補強（若需）
 
-- [ ] 確認 `backend/app/repositories/chat_memory_repository.py` 的 `create()` 是否回傳 model 物件 / uid；若僅回 None，補成回 model（使 worker 取得 `chat_memory_uid`）
-- [ ] worker 端使用 `str(created.chat_memory_uid)` 作為 publish payload
+- [x] 確認 `backend/app/repositories/chat_memory_repository.py` 的 `create()` 是否回傳 model 物件 / uid；若僅回 None，補成回 model（使 worker 取得 `chat_memory_uid`） —（已確認既有實作已 `await db.refresh(memory)` 並回傳 model，無需補強）
+- [x] worker 端使用 `str(created.chat_memory_uid)` 作為 publish payload
 
 ---
 
