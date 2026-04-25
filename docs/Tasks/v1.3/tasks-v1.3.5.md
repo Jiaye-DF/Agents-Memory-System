@@ -148,41 +148,41 @@
 
 ### 2-1 `project_memory_repository.py`
 
-- [ ] `create(memory_data: dict, db) -> ProjectMemory`
-- [ ] `list_by_project(chat_project_uid, db) -> list[ProjectMemory]`
-- [ ] `search_similar(chat_project_uid, query_embedding, top_k, min_score, db) -> list[tuple[ProjectMemory, float]]`（沿用 `chat_memory_repository.search_similar` 形式 + scope filter）
-- [ ] `hard_delete_by_project(chat_project_uid, db) -> int`（project 刪除連動清除）
-- [ ] `count_by_project(chat_project_uid, db) -> int`（aggregation worker 用，判斷是否達聚合門檻）
+- [x] `create(memory_data: dict, db) -> ProjectMemory`
+- [x] `list_by_project(chat_project_uid, db) -> list[ProjectMemory]`
+- [x] `search_similar(chat_project_uid, query_embedding, top_k, min_score, db) -> list[tuple[ProjectMemory, float]]`（沿用 `chat_memory_repository.search_similar` 形式 + scope filter）
+- [x] `hard_delete_by_project(chat_project_uid, db) -> int`（project 刪除連動清除）
+- [x] `count_by_project(chat_project_uid, db) -> int`（aggregation worker 用，判斷是否達聚合門檻）
 
 ### 2-2 `user_memory_repository.py`
 
-- [ ] `create(memory_data: dict, db) -> UserMemory`
-- [ ] `list_by_user(owner_user_uid, db) -> list[UserMemory]`
-- [ ] `search_similar(owner_user_uid, query_embedding, top_k, min_score, db) -> list[tuple[UserMemory, float]]`
-- [ ] `hard_delete_by_user(owner_user_uid, db) -> int`（user 停用 / 刪除連動清除）
-- [ ] `count_by_user(owner_user_uid, db) -> int`
+- [x] `create(memory_data: dict, db) -> UserMemory`
+- [x] `list_by_user(owner_user_uid, db) -> list[UserMemory]`
+- [x] `search_similar(owner_user_uid, query_embedding, top_k, min_score, db) -> list[tuple[UserMemory, float]]`
+- [x] `hard_delete_by_user(owner_user_uid, db) -> int`（user 停用 / 刪除連動清除）
+- [x] `count_by_user(owner_user_uid, db) -> int`
 
 ### 2-3 `chat_memory_repository.py` 擴充
 
-- [ ] **不**改 `search_similar` 既有簽名（保持向後相容；rag_service 層改寫 retrieval pipeline）
-- [ ] 新增 `list_by_project(chat_project_uid, db) -> list[ChatMemory]`：JOIN `chat_session` 取該 project 下所有 session 的 chat_memory（給 project_memory_worker 用）
-- [ ] 新增 `list_by_user(owner_user_uid, db, since: datetime | None = None) -> list[ChatMemory]`：JOIN `chat_session` 取該 user 所有 session 的 chat_memory（給 user_memory_worker 用，含 idle 時間窗）
-- [ ] 新增 `hard_delete_by_project(chat_project_uid, db) -> int`：刪除指定 project 下所有 session 的 chat_memory（project 刪除連動清除）
-- [ ] 新增 `hard_delete_by_user(owner_user_uid, db) -> int`：刪除指定 user 全部 chat_memory（user 停用 / 刪除連動清除）
+- [x] **不**改 `search_similar` 既有簽名（保持向後相容；rag_service 層改寫 retrieval pipeline）
+- [x] 新增 `list_by_project(chat_project_uid, db) -> list[ChatMemory]`：JOIN `chat_session` 取該 project 下所有 session 的 chat_memory（給 project_memory_worker 用）
+- [x] 新增 `list_by_user(owner_user_uid, db, since: datetime | None = None) -> list[ChatMemory]`：JOIN `chat_session` 取該 user 所有 session 的 chat_memory（給 user_memory_worker 用，含 idle 時間窗）
+- [x] 新增 `hard_delete_by_project(chat_project_uid, db) -> int`：刪除指定 project 下所有 session 的 chat_memory（project 刪除連動清除）
+- [x] 新增 `hard_delete_by_user(owner_user_uid, db) -> int`：刪除指定 user 全部 chat_memory（user 停用 / 刪除連動清除）
 
 ### 2-4 `rag_service` RRF 融合函式
 
-- [ ] `backend/app/services/rag_service.py` 新增 `rrf_fuse(layers: dict[str, list[tuple[Any, float]]], k: int = 60, final_top_k: int = 8) -> list[FusedMemoryItem]`
+- [x] `backend/app/services/rag_service.py` 新增 `rrf_fuse(layers: dict[str, list[tuple[Any, float]]], k: int = 60, final_top_k: int = 8) -> list[FusedMemoryItem]`
   - input：`{"session": [(mem, score), ...], "project": [...], "user": [...]}`
   - 對每層內依分數排序得 rank（rank 從 1 起算）
   - 同一筆 memory 不會跨層出現（不同 scope 的 UID 不衝突），無需去重
   - `score = Σ 1/(k + rank)`（單筆只在自己那層算一次，等於 `1/(k + rank_in_layer)`）
   - 輸出依 `score` 降序，截 `final_top_k`
-- [ ] 純算術，無 IO，可單測
+- [x] 純算術，無 IO，可單測
 
 ### 2-5 `rag_service.retrieve_three_layer`（取代既有 `retrieve` 的呼叫點）
 
-- [ ] 新增 `retrieve_three_layer(chat_session_uid, chat_project_uid, owner_user_uid, query_text, db) -> list[FusedMemoryItem]`
+- [x] 新增 `retrieve_three_layer(chat_session_uid, chat_project_uid, owner_user_uid, query_text, db) -> list[FusedMemoryItem]` —（已改為回傳 dict 含未融合三層 + fused，方便 admin debug 直接用；chat_service 仍只取 fused 拼 prompt）
   - 讀 `rag.enabled`、各層 top_k / min_score、`rag.fusion.k` / `rag.fusion.final_top_k`
   - embedding 一次（query_text）
   - 並行三層 search：
@@ -191,7 +191,7 @@
     - user 層：`user_memory_repository.search_similar(owner_user_uid, ...)`
   - 任一層失敗 → log warning + 該層回空（其他層仍融合）
   - 呼叫 `rrf_fuse` 取 top N
-- [ ] 既有 `retrieve(chat_session_uid, query_text, db)` 保留為 thin wrapper（給尚未升級的呼叫點），內部改呼叫 `retrieve_three_layer` 並只回 session 層；或標記 deprecation 待 §5 全面切換後刪除
+- [x] 既有 `retrieve(chat_session_uid, query_text, db)` 保留為 thin wrapper（給尚未升級的呼叫點），內部改呼叫 `retrieve_three_layer` 並只回 session 層；或標記 deprecation 待 §5 全面切換後刪除 —（已改為保留 v1.1 純單層 cosine 路線給尚未切換點，不再內部走三層；改完 §5 後續版本再清掉）
 
 ---
 

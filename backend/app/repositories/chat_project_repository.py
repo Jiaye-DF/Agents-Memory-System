@@ -73,3 +73,18 @@ async def update(
 async def soft_delete(project: ChatProject, db: AsyncSession) -> None:
     project.is_deleted = True
     await db.flush()
+
+
+async def list_uids_by_owner(
+    owner_user_uid: str, db: AsyncSession
+) -> list[str]:
+    """列出該 user 名下所有 project UID（含已軟刪，給 user 刪除連動清除用）。
+
+    v1.3.5 Phase 6：user 停用 / 刪除時，需要清掉其所有 project 的 project_memory。
+    含已軟刪的 project，避免遺漏。
+    """
+    stmt = select(ChatProject.chat_project_uid).where(
+        ChatProject.owner_user_uid == owner_user_uid
+    )
+    result = await db.execute(stmt)
+    return [str(row[0]) for row in result.fetchall()]

@@ -1,7 +1,10 @@
+from datetime import datetime
+
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat_memory import ChatMemory
+from app.models.chat_session import ChatSession
 
 
 async def create(memory_data: dict, db: AsyncSession) -> ChatMemory:
@@ -24,6 +27,60 @@ async def list_by_session(
     return list(result.scalars().all())
 
 
+async def list_by_project(
+    chat_project_uid: str, db: AsyncSession
+) -> list[ChatMemory]:
+    """JOIN chat_session 取該 project 下所有 session 的 chat_memory。
+
+    給 project_memory_worker 二次聚合用（v1.3.5 Phase 3）。
+    軟刪除過的 session 仍納入（chat_memory 隨 session 軟刪時會被 hard delete，
+    所以「存在」即代表 session 仍有效）。
+    """
+    stmt = (
+        select(ChatMemory)
+        .join(
+            ChatSession,
+            ChatSession.chat_session_uid == ChatMemory.chat_session_uid,
+        )
+        .where(
+            ChatSession.chat_project_uid == chat_project_uid,
+            ChatSession.is_deleted == False,
+        )
+        .order_by(ChatMemory.created_at.desc())
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def list_by_user(
+    owner_user_uid: str,
+    db: AsyncSession,
+    since: datetime | None = None,
+) -> list[ChatMemory]:
+    """JOIN chat_session 取該 user 所有 session 的 chat_memory。
+
+    給 user_memory_worker 跨 project 偏好聚合用（v1.3.5 Phase 4）。
+    `since` 指定後僅回 created_at >= since 的記憶（時間窗，預設 30 天）。
+    """
+    conditions = [
+        ChatSession.owner_user_uid == owner_user_uid,
+        ChatSession.is_deleted == False,
+    ]
+    if since is not None:
+        conditions.append(ChatMemory.created_at >= since)
+    stmt = (
+        select(ChatMemory)
+        .join(
+            ChatSession,
+            ChatSession.chat_session_uid == ChatMemory.chat_session_uid,
+        )
+        .where(*conditions)
+        .order_by(ChatMemory.created_at.desc())
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
 async def hard_delete_by_session(
     chat_session_uid: str, db: AsyncSession
 ) -> int:
@@ -31,6 +88,37 @@ async def hard_delete_by_session(
     stmt = delete(ChatMemory).where(
         ChatMemory.chat_session_uid == chat_session_uid
     )
+    result = await db.execute(stmt)
+    return int(result.rowcount or 0)
+
+
+async def hard_delete_by_project(
+    chat_project_uid: str, db: AsyncSession
+) -> int:
+    """Project 刪除連動：清該 project 下所有 session 的 chat_memory（v1.3.5 Phase 6）。
+
+    走子查詢取 session_uid（不依賴 ORM relationship），對齊 propose §3-3 表格。
+    """
+    subq = (
+        select(ChatSession.chat_session_uid)
+        .where(ChatSession.chat_project_uid == chat_project_uid)
+        .scalar_subquery()
+    )
+    stmt = delete(ChatMemory).where(ChatMemory.chat_session_uid.in_(subq))
+    result = await db.execute(stmt)
+    return int(result.rowcount or 0)
+
+
+async def hard_delete_by_user(
+    owner_user_uid: str, db: AsyncSession
+) -> int:
+    """User 停用 / 刪除連動：清該 user 全部 chat_memory（v1.3.5 Phase 6）。"""
+    subq = (
+        select(ChatSession.chat_session_uid)
+        .where(ChatSession.owner_user_uid == owner_user_uid)
+        .scalar_subquery()
+    )
+    stmt = delete(ChatMemory).where(ChatMemory.chat_session_uid.in_(subq))
     result = await db.execute(stmt)
     return int(result.rowcount or 0)
 
