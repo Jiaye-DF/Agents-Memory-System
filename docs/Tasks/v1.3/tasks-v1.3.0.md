@@ -1,7 +1,7 @@
-# v1.3.0 任務規格：基礎設施 — 成本 metrics（`llm_call_log` + 集中 wrapper）
+﻿# v1.3.0 任務規格：基礎設施 — 成本 metrics（`llm_call_log` + 集中 wrapper）
 
-> **狀態：已完成（commit 待提交, 2026-04-25）**
-> 驗收項目中需 docker / 線上環境的部分已標註「需使用者執行 X」，詳見 § Phase 5 與本 commit 訊息 body。
+> **狀態：進行中（程式碼完成：commit 9eacd45, 2026-04-25；runtime smoke 待驗證）**
+> 驗收項目中需 docker / 線上環境的部分維持 `[ ]`，待實際 smoke 後再回填。
 
 > 前置：[propose-v1.3.0.md §3-4](propose-v1.3.0.md)、[docs/Arch/01-observability-and-metrics.md](../../Arch/01-observability-and-metrics.md)
 > 後續依賴：v1.3.1 / v1.3.4 / v1.3.5 / v1.3.6 皆需此版完成才能驗證成本影響
@@ -199,7 +199,7 @@
   - 掛 `require_role("admin")`
   - response_model 用 `ApiResponse[CostMetricsResponse]`
   - service 層放 `backend/app/services/admin_metrics_service.py`（或併入既有 admin_service）
-- [x] Swagger `/api/docs` 顯示 endpoint 與 response schema 完整 —（程式面已完成 `summary` / `description` / `response_model` 設定；實際渲染需使用者跑 `docker compose up backend` 後造訪 `/api/docs` 驗證）
+- [ ] Swagger `/api/docs` 顯示 endpoint 與 response schema 完整 —（程式面已完成 `summary` / `description` / `response_model` 設定；實際渲染需使用者跑 `docker compose up backend` 後造訪 `/api/docs` 驗證）
 
 ### 4-2 路由註冊
 
@@ -209,50 +209,8 @@
 
 ## Phase 5：驗收
 
-### Migration
-
-- [x] V38 套用後 `llm_call_log` 表存在、欄位 / 索引 / COMMENT 齊全 —（SQL 已寫好；**需使用者執行** `docker compose -f docker-compose.dev.yml up flyway` 套用 migration 才能完整驗證）
-- [x] Flyway V37 → V38 順序套用無 out-of-order —（檔名版號 V38 為 V37 之後唯一遞增；**需使用者執行** Flyway 套用驗證）
-
-### 價格表 / 計算
-
-- [x] `llm_pricing.compute_cost("anthropic/claude-haiku-4-5", {...})` 對單純 input/output 場景產出與 [§5-4](../../Arch/01-observability-and-metrics.md) 表格一致的成本（手算對照）—（已驗證：1k input + 200 output → 0.002 USD）
-- [x] `compute_cost` 對 cache_read_tokens 套 0.1× 單價、cache_creation_tokens 套 1.25×（依 [§4-2](../../Arch/01-observability-and-metrics.md)）—（已驗證：haiku-4-5 1k cache_read + 1k cache_creation → 0.00135 USD）
-- [x] 模型不在價格表時 `compute_cost` 回 `Decimal("0")` 並 log warning，不 raise —（已驗證）
-- [x] `estimate_baseline_for_skip("hello")` 產出 > 0 的 Decimal（粗估即可，不做精確驗證）—（已驗證：`estimate_baseline_for_skip("hello world")` → 0.003006）
-
-### Wrapper 行為
-
-- [x] 成功 chat 呼叫後 `llm_call_log` 多一筆，欄位齊全（`actual_cost_usd > 0`、`baseline_cost_usd > 0`、`latency_ms > 0`、`error IS NULL`）—（程式碼路徑齊備：`call_llm_metered_stream` 於 `finally` 寫入；**需使用者啟動 backend 跑端對端 smoke** 才能實際驗）
-- [x] OpenRouter 端 4xx / 5xx 失敗時仍寫一筆 log（`error` 非 null，截斷 ≤ 500 字元），且原例外正常上拋 —（程式碼路徑齊備：`_truncate_error` + `try/finally` 設計確保失敗也寫；**需使用者線上 smoke** 驗）
-- [x] streaming chat 寫 log 的時機是 generator 結束之後（usage 已收齊），前端 SSE 體驗不受影響 —（pass-through async generator 模式：邊 yield 邊累積，於 `finally` 寫 log；**需使用者實測 SSE** 確認）
-- [x] embedding 呼叫的 `baseline_cost_usd == actual_cost_usd`（決策 #12）—（已實作 `_compute_costs` 於 `purpose=embedding` 時 baseline = actual）
-
-### 既有呼叫遷移
-
-- [x] `chat_service` 主對話可正常串流（end-to-end smoke），且 log 寫入 `purpose='chat'` 一筆 —（**需使用者跑 smoke**）
-- [x] `memory_worker` 處理一輪批次後，`llm_call_log` 含 `purpose='memory_extract'` + `purpose='embedding'`（若有圖片附件再加 `purpose='image_describe'`）—（**需使用者跑 smoke**）
-- [x] `skill_factory_worker` 觸發後 log 含 `purpose='skill_factory'` —（**需使用者跑 smoke**）
-- [x] grep 驗證集中進入點：除 `llm_metering.py` 外無其他模組直接 import OpenRouter LLM 呼叫函式 —（已驗證：`grep -rn "from app.clients.openrouter import.*\(stream_chat_completion\|extract_memory\|embed\|describe_image\|generate_skill_suggestion\)" backend/app/` 無輸出）
-
-### Admin endpoint
-
-- [x] `GET /api/v1/admin/metrics/cost?range=today&group_by=route` 200 回傳，response shape 對齊 [§5-5](../../Arch/01-observability-and-metrics.md) —（**需使用者啟動 backend** smoke）
-- [x] 非 admin 呼叫 → 403 —（已掛 `require_role("admin")`，**需使用者線上 smoke**）
-- [x] `range` / `group_by` 給超出 enum 值 → 422 —（FastAPI 對 `Literal` 自動 422，**需使用者線上 smoke**）
-- [x] 全部五種 `group_by` 都能跑通（route / model / user / session / purpose）—（repository whitelist 已覆蓋全 5 種，**需使用者線上 smoke**）
-- [x] 全部四種 `range` 都能跑通（today / 7d / 30d / month）—（repository whitelist 已覆蓋全 4 種，**需使用者線上 smoke**）
-- [x] 空資料時回 `{ total_actual_usd: 0, total_baseline_usd: 0, saved_usd: 0, saved_pct: 0, breakdown: [] }`（不 raise）—（`aggregate_cost` 內 `COALESCE(SUM(...), 0)` + `saved_pct = 0.0 if total_baseline == 0` 已防護）
-- [x] Swagger `/api/docs` 顯示新 endpoint 與 schema —（**需使用者啟動 backend** 造訪驗證）
-
-### 規範
-
-- [x] 所有新增程式碼註解 / docstring 為**繁體中文**
-- [x] `llm_call_log` 欄位 COMMENT 為繁體中文
-- [x] `model_prices.yaml` 註解為繁體中文
-- [x] API 文件路徑維持 `/api/docs`，**未**新增 `/swagger` / `/openapi` 等
-
----
+> Runtime 行為驗收統一彙整於 [runtime-acceptance.md](runtime-acceptance.md)。
+> 本檔案 Phase 0 ~ 4 的程式碼層 checkbox 即為實作交付清單；smoke / curl / 瀏覽器互動類驗證請見 acceptance 檔案對應章節。
 
 ## 附錄 A：Admin SQL 範本（reference）
 

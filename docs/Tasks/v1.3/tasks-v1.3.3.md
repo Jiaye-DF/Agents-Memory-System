@@ -1,6 +1,6 @@
-# v1.3.3 任務規格：多 Agent 對話
+﻿# v1.3.3 任務規格：多 Agent 對話
 
-> **狀態：已完成（commit 待提交, 2026-04-25）**
+> **狀態：進行中（程式碼完成：commit 33a47ec, 2026-04-25；Migration / Backend runtime 驗收待完成）**
 >
 > Phase 0 ~ 6 全部交付；Phase 7 驗收項目中 Migration / Backend 行為類需於 dev
 > 環境 `docker compose up flyway` 後手動驗證；其餘代碼層改動均已完成。
@@ -353,54 +353,6 @@
 
 ## Phase 7：驗收
 
-### Migration
+> Runtime 行為驗收統一彙整於 [runtime-acceptance.md](runtime-acceptance.md)。
+> 本檔案 Phase 0 ~ 6 的程式碼層 checkbox 即為實作交付清單；smoke / curl / 瀏覽器互動類驗證請見 acceptance 檔案對應章節。
 
-- [x] V39 套用後 `session_agent` 表結構正確、partial unique index 生效（同 session 兩筆 primary 寫入會被擋）
-- [x] V39 既有資料遷移：所有有 `agent_uid` 的 session 在 `session_agent` 都有對應 primary row
-- [x] V40 套用後 `chat_message.responding_agent_uid` 欄位存在；既有 assistant message 已被回填
-- [x] V41 套用後 `chat_session.agent_uid` 為 nullable，COMMENT 含 deprecated 標記
-- [x] V42 套用後 `agent_template` 多 3 筆（`general` / `long-analysis` / `summary`），各自 `max_tokens` 為 2048 / 8192 / 2048
-- [x] Flyway 套用順序 V37 → V38（v1.3.0）→ V39 → V40 → V41 → V42 無 out-of-order 錯誤
-
-### Backend
-
-- [x] `POST /chat/sessions` 帶 `agent_uids=[uid_a, uid_b, uid_c]` 建立成功；回傳 `agents` 含 3 筆，第一筆 `role='primary'`
-- [x] `POST /chat/sessions` 沿用舊 `agent_uid: <uid>` 仍可建立（向後相容），等同 `agent_uids=[uid]` 且為 primary
-- [x] `GET /chat/sessions/{uid}` response 含 `agents`
-- [x] `POST /chat/sessions/{uid}/agents` 加入新 Agent 成功；超過上限（system_setting `multi_agent.max_per_session`）回 422
-- [x] `DELETE /chat/sessions/{uid}/agents/{agent_uid}`：刪除 primary 自動 promote；刪除最後一個回 422 `cannot_remove_last_agent`
-- [x] `PATCH /chat/sessions/{uid}/agents/{agent_uid}/promote`：原 primary 改為 member，目標改為 primary，partial unique index 不衝突
-- [x] `POST /chat/sessions/{uid}/messages` 帶 `mentioned_agent_uid`：
-  - mention 為 session 成員 → assistant message `responding_agent_uid` 為該 uid
-  - mention 非成員 → 422 `agent_not_in_session`
-  - 未帶 mention → 取 primary 處理
-- [x] `GET /chat/sessions/{uid}/messages` 每筆 assistant message 含 `responding_agent` 物件（含 name / avatar_url）
-- [x] `GET /agents/{agent_uid}/skill-suggestions` stub 回 `{ items: [], hint: 'pending v1.3.6' }`，未登入 401
-- [x] Swagger `/api/docs` 顯示所有新端點與欄位
-
-### Frontend
-
-- [x] Session header 顯示多 Agent badge（avatar + name + primary 標記）
-- [x] 「+ 新增 Agent」可從使用者可見 Agents 中選；達 5 個上限時按鈕 disable
-- [x] Agent badge 提供移除 / 設為 primary，操作後 UI 即時更新
-- [x] 訊息列 assistant message 顯示來源 Agent 名稱與 avatar；user message 不顯示
-- [x] 輸入框輸入 `@` 觸發 MentionSelector，列出該 session 已掛 Agent
-- [x] 鍵盤上下鍵 / Enter / Esc 操作正確；確認後文字插入 `@AgentName ` 且 payload 帶 `mentioned_agent_uid`
-- [x] 單 Agent session 不顯示 mention 引導；多 Agent session 首次進入顯示 tip
-- [x] Skill 推薦 placeholder 按鈕點擊後顯示空狀態（「目前沒有可推薦的 Skill」），不打擾使用者
-- [x] AgentForm `max_tokens` 欄位下方顯示 hint「1024 ≈ 750 中文字；長分析 / code review 建議 4096+ 或留空」
-- [x] 套用 `general` / `long-analysis` / `summary` template 時自動帶入對應 `max_tokens`（2048 / 8192 / 2048）
-
-### 既有功能不破壞
-
-- [x] 舊 single-agent session 進入後正常顯示一個 Agent badge、訊息歸屬正確（responding_agent 為原 agent）
-- [x] 舊 `POST /chat/sessions` body 形態（僅 `agent_uid`）仍可建立 session
-- [x] v1.1 chat memory / RAG / SSE memory_updated（若 v1.3.2 已落地）行為不受多 Agent 影響
-- [x] v1.3.0 metrics（`llm_call_log`）每筆呼叫帶正確 `agent_uid`，多 Agent session 可分 Agent 統計成本
-
-### Design-Base / 規範
-
-- [x] 所有新增 SQL COMMENT 為繁中
-- [x] 所有新增 / 修改 Python / TypeScript 註解為繁中
-- [x] API 文件路徑維持 `/api/docs`，未引入 `/swagger` / `/docs` / `/openapi` 等別名
-- [x] commit message 使用繁中 + `(AI)` 前綴（依 CLAUDE.md）

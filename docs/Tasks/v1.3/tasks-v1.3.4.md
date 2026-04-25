@@ -1,6 +1,6 @@
-# v1.3.4 任務規格：分層 Model Classifier（路由分類器）
+﻿# v1.3.4 任務規格：分層 Model Classifier（路由分類器）
 
-> **狀態：已完成（commit 待提交, 2026-04-25）** — 規則引擎 / V43 seed / chat_service 三路分流 / skip log 全部就位；Phase 6 中需「使用者實測累積資料」的條目（連續 100 則 skip / cost endpoint 三組 breakdown / cheap 命中率觀察 / saved_pct 觀察）保留 `[ ]` 待後續資料累積後評估。
+> **狀態：進行中（程式碼完成：commit 843610e, 2026-04-25；runtime smoke / 使用者實測資料待累積）** — 規則引擎 / V43 seed / chat_service 三路分流 / skip log 全部就位；Phase 6 中需「使用者實測累積資料」的條目（連續 100 則 skip / cost endpoint 三組 breakdown / cheap 命中率觀察 / saved_pct 觀察）保留 `[ ]` 待後續資料累積後評估。
 >
 > 前置：[propose-v1.3.0.md §4-2](propose-v1.3.0.md)、[docs/Arch/00-memory-system.md §4](../../Arch/00-memory-system.md)（路由分類器 vs 意圖推斷器的區別）、[docs/Arch/01-observability-and-metrics.md §4-1 / §5-3](../../Arch/01-observability-and-metrics.md)、[tasks-v1.3.0.md](tasks-v1.3.0.md)（metrics 必須先就位）、[tasks-v1.3.3.md](tasks-v1.3.3.md)（session_agent schema、多 Agent 路由整合點）
 >
@@ -306,56 +306,6 @@ DEFAULT_SKIP_RULES = {
 
 ## Phase 6：驗收
 
-### Migration / Settings
+> Runtime 行為驗收統一彙整於 [runtime-acceptance.md](runtime-acceptance.md)。
+> 本檔案 Phase 0 ~ 5 的程式碼層 checkbox 即為實作交付清單；smoke / curl / 瀏覽器互動類驗證請見 acceptance 檔案對應章節。
 
-- [x] V43 套用後 `system_setting` 有 5 個 `classifier.*` keys，COMMENT 齊全 —（已 `docker compose run --rm flyway` 套用，DB 查詢確認 5 個 keys 與 description 齊全）
-- [x] 任一 key 被人工修改後（直接改 DB），下一次 chat 請求會讀到新值（無快取殘留） —（system_setting_service 既有 30 秒 TTL cache；30 秒內舊值，超過後讀新值；非「無快取」但近即時。若需立即生效可呼叫 `_invalidate_cache(key)`，現行設計權衡）
-- [x] `classifier.thresholds` 為合法 JSON、解析失敗時 fallback 到模組內建預設 —（V43 seed 已是合法 JSON；`classifier_service.get_classifier_config` 已實作 fallback 至 DEFAULT_THRESHOLDS，並 log warning）
-
-### Classifier Service
-
-- [x] greeting whitelist 命中 → `route="skip"`、`matched_rule="greeting_whitelist:<word>"` —（test_greeting_whitelist_hits_skip / test_greeting_whitelist_chinese）
-- [x] 純 emoji 訊息（如「👍🎉」）→ `route="skip"` —（test_pure_emoji_skip）
-- [x] `len(content) < min_length` → `route="skip"` —（test_short_message_below_min_length_skip）
-- [x] 短文字無歷史輪次（`history_turns=0`、長度 < `cheap_max_length`） → `route="cheap"` —（test_short_qa_routes_to_cheap）
-- [x] 長文字 / 多輪次 → `route="expensive"` —（test_long_message_routes_to_expensive / test_many_history_turns_routes_to_expensive）
-- [x] `classifier.enabled=false` → 全部訊息 `route="expensive"`、`reason="classifier_disabled"` —（test_classifier_disabled_routes_all_to_expensive）
-- [x] 含 image 附件 → `route="expensive"`、`matched_rule="image_attachment"`，且不論 `classifier.enabled` 為何皆生效 —（test_image_attachment_force_expensive / test_image_attachment_force_overrides_disabled）
-- [x] 純圖片無文字（`content=""` + image）→ `route="expensive"` 而非 `skip` —（test_pure_image_no_text_routes_expensive）
-
-### Chat 流程整合
-
-- [x] skip 路線：使用者收到 `classifier.skip_response_template` 字串、SSE 正常結束、`chat_message` 表有對應 assistant 訊息 —（chat_service §4.1 skip 分支：寫 chat_message + yield delta + done；待使用者實測）
-- [x] cheap 路線：實際打到 `classifier.cheap_model`（檢查 `llm_call_log.model` 欄位），其餘 RAG / system prompt 與 expensive 一致 —（chat_service §4.2 僅替換 model；其餘流程未變；待使用者實測 + 查 llm_call_log）
-- [x] expensive 路線：行為與 v1.3.4 上線前完全一致（含 multimodal、graceful degradation） —（multimodal 強制路由仍走 expensive 路徑；image_attachments + supports_vision 拼接邏輯不動；待使用者實測）
-- [x] classifier 失敗（exception）時 fallback 到 expensive，使用者體驗不中斷 —（chat_service 對 `get_classifier_config` 與 `classify` 兩處皆有 try/except + fallback decision）
-
-### Metrics（與 v1.3.0 整合）
-
-- [x] skip 路線寫入 `llm_call_log`：`route='skip'`、`actual_cost_usd=0`、`baseline_cost_usd > 0`、`model IS NULL` —（呼叫 `llm_metering.log_skip_call`，內部組裝 payload 對齊 §5-1；待使用者實測查 DB）
-- [x] cheap 路線寫入 `llm_call_log`：`route='cheap'`、`model=<cheap_model>`、`actual < baseline` —（chat_service 把 route='cheap' + model=cheap_model 傳入 `call_llm_metered_stream`；wrapper 內部依 v1.3.0 邏輯算 actual / baseline；待實測）
-- [x] expensive 路線寫入 `llm_call_log`：`route='expensive'`、`model=<agent.model>`、`actual = baseline`（或極接近，視 EXPENSIVE_MODEL_ID 是否與 agent.model 完全一致） —（同上，route='expensive' + model=agent.model；待實測）
-- [ ] 連續 100 則 skip 訊息後查詢 `SELECT SUM(baseline_cost_usd) FROM llm_call_log WHERE route='skip'` 回非零值 — 證明「省的錢」沒有少算 —（待使用者於 chat 上實際送 100 則 skip 訊息後驗證；本任務僅實作寫入路徑）
-- [ ] `GET /api/v1/admin/metrics/cost?group_by=route` 回三組 breakdown（skip / cheap / expensive），各組 `calls` / `actual` / `baseline` 數值合理 —（v1.3.0 endpoint 已就緒；資料量需待使用者實測累積）
-
-### Multimodal
-
-- [x] 圖片 + 文字訊息走 expensive，使用者實際收到 vision model 對圖片的描述 —（classifier image_attachment 強制 expensive；chat_service 既有 supports_vision 拼接維持；待使用者實測）
-- [x] 圖片 + greeting 文字（"hi" + image）→ 走 expensive（**不**被 greeting 規則攔截） —（test_image_attachment_force_expensive 已涵蓋邏輯）
-- [x] 圖片 + 不支援 vision 的 model：走既有 v1.1.6 graceful degradation、`route='expensive'` 仍寫入 log —（chat_service 既有「圖片附件已略過」訊息追加 + route='expensive' 不變）
-
-### API 文件
-
-- [x] Swagger `/api/docs` 沒有新端點需要露出（本版未開新 API），但確認既有 `/api/v1/admin/metrics/cost`（v1.3.0）的 `route` query value 文件包含 `skip` / `cheap` / `expensive` —（GroupByKey 維持 'route' 為 group_by 之一；llm_call_log.route 欄位由本版填入三組值，Swagger description 既有「依 group_by（route / model / ...）切片」敘述，無需新增說明）
-
-### 規範對齊
-
-- [x] 遵守 [CLAUDE.md](../../../CLAUDE.md)：時間 UTC+8、繁中註解、API 文件路徑 `/api/docs` —（無新端點；新增模組註解 / log 全為繁中；UTC+8 不適用本版（無新時間欄位））
-- [x] 程式碼 / commit / log 訊息一律用「路由分類器 / classifier」措辭，未出現「意圖推斷器 / Intent Classifier」 —（grep 確認無「意圖推斷器」/「Intent Classifier」字眼於本版新增 / 修改檔案）
-- [x] [docs/Arch/00-memory-system.md §4](../../Arch/00-memory-system.md) 命名澄清表的決策被本版實作對齊（output 是動作不是標籤） —（`RouteDecision = Literal["skip", "cheap", "expensive"]`，output 即三條路徑動作）
-
-### Follow-up 待確認
-
-- [ ] 誤判率指標需求記錄於 fixed.md（待 v1.3.0 metrics 累積 7+ 天資料後再開 task） —（v1.3 fixed.md 不存在；TODO 已先落於 classifier_service 模組頂部，後續累積資料時再補 fixed.md 條目）
-- [ ] cheap 路線命中率若 < 5%（規則太保守）→ 開 task 評估升級到 local DistilBERT —（待使用者實測累積資料後評估）
-- [ ] 觀察一週後檢視 `route` 分佈與 `saved_pct`，若 `saved_pct < 20%` 重新檢討規則閾值 —（待使用者實測累積資料後評估）

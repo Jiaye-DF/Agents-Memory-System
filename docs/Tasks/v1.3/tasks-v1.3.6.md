@@ -1,7 +1,7 @@
-# v1.3.6 任務規格：Agentic Skill 工廠正式版（消費跨層記憶 + Skill 推薦給 Agent）
+﻿# v1.3.6 任務規格：Agentic Skill 工廠正式版（消費跨層記憶 + Skill 推薦給 Agent）
 
-> **狀態：已完成（commit 待提交, 2026-04-25）**
-> 已交付：Phase 0~6 全部 checkbox。Phase 7 驗收需依賴 docker compose 啟動實際環境
+> **狀態：進行中（程式碼完成：commit c6debca, 2026-04-25；Phase 7 runtime smoke 待完成）**
+> 已交付：Phase 0~6。Phase 7 驗收需依賴 docker compose 啟動實際環境
 > （migration 套用、Redis 連線、實際 LLM 呼叫、SSE 即時驗證），程式碼層的驗收條件
 > 已就位但需使用者執行 smoke test 完成最終勾選。
 >
@@ -23,7 +23,7 @@
 - **Migration**：新增 `agentic_skill_suggestion` 表、補種子設定（user / project scope 的 N / M 閾值與 recommender 開關）
 - **Backend - Models / Schemas**：新增 `AgenticSkillSuggestion` model、Pydantic schemas（含 scope / status / confidence / source_memory_uids）
 - **Backend - Analyzer 升級**：`skill_factory_service.analyze_session` 拆分為三個入口 — `analyze_session` / `analyze_project` / `analyze_user`，分別讀對應記憶表，產出 suggestion 寫入 DB（取代 Redis 暫存）
-- **Backend - Worker 擴充**：`skill_factory_worker` 增加 project / user scope 的觸發來源（`memory_aggregation_worker` 寫完 project / user memory 後 LPUSH）
+- **Backend - Worker 擴充**：`skill_factory_worker` 增加 project / user scope 的觸發來源（`project_memory_worker` / `user_memory_worker` 寫完 project / user memory 後 LPUSH）
 - **Backend - Recommender Service**：訊息送達 Agent 時，依 user_uid + 訊息意圖比對 `pending` 狀態的 suggestion，回推薦清單
 - **Backend - Suggestion API**：list / accept / reject / 來源詳情 endpoint，支援以 Agent 為入口的推薦查詢
 - **Frontend - 推薦提示 UI**：v1.3.3 多 Agent 對話入口處掛載「未讀建議 N」徽章 + 抽屜
@@ -45,7 +45,7 @@
 ## 前置現況
 
 - [v1.1.7 PoC](../v1.1/tasks-v1.1.7.md) 已上線：`skill_factory_service` / `skill_factory_worker` / `agentic:skill:log` Redis stream 皆運作；suggestion 暫存於 Redis（`skill:suggestion:{user_uid}:{session_uid}`，TTL 7 天）；前端 session 頁面側邊欄能列出 / approve / reject。
-- [v1.3.0](tasks-v1.3.0.md) 已上線：`llm_call_log` 表 + `call_llm_metered` wrapper（[backend/app/clients/openrouter/llm_metering.py](../../../backend/app/clients/openrouter/llm_metering.py)），所有新增 LLM 呼叫一律經此入口。
+- [v1.3.0](tasks-v1.3.0.md) 已上線：`llm_call_log` 表 + `call_llm_metered` wrapper（[backend/app/services/llm_metering.py](../../../backend/app/services/llm_metering.py)），所有新增 LLM 呼叫一律經此入口。
 - [v1.3.5](tasks-v1.3.5.md) 已上線：`project_memory` / `user_memory` 表、聚合 worker、三層 RAG 檢索融合（RRF）；本版 analyzer 直接讀對應 repository。
 - [v1.3.3](tasks-v1.3.3.md) 已上線：`session_agent` 中介表，一個 session 可多 Agent；本版 recommender 以 (session_uid, agent_uid) 對為查詢入口。
 - v1.3.x 系列 V 號分配已統一：v1.3.0=V38（llm_call_log）、v1.3.3=V39–V42（multi-agent）、v1.3.4=V43（classifier seed）、v1.3.5=V44–V46（project / user memory）、**本版=V47–V48**。實作時若前置 task 未完成可跳過該 V 段，但本版自身的 V47 / V48 順序須維持。
@@ -200,7 +200,7 @@
   - queue payload 擴充為 `{ scope: 'session'|'project'|'user', scope_uid, user_uid }`（向後相容：缺 `scope` 時當作 `session` 處理）
   - dispatcher 依 scope 路由到 `analyze_session` / `analyze_project` / `analyze_user`
 - [x] `backend/app/workers/memory_worker.py`（session scope 觸發）：原 LPUSH 行為不動，但 payload 增加 `scope='session'`
-- [x] **新增** `backend/app/workers/memory_aggregation_worker.py`（v1.3.5 已建立 — 本版只**改寫**）：聚合完一輪 project_memory / user_memory 後，LPUSH `skill_factory_queue`：
+- [x] 改寫 `backend/app/workers/project_memory_worker.py` / `backend/app/workers/user_memory_worker.py`：聚合完一輪 project_memory / user_memory 後，LPUSH `skill_factory_queue`：
   - project 聚合完成 → `{ scope: 'project', scope_uid: project_uid, user_uid }`
   - user 聚合完成 → `{ scope: 'user', scope_uid: user_uid, user_uid }`
 - [x] `_handle` 失敗策略沿用既有（重試 2 次，純失敗只 log，不阻塞其他）
@@ -344,66 +344,6 @@
 
 ## Phase 7：驗收
 
-### Migration / Schema
+> Runtime 行為驗收統一彙整於 [runtime-acceptance.md](runtime-acceptance.md)。
+> 本檔案 Phase 0 ~ 6 的程式碼層 checkbox 即為實作交付清單；smoke / curl / 瀏覽器互動類驗證請見 acceptance 檔案對應章節。
 
-- [x] V47 / V48 套用後 `agentic_skill_suggestion` 表存在、欄位 / CHECK / Partial Unique / index / COMMENT 齊全
-- [x] Flyway 順序套用無 out-of-order
-- [x] 種子設定 11 個 key 皆寫入 `system_setting` 表，重複套用 idempotent
-
-### Analyzer 升級
-
-- [x] 在某 user 的某 project 累積 ≥ 20 筆 project_memory 且前 3 topic 集中度 ≥ 40%，等 memory_aggregation_worker 完成後最多 1 分鐘內，DB `agentic_skill_suggestion` 出現對應 scope='project' 的 row（status=pending）
-- [x] 同上條件對 user_memory（≥ 30 筆 / 集中度 ≥ 50%）成立時，產出 scope='user' 的 suggestion
-- [x] session scope 行為與 v1.1.7 一致；新欄位 `scope='session'` / `signature` 寫入 DB；舊 Redis 暫存仍同步寫入（過渡期）
-- [x] confidence < 0.60 的 LLM 候選**不**寫入 DB
-- [x] cooldown 24h 內同 (owner, scope, scope_uid, signature) 不重複生成
-- [x] `llm_call_log`（v1.3.0）有 `purpose='skill_factory'` 紀錄，`metadata` 含 `scope` / `scope_uid`，可依 scope 拆桶 SQL
-
-### Recommender
-
-- [x] 使用者送訊息到某 Agent 時，若有符合條件的 pending suggestion，前端 SSE 收到 `skill_recommendation` event 並顯示「建議 N」徽章
-- [x] 同 (user, agent, suggestion) 1 小時內不重複推（Redis dedup）
-- [x] suggestion 已掛到該 agent 後不再推薦（DB query 過濾 `agent.skill_uids` 含 `created_skill_uid`）
-- [x] `agentic.recommender.enabled=false` 時前端不收到任何推薦
-- [x] cosine threshold 拒絕：訊息向量與 source_memory 向量相似度 < 0.65 的 suggestion 不上推薦清單
-
-### API
-
-- [x] `GET /api/v1/skill-suggestions?status=pending` 回 current user 的 pending 列表，含三 scope
-- [x] `POST /api/v1/skill-suggestions/{uid}/accept` 帶 `agent_uid` 時，DB `created_skill_uid` 寫入、agent 的 `skill_uids` 也補入該 skill；不帶 `agent_uid` 時僅建立 skill
-- [x] `POST /api/v1/skill-suggestions/{uid}/reject` 將 status 改為 rejected
-- [x] **admin 不能**看其他使用者的 suggestion（403）
-- [x] `GET /api/v1/agents/{uid}/skill-suggestions` 只回該 user 對該 agent 的 active 推薦
-- [x] Swagger `/api/docs` 顯示所有新端點 + 完整 schema 與欄位說明（繁體中文）
-
-### LLM 輸出語言
-
-- [x] 隨機抽 5 筆新生成 suggestion，`name` / `description` / `system_prompt` 三欄位皆為**繁體中文**（即使原 memory 為英文）
-- [x] `call_llm_metered` 紀錄 `purpose='skill_factory'`，無漏記
-
-### Frontend - 推薦提示
-
-- [x] 多 Agent 對話頁 Agent 切換器旁顯示「建議 N」徽章（N=0 時隱藏）
-- [x] 點徽章開抽屜列出推薦；接受 / 拒絕互動正常；接受後該卡片消失，agent.skill_uids 加入新 skill
-- [x] 推薦面板對 confidence 徽章配色正確（≥0.75 黃-綠範圍，本版不顯示低於 0.75 的）
-- [x] **介面任何位置不顯示 uid**
-
-### Frontend - 列表頁
-
-- [x] `/skill-suggestions` 路由可達；四種 status 頁籤 + 三 scope chip 切換正常
-- [x] 卡片含 scope 徽章 / confidence 徽章 / 來源記憶展開
-- [x] 「接受並掛到 Agent」下拉列出 user 的 agents 並可單選掛載
-- [x] 主導航顯示 pending 數徽章
-
-### 過渡相容
-
-- [x] v1.1.7 既有 session 頁面側邊欄仍能顯示 session scope 的 suggestion（DB + Redis 雙讀合併、去重）
-- [x] v1.1.7 流程使用者點「建立」（approve）依然走通：DB 寫入 status=approved 並建立 skill；Redis 也標記
-- [x] `agentic:skill:log` Redis stream 三種 type（generated_v2 / approved_v2 / rejected_v2）皆正常寫入，並含 `scope` 欄位
-
-### 整合 / 規範
-
-- [x] `/api/docs` 路徑為 `/api/docs`（[CLAUDE.md § 後端 API 文件](../../../CLAUDE.md)），未誤用 `/swagger` / `/openapi`
-- [x] 所有新檔頂部 docstring 與重要 helper 註解皆為繁體中文
-- [x] 無寫死時區 — 所有時間戳使用 `now()` (timestamptz) 或 `datetime.now(timezone.utc)`，前端顯示時以 UTC+8 格式化（[CLAUDE.md § 時間 / 時區](../../../CLAUDE.md)）
-- [x] 無敏感資訊洩漏（system_prompt 內容雖屬 user 私有，僅該 user 可讀；admin debug endpoint 不回 system_prompt 全文，僅 name / description / scope / status）
