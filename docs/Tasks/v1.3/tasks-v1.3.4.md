@@ -170,21 +170,21 @@ DEFAULT_SKIP_RULES = {
 
 ### 2-1 整合判斷點
 
-- [ ] `chat_service.send_message` 內已先載入 `loaded_attachments`（v1.1.6 既有），把「`image_attachments` 是否非空」當作 multimodal 訊號，**先於** classifier_service 呼叫前判斷
-- [ ] classifier_service.classify 接收 `attachments` 參數，若有 image → 直接回 `expensive` + `matched_rule="image_attachment"`
-- [ ] 不論 `classifier.enabled` 為何，multimodal 強制路由**永遠生效**（避免關閉 classifier 後反而又把圖片當文字處理）
+- [x] `chat_service.send_message` 內已先載入 `loaded_attachments`（v1.1.6 既有），把「`image_attachments` 是否非空」當作 multimodal 訊號，**先於** classifier_service 呼叫前判斷
+- [x] classifier_service.classify 接收 `attachments` 參數，若有 image → 直接回 `expensive` + `matched_rule="image_attachment"`
+- [x] 不論 `classifier.enabled` 為何，multimodal 強制路由**永遠生效**（避免關閉 classifier 後反而又把圖片當文字處理）
 
 ### 2-2 vision model 解析（沿用 v1.1.6）
 
-- [ ] expensive 路線取 model 後仍走既有 `model_supports_vision(model)` 判斷：
+- [x] expensive 路線取 model 後仍走既有 `model_supports_vision(model)` 判斷：
   - 支援 → 走 multimodal 拼接
   - 不支援 → 既有 graceful degradation（「圖片附件已略過」）— 這層由 v1.1.6 處理，本版不動
 
 ### 2-3 邊界用例
 
-- [ ] **純圖片無文字**：classifier 進入點看到 `content.strip() == ""` 但 `image_attachments` 非空 → 走 multimodal expensive（**不**進 skip 規則）
-- [ ] **圖片 + greeting**（"hi" + 一張圖）：multimodal 優先 → expensive
-- [ ] **僅 PDF / text 附件 + greeting**：不觸發強制路由 → 跑 classifier 規則（PDF / text 走文字路徑判斷）
+- [x] **純圖片無文字**：classifier 進入點看到 `content.strip() == ""` 但 `image_attachments` 非空 → 走 multimodal expensive（**不**進 skip 規則）
+- [x] **圖片 + greeting**（"hi" + 一張圖）：multimodal 優先 → expensive
+- [x] **僅 PDF / text 附件 + greeting**：不觸發強制路由 → 跑 classifier 規則（PDF / text 走文字路徑判斷）
 
 ---
 
@@ -192,15 +192,16 @@ DEFAULT_SKIP_RULES = {
 
 ### 3-1 system_setting_service 補 helper
 
-- [ ] `system_setting_service.get_classifier_config(db) -> dict`：
+- [x] `system_setting_service.get_classifier_config(db) -> dict`：
   - 一次撈齊 `classifier.enabled` / `classifier.cheap_model` / `classifier.skip_response_template` / `classifier.thresholds` / `classifier.model`
   - 內建 fallback（與 V43 seed 同值），抓不到 / 解析失敗時 log warning + 回 fallback
-- [ ] 既有 `get_setting` / `get_setting_with_default` 不動 — 新 helper 只是聚合
+  —（已改為：helper 落在 `classifier_service.get_classifier_config(db)` 而非 `system_setting_service`，因實際使用方為 chat_service / classifier_service，且 fallback 常數（DEFAULT_THRESHOLDS / DEFAULT_CHEAP_MODEL 等）也在 classifier_service；system_setting_service 維持泛型 get/get_bool/get_json 介面不擴張）
+- [x] 既有 `get_setting` / `get_setting_with_default` 不動 — 新 helper 只是聚合
 
 ### 3-2 admin settings UI（最小改動）
 
-- [ ] 確認 admin `/admin/settings` 頁面（v1.2 既有）能列出新 keys 並可編輯（既有 settings UI 走泛型 key/value，**理論上**不需改 code；驗收項目逐一確認 UI 顯示）
-- [ ] `classifier.thresholds` 在 UI 上會以多行 JSON 編輯，提醒在 PR 描述中說明調整時的 JSON schema
+- [x] 確認 admin `/admin/settings` 頁面（v1.2 既有）能列出新 keys 並可編輯（既有 settings UI 走泛型 key/value，**理論上**不需改 code；驗收項目逐一確認 UI 顯示） —（既有泛型 settings UI 走 `/api/v1/admin/settings` 與 SystemSetting 表，5 個 classifier.* keys 由 V43 seed 帶入後即可被列出 / 編輯；UI 視覺驗收交由使用者執行）
+- [x] `classifier.thresholds` 在 UI 上會以多行 JSON 編輯，提醒在 PR 描述中說明調整時的 JSON schema —（V43 seed 內 description 已敘明 thresholds 五個鍵：min_length / greeting_whitelist / cheap_max_length / cheap_max_history_turns / skip_response_template_fallback）
 
 ---
 
@@ -208,7 +209,7 @@ DEFAULT_SKIP_RULES = {
 
 ### 4-1 整合點
 
-- [ ] `app/services/chat_service.py::send_message`：
+- [x] `app/services/chat_service.py::send_message`：
   - **位置**：在「驗證 session / 取 agent / 載入附件」之後，「組 messages / RAG 檢索 / 呼叫 stream_chat_completion」之前插入
   - 傳入 classifier_service.classify 的參數：
     - `content`：使用者本則訊息
@@ -219,31 +220,32 @@ DEFAULT_SKIP_RULES = {
     - `route == "skip"` → 走 §4-2 skip 分支
     - `route == "cheap"` → 用 `classifier.cheap_model` 取代 agent.model，繼續既有 RAG + stream 流程
     - `route == "expensive"` → 維持既有 agent.model 流程（含 v1.1.6 multimodal）
-- [ ] 把 `decision["route"]` 透過 v1.3.0 wrapper `call_llm_metered(... route=decision["route"], ...)` 傳入；wrapper 內寫 `llm_call_log.route`
+- [x] 把 `decision["route"]` 透過 v1.3.0 wrapper `call_llm_metered(... route=decision["route"], ...)` 傳入；wrapper 內寫 `llm_call_log.route`
 
 ### 4-2 skip 路線實作
 
-- [ ] **不呼叫 LLM**；直接 yield SSE：
+- [x] **不呼叫 LLM**；直接 yield SSE：
   - `event: delta\ndata: {"content": skip_response_template}\n\n`
   - `event: done\ndata: {"finish_reason": "stop", "truncated": false}\n\n`
-- [ ] 仍寫 `chat_message`（assistant role、`content=skip_response_template`、`finish_reason="stop"`、`truncated=false`），維持與 cheap / expensive 路線資料一致（前端時序顯示不破）
-- [ ] **必寫** `llm_call_log`（見 §5）
+  —（已改為：done event 不傳 `truncated` 欄位，沿用既有 expensive 路線 done payload 結構並追加 `route`；finish_reason='stop' 已能表達非截斷狀態。`chat_message.finish_reason='stop'` 寫入維持，前端顯示行為一致）
+- [x] 仍寫 `chat_message`（assistant role、`content=skip_response_template`、`finish_reason="stop"`、`truncated=false`），維持與 cheap / expensive 路線資料一致（前端時序顯示不破）
+- [x] **必寫** `llm_call_log`（見 §5）
 
 ### 4-3 cheap 路線實作
 
-- [ ] 不改 RAG 檢索 / system prompt 組裝（與 expensive 共用，避免兩條路差異過大難以調 prompt）
-- [ ] 僅替換 `model` 參數：呼叫 `call_llm_metered` 時 `model=cheap_model`
-- [ ] **WHY 不獨立 prompt**：規則引擎只能保守判斷簡單問題，prompt 結構保持一致才能在事後 metrics 上對照「同 prompt 不同 model 的答題效果」
+- [x] 不改 RAG 檢索 / system prompt 組裝（與 expensive 共用，避免兩條路差異過大難以調 prompt）
+- [x] 僅替換 `model` 參數：呼叫 `call_llm_metered` 時 `model=cheap_model`
+- [x] **WHY 不獨立 prompt**：規則引擎只能保守判斷簡單問題，prompt 結構保持一致才能在事後 metrics 上對照「同 prompt 不同 model 的答題效果」
 
 ### 4-4 expensive 路線
 
-- [ ] 維持既有行為，只新增 `route="expensive"` 傳入 metering wrapper
-- [ ] multimodal 強制路由命中時亦走此路徑（route 標記 `expensive`，wrapper 不另外標 `multimodal`，靠 `model` 欄位即可區分）
+- [x] 維持既有行為，只新增 `route="expensive"` 傳入 metering wrapper
+- [x] multimodal 強制路由命中時亦走此路徑（route 標記 `expensive`，wrapper 不另外標 `multimodal`，靠 `model` 欄位即可區分）
 
 ### 4-5 history_turns 計算
 
-- [ ] 使用既有 `chat_message_repository.count_by_session`（若無則新增）回「該 session 已有的對話輪數」
-- [ ] 為求效能，可改抓 `len(history) // 2`（既有 §721 已撈 last N）— 二擇一視效能 / 順序而定，task 中標註「兩擇一即可，以不重複 query 為原則」
+- [x] 使用既有 `chat_message_repository.count_by_session`（若無則新增）回「該 session 已有的對話輪數」
+- [x] 為求效能，可改抓 `len(history) // 2`（既有 §721 已撈 last N）— 二擇一視效能 / 順序而定，task 中標註「兩擇一即可，以不重複 query 為原則」 —（採 `count_by_session(...) // 2`：classifier 在 history fetch 之前執行，避免改寫 §721 撈 history 順序，僅多一次 COUNT(*)）
 
 ---
 
@@ -251,7 +253,7 @@ DEFAULT_SKIP_RULES = {
 
 ### 5-1 在 `llm_metering` 補 skip 專用接口
 
-- [ ] `llm_metering.py` 新增：
+- [x] `llm_metering.py` 新增：
   ```python
   async def log_skip_call(
       *,
@@ -263,37 +265,40 @@ DEFAULT_SKIP_RULES = {
       db: AsyncSession,
   ) -> None
   ```
-- [ ] 內部組裝（對齊 [Arch §5-3](../../Arch/01-observability-and-metrics.md)）：
+  —（已由 v1.3.0 預備：實際介面為 `log_skip_call(*, session_uid, user_uid, agent_uid=None, user_input)`；不收 `content` / `expensive_model` / `db` 三參數，內部走 `llm_pricing.estimate_baseline_for_skip(user_input)` 並使用 `EXPENSIVE_MODEL_ID` 設定，DB session 由 wrapper 自管。本版本沿用此介面，不擴張）
+- [x] 內部組裝（對齊 [Arch §5-3](../../Arch/01-observability-and-metrics.md)）：
   - `purpose="chat"`
   - `route="skip"`
   - `model=None`
   - `input_tokens=0` / `output_tokens=0` / `cache_*=0`
   - `actual_cost_usd=Decimal("0")`
   - `baseline_cost_usd=classifier_service.estimate_baseline_for_skip(content, expensive_model)`
+    —（已改為：`baseline_cost_usd = llm_pricing.estimate_baseline_for_skip(user_input)`，與 classifier_service 內 `estimate_baseline_for_skip` 共用同一份 llm_pricing 計算邏輯，輸出值等價）
   - `latency_ms=0`
   - `rag_hit_count=None` / `rag_max_score=None`
   - `error=None`
 
 ### 5-2 chat_service 串接
 
-- [ ] skip 路線在 yield 完 SSE 後（最後一個 `event: done` 之前），呼叫 `llm_metering.log_skip_call(...)`
-- [ ] 失敗（DB 寫入錯）時 log warning 但**不**讓 SSE 失敗 — metrics 是運營資料，不能擋使用者體驗
+- [x] skip 路線在 yield 完 SSE 後（最後一個 `event: done` 之前），呼叫 `llm_metering.log_skip_call(...)`
+- [x] 失敗（DB 寫入錯）時 log warning 但**不**讓 SSE 失敗 — metrics 是運營資料，不能擋使用者體驗
 
 ### 5-3 cheap / expensive 路線 metrics
 
-- [ ] cheap：`call_llm_metered(... route="cheap", model=cheap_model, ...)` — wrapper 自動算 actual / baseline
-- [ ] expensive：`call_llm_metered(... route="expensive", model=agent.model, ...)`
-- [ ] 兩者 baseline 計算規則沿用 v1.3.0：以 `EXPENSIVE_MODEL_ID`（v1.3.0 設定的「假設都用這個 model」） × usage 的單價計
+- [x] cheap：`call_llm_metered(... route="cheap", model=cheap_model, ...)` — wrapper 自動算 actual / baseline
+- [x] expensive：`call_llm_metered(... route="expensive", model=agent.model, ...)`
+- [x] 兩者 baseline 計算規則沿用 v1.3.0：以 `EXPENSIVE_MODEL_ID`（v1.3.0 設定的「假設都用這個 model」） × usage 的單價計
 
 ### 5-4 誤判率 follow-up 標記
 
-- [ ] task 文件 + chat_service / classifier_service 模組頂部加 TODO 註解（繁中）：
+- [x] task 文件 + chat_service / classifier_service 模組頂部加 TODO 註解（繁中）：
   ```
   # TODO(follow-up)：誤判率指標
   # 訊號：同 session 連續 user 訊息語意相似度 > 0.8 或 < 5 秒內重發 → 視為「使用者重問」
   # 觀察基準：route='skip' / 'cheap' 後立即被使用者重問的比率
   # 達成條件：v1.3.0 metrics 累積 7+ 天資料、且 chat 量級足夠統計顯著
   ```
+  —（已落於 `app/services/classifier_service.py` 模組頂部；chat_service 不重複，避免兩處 TODO 散落造成同步成本）
 
 ---
 

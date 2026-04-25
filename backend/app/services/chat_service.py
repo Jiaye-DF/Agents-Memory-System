@@ -36,6 +36,7 @@ from app.schemas.chat.schemas import (
 )
 from app.services import (
     chat_attachment_service,
+    classifier_service,
     llm_metering,
     rag_service,
     session_event_service,
@@ -1101,6 +1102,57 @@ async def send_message(
             )
             return
 
+    # 2.2 路由分類器（v1.3.4）：在 LLM 呼叫前決定走哪條路
+    # multimodal 強制路由 / classifier.enabled / 規則引擎判斷皆封裝於 classify()
+    # 失敗（exception）時 fallback 到 expensive，使用者體驗不中斷
+    try:
+        classifier_config = await classifier_service.get_classifier_config(db)
+    except Exception as exc:
+        logger.warning("classifier_service 讀設定失敗，fallback expensive: %s", exc)
+        classifier_config = {
+            "enabled": False,
+            "model": classifier_service.DEFAULT_CLASSIFIER_MODEL,
+            "cheap_model": classifier_service.DEFAULT_CHEAP_MODEL,
+            "skip_response_template": classifier_service.DEFAULT_SKIP_RESPONSE,
+            "thresholds": classifier_service.DEFAULT_THRESHOLDS,
+        }
+
+    # history_turns 用既有 count_by_session 即可（避免額外 query 全部 history）；
+    # 對齊 task §4-5「兩擇一即可，以不重複 query 為原則」。
+    try:
+        history_turns_count = (
+            await chat_message_repository.count_by_session(chat_session_uid, db)
+            // 2
+        )
+    except Exception:
+        history_turns_count = 0
+
+    try:
+        decision = await classifier_service.classify(
+            content,
+            attachments=loaded_attachments,
+            history_turns=history_turns_count,
+            db=db,
+        )
+    except Exception as exc:
+        logger.warning(
+            "classifier_service.classify 失敗，fallback expensive: %s", exc
+        )
+        decision = {
+            "route": "expensive",
+            "reason": "classifier_exception",
+            "matched_rule": "fallback",
+        }
+
+    route: str = decision.get("route") or "expensive"
+    logger.debug(
+        "classifier route=%s reason=%s rule=%s session=%s",
+        route,
+        decision.get("reason"),
+        decision.get("matched_rule"),
+        chat_session_uid,
+    )
+
     # 3. 寫 user message（保留 attachment_uids 於 DB）
     user_msg = await chat_message_repository.create(
         {
@@ -1120,6 +1172,69 @@ async def send_message(
     if session.title in ("", "未命名對話"):
         new_title = _auto_title_from_first_message(content)
         await chat_session_repository.update(session, {"title": new_title}, db)
+
+    # 4.1 skip 路線：不呼叫 LLM、回固定字串、寫 assistant_message + log_skip_call
+    if route == "skip":
+        skip_template = (
+            classifier_config.get("skip_response_template")
+            or classifier_service.DEFAULT_SKIP_RESPONSE
+        )
+        try:
+            assistant_msg = await chat_message_repository.create(
+                {
+                    "chat_session_uid": chat_session_uid,
+                    "role": "assistant",
+                    "content": skip_template,
+                    "token_in": 0,
+                    "token_out": 0,
+                    "cost_usd": 0.0,
+                    "model": None,
+                    "finish_reason": "stop",
+                    "responding_agent_uid": str(agent.agent_uid),
+                },
+                db,
+            )
+            await db.commit()
+        except Exception as exc:
+            logger.exception("skip 路線寫入 assistant message 失敗: %s", exc)
+            yield (
+                f"event: error\ndata: "
+                f"{json.dumps({'detail': '訊息儲存失敗'})}\n\n"
+            )
+            return
+
+        # SSE：一次性 delta + done（不串流）
+        yield (
+            f"event: delta\ndata: "
+            f"{json.dumps({'content': skip_template})}\n\n"
+        )
+
+        # metrics：寫 route='skip' baseline log（失敗 log warning，不擋 SSE）
+        try:
+            await llm_metering.log_skip_call(
+                session_uid=chat_session_uid,
+                user_uid=user_uid,
+                agent_uid=str(agent.agent_uid),
+                user_input=content,
+            )
+        except Exception as exc:
+            logger.warning("log_skip_call 失敗（已忽略）: %s", exc)
+
+        yield (
+            f"event: done\ndata: "
+            f"{json.dumps({'message_uid': str(assistant_msg.chat_message_uid), 'token_in': 0, 'token_out': 0, 'cost_usd': 0.0, 'model': None, 'finish_reason': 'stop', 'route': 'skip'})}\n\n"
+        )
+        return
+
+    # 4.2 cheap 路線：替換 model（不改 RAG / system prompt 組裝邏輯）
+    # WHY 不獨立 prompt：規則引擎只能保守判斷簡單問題，prompt 結構保持一致才能在
+    # 事後 metrics 上對照「同 prompt 不同 model 的答題效果」。
+    if route == "cheap":
+        cheap_model = (
+            classifier_config.get("cheap_model")
+            or classifier_service.DEFAULT_CHEAP_MODEL
+        )
+        model = cheap_model
 
     # 5. 組 messages（system + 最近 N 則）
     # v1.1.2：先以 user content 檢索 session 記憶，注入 system prompt
@@ -1227,10 +1342,10 @@ async def send_message(
         finish_reason = None
         try:
             # v1.3.0：經 llm_metering 集中進入點，記錄成本 / 延遲 / RAG 命中
-            # route='expensive'：v1.3.4 classifier 上線後改由 caller 動態傳入
+            # v1.3.4：route 由 classifier 決策（cheap / expensive；skip 已早 return）
             async for chunk in llm_metering.call_llm_metered_stream(
                 purpose=llm_metering.PURPOSE_CHAT,
-                route="expensive",
+                route=route,
                 session_uid=chat_session_uid,
                 user_uid=user_uid,
                 agent_uid=str(agent.agent_uid),
@@ -1338,7 +1453,7 @@ async def send_message(
 
     yield (
         f"event: done\ndata: "
-        f"{json.dumps({'message_uid': str(assistant_msg.chat_message_uid), 'token_in': token_in, 'token_out': token_out, 'cost_usd': cost_usd, 'model': model, 'finish_reason': finish_reason})}\n\n"
+        f"{json.dumps({'message_uid': str(assistant_msg.chat_message_uid), 'token_in': token_in, 'token_out': token_out, 'cost_usd': cost_usd, 'model': model, 'finish_reason': finish_reason, 'route': route})}\n\n"
     )
 
 
