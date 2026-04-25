@@ -25,6 +25,9 @@ class MessageData(BaseModel):
 class HealthData(BaseModel):
     database: str
     redis: str
+    # v1.3.1：記憶 pipeline queue / DLQ 長度（Redis 不通時為 None）
+    memory_queue_len: int | None = None
+    memory_dlq_len: int | None = None
 
 
 class TokenData(BaseModel):

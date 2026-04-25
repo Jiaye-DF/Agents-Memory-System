@@ -142,19 +142,19 @@
 
 ### 3-1 Schema 擴充
 
-- [ ] `app/schemas/response.HealthData` 新增可選欄位：
+- [x] `app/schemas/response.HealthData` 新增可選欄位：
   - `memory_queue_len: int | None`
   - `memory_dlq_len: int | None`
   - 若 Redis 不通則為 `null`，避免 schema 違例
-- [ ] 確認 `HealthData` 既有欄位與型別不破壞 v1.1 / v1.2 既有呼叫者
+- [x] 確認 `HealthData` 既有欄位與型別不破壞 v1.1 / v1.2 既有呼叫者
 
 ### 3-2 Health endpoint 行為
 
-- [ ] `backend/app/api/v1/health.py`：
+- [x] `backend/app/api/v1/health.py`：
   - 在既有 `redis.ping()` 區塊後增加 `LLEN chat:memory:queue` 與 `LLEN chat:memory:dlq`
   - 任一 LLEN 失敗則該欄位回 `null`，**不影響整體 503 判斷**（仍以 db_ok / redis_ok 為準）
   - 將 `memory_queue_len` / `memory_dlq_len` 併入 status dict 回包
-- [ ] Constants 統一：`memory_worker.py` 既有 `QUEUE_KEY` / `DLQ_KEY` 抽到 `app/core/redis.py` 或新檔 `app/core/queue_keys.py`，`health.py` 直接 import，避免字串 hardcode 散落
+- [x] Constants 統一：`memory_worker.py` 既有 `QUEUE_KEY` / `DLQ_KEY` 抽到 `app/core/redis.py` 或新檔 `app/core/queue_keys.py`，`health.py` 直接 import，避免字串 hardcode 散落 —（已新增 `app/core/queue_keys.py`，worker 既有 `QUEUE_KEY` / `DLQ_KEY` 改為 import 後 alias 以維持原引用）
 
 ---
 
