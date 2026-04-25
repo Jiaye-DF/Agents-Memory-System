@@ -3,17 +3,26 @@ from fastapi.responses import JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
+from app.core.exceptions import AppError
 from app.core.response import success
 from app.schemas.agents.schemas import (
     AgentCreateRequest,
     AgentResponse,
     AgentUpdateRequest,
 )
+from app.schemas.agentic.skill_suggestion_schemas import (
+    AgenticSkillSuggestionAcceptResponse,
+    AgenticSkillSuggestionRejectResponse,
+    RecommendSuggestionListResponse,
+)
 from app.schemas.common import VisibilityRequest
 from app.schemas.auth.schemas import TokenPayload
-from app.schemas.chat.schemas import SkillSuggestionPlaceholderData
 from app.schemas.response import ApiResponse, MessageData, PaginatedData
-from app.services import agent_service, chat_service
+from app.services import (
+    agent_service,
+    agentic_skill_suggestion_service,
+    skill_recommender_service,
+)
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -125,37 +134,103 @@ async def download_agent(
     )
 
 
-# ---------- Skill 推薦 placeholder（v1.3.3 stub，v1.3.6 接真實邏輯） ----------
+# ---------- Skill 推薦（v1.3.6 取代 v1.3.3 stub） ----------
+
 
 @router.get(
     "/{agent_uid}/skill-suggestions",
-    response_model=ApiResponse[SkillSuggestionPlaceholderData],
-    tags=["skills", "preview"],
-    summary="Skill 自動推薦（v1.3.3 占位）",
+    response_model=ApiResponse[RecommendSuggestionListResponse],
+    tags=["skills"],
+    summary="列出該使用者對指定 Agent 的 Skill 推薦",
     description=(
-        "v1.3.3 占位 endpoint：固定回 `{ items: [], hint: 'pending v1.3.6' }`。"
-        "前端 UI 入口先佔位，v1.3.6 將以真實推薦邏輯取代此 stub。"
+        "v1.3.6：列出當前使用者 pending 中、confidence >= 推薦門檻、"
+        "且尚未掛載到此 Agent 的 Skill 候選；不依賴訊息向量比對，"
+        "適合 Agent 詳情頁 / 對話入口顯示「建議 N」徽章。"
     ),
 )
-async def get_agent_skill_suggestions_stub(
+async def list_agent_skill_suggestions(
     agent_uid: str,
-    scope: str | None = Query(
-        None,
-        description="範圍 hint，目前支援 'session'；其他值或省略不會影響 stub 結果",
-    ),
-    scope_uid: str | None = Query(
-        None,
-        description="若 scope='session'，此處填 chat_session_uid 以驗證擁有權",
-    ),
     current_user: TokenPayload = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
-    # TODO(v1.3.6): 取代為真實推薦邏輯（取代此 stub），UI 結構不變即可亮起。
-    result = await chat_service.get_skill_suggestions_stub(
-        agent_uid,
-        current_user.user_uid,
-        db,
-        scope=scope,
-        scope_uid=scope_uid,
+    # 驗證 agent 存在 + 擁有權
+    target_agent = await skill_recommender_service.ensure_agent_owned_by_user(
+        agent_uid, current_user.user_uid, db
     )
+    if target_agent is None:
+        raise AppError(
+            detail="找不到指定的 Agent 或無權限",
+            response_code=404,
+            status_code=404,
+        )
+    items = await skill_recommender_service.list_recommendations_for_agent(
+        user_uid=current_user.user_uid,
+        agent_uid=agent_uid,
+        db=db,
+    )
+    return success(data={"items": items})
+
+
+@router.post(
+    "/{agent_uid}/skill-suggestions/{suggestion_uid}/accept",
+    response_model=ApiResponse[AgenticSkillSuggestionAcceptResponse],
+    tags=["skills"],
+    summary="接受 Skill 候選並掛載到此 Agent",
+    description=(
+        "建立 Skill（沿用 POST /skills 流程）並強制掛載到 path 中的 Agent；"
+        "等價於 `/api/v1/skill-suggestions/{uid}/accept` body 帶 agent_uid=path。"
+    ),
+)
+async def accept_agent_skill_suggestion(
+    agent_uid: str,
+    suggestion_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    target_agent = await skill_recommender_service.ensure_agent_owned_by_user(
+        agent_uid, current_user.user_uid, db
+    )
+    if target_agent is None:
+        raise AppError(
+            detail="找不到指定的 Agent 或無權限",
+            response_code=404,
+            status_code=404,
+        )
+    result = await agentic_skill_suggestion_service.accept_suggestion(
+        user_uid=current_user.user_uid,
+        suggestion_uid=suggestion_uid,
+        agent_uid=agent_uid,
+        db=db,
+    )
+    await db.commit()
+    return success(data=result, response_code=201)
+
+
+@router.post(
+    "/{agent_uid}/skill-suggestions/{suggestion_uid}/reject",
+    response_model=ApiResponse[AgenticSkillSuggestionRejectResponse],
+    tags=["skills"],
+    summary="拒絕 Skill 候選",
+)
+async def reject_agent_skill_suggestion(
+    agent_uid: str,
+    suggestion_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    target_agent = await skill_recommender_service.ensure_agent_owned_by_user(
+        agent_uid, current_user.user_uid, db
+    )
+    if target_agent is None:
+        raise AppError(
+            detail="找不到指定的 Agent 或無權限",
+            response_code=404,
+            status_code=404,
+        )
+    result = await agentic_skill_suggestion_service.reject_suggestion(
+        user_uid=current_user.user_uid,
+        suggestion_uid=suggestion_uid,
+        db=db,
+    )
+    await db.commit()
     return success(data=result)

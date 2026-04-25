@@ -22,7 +22,6 @@ from app.schemas.chat.schemas import (
     ChatSessionUpdateRequest,
     SessionAgentAddRequest,
     SessionAgentsListData,
-    SkillSuggestionPlaceholderData,
 )
 from app.schemas.chat.skill_suggestion_schemas import (
     SkillSuggestionApproveData,

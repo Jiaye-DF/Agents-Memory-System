@@ -3,6 +3,9 @@ from fastapi import APIRouter
 from app.api.v1.admin.router import router as admin_router
 from app.api.v1.agent_languages.router import router as agent_languages_router
 from app.api.v1.agent_templates.router import router as agent_templates_router
+from app.api.v1.agentic.skill_suggestions.router import (
+    router as skill_suggestions_router,
+)
 from app.api.v1.agents.router import router as agents_router
 from app.api.v1.auth.router import router as auth_router
 from app.api.v1.chat.router import router as chat_router
@@ -28,3 +31,4 @@ v1_router.include_router(skills_router)
 v1_router.include_router(scripts_router)
 v1_router.include_router(models_router)
 v1_router.include_router(social_router)
+v1_router.include_router(skill_suggestions_router)

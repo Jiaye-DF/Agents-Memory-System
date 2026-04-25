@@ -72,6 +72,18 @@ class SkillFactoryLogListData(BaseModel):
     items: list[SkillFactoryLogItem]
 
 
+class SkillFactoryStatsScopeSummary(BaseModel):
+    approve_rate: float
+    reject_rate: float
+
+
+class SkillFactoryStatsData(BaseModel):
+    """v1.3.6：依 scope / status 拆桶計數 + approve / reject 比率（給閾值調校監控用）。"""
+
+    breakdown: dict[str, dict[str, int]]
+    summary: dict[str, SkillFactoryStatsScopeSummary]
+
+
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
@@ -415,9 +427,34 @@ async def delete_agent_template(
 async def get_skill_factory_recent_logs(
     _current_user: TokenPayload = require_role("admin"),
     limit: int = Query(50, ge=1, le=200),
+    scope: str | None = Query(
+        None,
+        description="v1.3.6：可篩選 scope=session|project|user",
+        pattern="^(session|project|user)$",
+    ),
 ) -> JSONResponse:
-    """讀取 agentic:skill:log Redis stream 最近 N 筆事件（開發者觀察用）。"""
-    result = await skill_factory_service.list_recent_logs(limit)
+    """讀取 agentic:skill:log Redis stream 最近 N 筆事件（開發者觀察用）。
+
+    v1.3.6：可指定 `scope` 篩選對應子分類。
+    """
+    result = await skill_factory_service.list_recent_logs(limit, scope=scope)
+    return success(data=result)
+
+
+@router.get(
+    "/debug/skill-factory/stats",
+    response_model=ApiResponse[SkillFactoryStatsData],
+    summary="Skill 工廠 suggestion 拆桶計數（給閾值調校監控用）",
+    description=(
+        "v1.3.6：依 scope / status 拆桶計數，並回 approve / reject 比率。\n"
+        "資料源為 agentic_skill_suggestion 表（30 天保留視窗）。"
+    ),
+)
+async def get_skill_factory_stats(
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await skill_factory_service.get_skill_factory_stats(db)
     return success(data=result)
 
 
