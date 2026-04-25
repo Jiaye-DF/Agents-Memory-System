@@ -8,6 +8,7 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.openrouter import model_supports_vision
+from app.core.database import AsyncSessionLocal
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.core.pagination import paginate
@@ -1246,6 +1247,17 @@ async def send_message(
         db,
     )
 
+    # 3.1 v1.3.6：非阻塞觸發 Skill 推薦器（推薦 SSE 走 session channel）
+    # 若使用者有 pending suggestion 才跑 embedding；無 pending 直接 early return
+    asyncio.create_task(
+        _async_trigger_skill_recommender(
+            user_uid=user_uid,
+            session_uid=chat_session_uid,
+            agent_uid=str(agent.agent_uid),
+            message_text=content,
+        )
+    )
+
     # 4. 若 session 為預設標題，用首則訊息填入
     if session.title in ("", "未命名對話"):
         new_title = _auto_title_from_first_message(content)
@@ -1651,3 +1663,39 @@ async def subscribe_session_events(
                 chat_session_uid,
                 exc,
             )
+
+
+# ---------- v1.3.6：Skill 推薦器非阻塞觸發 ----------
+
+
+async def _async_trigger_skill_recommender(
+    *,
+    user_uid: str,
+    session_uid: str,
+    agent_uid: str,
+    message_text: str,
+) -> None:
+    """訊息送達後 fire-and-forget 觸發 Skill 推薦器。
+
+    使用獨立 AsyncSession 避免污染主要 send_message 的 transaction；
+    任何失敗都只 log warning，**不**影響聊天主流程。
+    """
+    # 內部 import 避免模組層循環依賴
+    from app.services import skill_recommender_service
+
+    try:
+        async with AsyncSessionLocal() as db:
+            await skill_recommender_service.trigger_for_user_message(
+                user_uid=user_uid,
+                session_uid=session_uid,
+                agent_uid=agent_uid,
+                message_text=message_text,
+                db=db,
+            )
+    except Exception as exc:
+        logger.warning(
+            "skill_recommender 觸發失敗（已忽略） session=%s agent=%s: %s",
+            session_uid,
+            agent_uid,
+            exc,
+        )
