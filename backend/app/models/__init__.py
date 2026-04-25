@@ -2,6 +2,7 @@ from app.models.base import Base
 from app.models.agent import Agent, agent_skill_table
 from app.models.agent_language import AgentLanguage
 from app.models.agent_template import AgentTemplate
+from app.models.agentic_skill_suggestion import AgenticSkillSuggestion
 from app.models.chat_memory import ChatMemory, MemoryBase
 from app.models.chat_message import ChatMessage, MessageBase
 from app.models.chat_project import ChatProject
@@ -24,6 +25,7 @@ __all__ = [
     "agent_skill_table",
     "AgentLanguage",
     "AgentTemplate",
+    "AgenticSkillSuggestion",
     "ChatMemory",
     "ChatMessage",
     "ChatProject",
