@@ -28,14 +28,14 @@ import {
   useUpdateAgentMutation,
 } from "@/store/agentsApi";
 import {
-  useApproveSkillSuggestionMutation,
+  useApproveSessionSkillSuggestionMutation,
   useGetSessionQuery,
   useListMessagesQuery,
   useListProjectsQuery,
   useListSessionMemoriesQuery,
-  useListSkillSuggestionsQuery,
+  useListSessionSkillSuggestionsQuery,
   useMoveChatSessionMutation,
-  useRejectSkillSuggestionMutation,
+  useRejectSessionSkillSuggestionMutation,
   useUpdateSessionMutation,
   useUploadAttachmentsMutation,
   chatApi,
@@ -479,7 +479,7 @@ export default function SessionChatPage(): React.ReactNode {
     data: suggestionsData,
     isFetching: suggestionsFetching,
     refetch: refetchSuggestions,
-  } = useListSkillSuggestionsQuery(
+  } = useListSessionSkillSuggestionsQuery(
     { sessionUid },
     { skip: authLoading || !session },
   );
@@ -499,9 +499,9 @@ export default function SessionChatPage(): React.ReactNode {
   }, [suggestionsOpen, refetchSuggestions]);
 
   const [approveSuggestion, { isLoading: approvingSuggestion }] =
-    useApproveSkillSuggestionMutation();
+    useApproveSessionSkillSuggestionMutation();
   const [rejectSuggestion, { isLoading: rejectingSuggestion }] =
-    useRejectSkillSuggestionMutation();
+    useRejectSessionSkillSuggestionMutation();
   const [updateAgent] = useUpdateAgentMutation();
   const runUpdateAgent = useMutationWithDialog(updateAgent);
   const runApproveSuggestion = useMutationWithDialog(approveSuggestion);

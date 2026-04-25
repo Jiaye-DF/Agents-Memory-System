@@ -318,8 +318,9 @@ export const chatApi = baseApi.injectEndpoints({
       },
     }),
 
-    // ===== SkillSuggestion (v1.1.7) =====
-    listSkillSuggestions: builder.query<
+    // ===== SkillSuggestion (v1.1.7 PoC，session 範疇；v1.3.6 取代為 agenticApi) =====
+    // 命名加 Session 前綴避免與 agenticApi 的 listSkillSuggestions 衝突
+    listSessionSkillSuggestions: builder.query<
       SkillSuggestionListData,
       ListSkillSuggestionsParams
     >({
@@ -332,7 +333,7 @@ export const chatApi = baseApi.injectEndpoints({
       ],
     }),
 
-    approveSkillSuggestion: builder.mutation<
+    approveSessionSkillSuggestion: builder.mutation<
       SkillSuggestionApproveResult,
       SkillSuggestionMutationParams
     >({
@@ -346,7 +347,7 @@ export const chatApi = baseApi.injectEndpoints({
       ],
     }),
 
-    rejectSkillSuggestion: builder.mutation<
+    rejectSessionSkillSuggestion: builder.mutation<
       null,
       SkillSuggestionMutationParams
     >({
@@ -400,8 +401,8 @@ export const {
   useAddSessionAgentMutation,
   useRemoveSessionAgentMutation,
   usePromoteSessionAgentMutation,
-  useListSkillSuggestionsQuery,
-  useApproveSkillSuggestionMutation,
-  useRejectSkillSuggestionMutation,
+  useListSessionSkillSuggestionsQuery,
+  useApproveSessionSkillSuggestionMutation,
+  useRejectSessionSkillSuggestionMutation,
   useGetAgentSkillSuggestionsQuery,
 } = chatApi;
