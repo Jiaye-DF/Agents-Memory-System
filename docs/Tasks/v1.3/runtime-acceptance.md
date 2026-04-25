@@ -74,7 +74,7 @@ docker compose -f docker-compose.dev.yml exec postgres \
 
 ### 3-2 集中進入點守則
 
-- [ ] `git grep -n "from app.clients.openrouter import" backend/app/ | grep -vE "llm_metering.py|model_supports_vision|fetch_model_ids"` → **空**（所有 LLM 呼叫都過 wrapper）
+- [x] `git grep -n "from app.clients.openrouter import" backend/app/ | grep -vE "llm_metering.py|model_supports_vision|fetch_model_ids"` → **空**（所有 LLM 呼叫都過 wrapper）—（AI 驗 2026-04-26：唯一命中為 `backend/app/clients/openrouter/__init__.py:12` docstring，非實際 import，視為空）
 
 ### 3-3 Admin metrics endpoint
 
@@ -93,7 +93,7 @@ docker compose -f docker-compose.dev.yml exec postgres \
 
 ### 4-1 Memory Worker 結構化 log
 
-- [ ] `docker logs agents-memory-system-backend-1 --tail=200 | grep memory_worker` → 看到 6 個 step：`enqueue` / `buffer_flush` / `prefilter` / `extract` / `embedding` / `write`，每筆含 `session_uid` / `message_uids` / `step` 結構化欄位
+- [ ] `docker logs agents-memory-system-backend-1 --tail=200 | grep memory_worker` → 看到 6 個 step：`enqueue` / `buffer_flush` / `prefilter` / `extract` / `embedding` / `write`，每筆含 `session_uid` / `message_uids` / `step` 結構化欄位 —（AI 驗 2026-04-26：log schema 已通過 — 看到 `step / session / outcome / duration_ms` 結構化欄位（worker idle 中只能看到 `enqueue` / `brpop`）；完整 6 step 待 §3-1 發訊息後再勾）
 
 ### 4-2 Admin trace endpoint
 
@@ -101,7 +101,7 @@ docker compose -f docker-compose.dev.yml exec postgres \
 
 ### 4-3 /health 擴充
 
-- [ ] `curl http://localhost:8000/api/v1/health | jq` → 含 `memory_queue_len` / `memory_dlq_len`（v1.3.5 後再加 4 個 queue depth，見 §7-7）
+- [x] `curl http://localhost:8000/api/v1/health | jq` → 含 `memory_queue_len` / `memory_dlq_len`（v1.3.5 後再加 4 個 queue depth，見 §7-7）—（AI 驗 2026-04-26：兩欄位皆存在，回 `0`）
 
 ### 4-4 Skill 多 md 拼接
 
@@ -142,8 +142,8 @@ docker compose -f docker-compose.dev.yml exec postgres \
 
 ### 6-1 Schema 遷移驗證
 
-- [ ] `SELECT count(*) FROM session_agent WHERE role='primary';` ≈ `SELECT count(*) FROM chat_session WHERE agent_uid IS NOT NULL;`（V39 同檔遷移成功）
-- [ ] `SELECT count(*) FROM chat_message WHERE responding_agent_uid IS NOT NULL AND role='assistant';` > 0（V40 回填成功）
+- [x] `SELECT count(*) FROM session_agent WHERE role='primary';` ≈ `SELECT count(*) FROM chat_session WHERE agent_uid IS NOT NULL;`（V39 同檔遷移成功）—（AI 驗 2026-04-26：primary=1；chat_session 5 筆中 4 筆 `is_deleted=TRUE`，V39 INSERT 條件帶 `is_deleted=FALSE` 過濾後對應 1 筆，相符）
+- [x] `SELECT count(*) FROM chat_message WHERE responding_agent_uid IS NOT NULL AND role='assistant';` > 0（V40 回填成功）—（AI 驗 2026-04-26：5 筆）
 
 ### 6-2 多 Agent API
 
@@ -195,7 +195,7 @@ docker compose -f docker-compose.dev.yml exec postgres \
 
 ### 8-1 RRF 三層融合
 
-- [ ] `cd backend && pytest tests/services/test_rag_rrf_fuse.py -v` → 6 case 全綠（純算術測試，pgvector 環境亦可跑）
+- [x] `cd backend && pytest tests/services/test_rag_rrf_fuse.py -v` → 6 case 全綠（純算術測試，pgvector 環境亦可跑）—（AI 驗 2026-04-26：在 backend container 內 `python -m pytest`，6 passed in 0.98s；註：dev container base image 不含 pytest，需先 `pip install pytest`）
 - [ ] 發訊息 → 後端 log 出現 `logger.info("three_layer_retrieve hits=...")` 含 session/project/user 各層筆數 + 融合後 fused 數
 
 ### 8-2 Aggregation Worker
@@ -229,7 +229,7 @@ docker compose -f docker-compose.dev.yml exec postgres \
 
 ### 8-5 /health 擴充
 
-- [ ] `curl http://localhost:8000/api/v1/health | jq` → 4 個新 queue depth 欄位（project / user aggregate 兩 queue × queue / DLQ 各一）
+- [x] `curl http://localhost:8000/api/v1/health | jq` → 4 個新 queue depth 欄位（project / user aggregate 兩 queue × queue / DLQ 各一）—（AI 驗 2026-04-26：`project_memory_queue_len` / `project_memory_dlq_len` / `user_memory_queue_len` / `user_memory_dlq_len` 四欄位齊全）
 
 ---
 
