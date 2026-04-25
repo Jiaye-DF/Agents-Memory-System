@@ -12,6 +12,12 @@ from app.schemas.admin.metrics_schemas import (
     RangeKey,
 )
 from app.schemas.admin.schemas import RoleResponse, UserResponse, UserUpdateRequest
+from app.schemas.chat.three_layer_memory_schemas import (
+    AggregateTriggerResult,
+    ProjectMemoryListData,
+    ThreeLayerRagResult,
+    UserMemoryListData,
+)
 from app.schemas.agent_languages.schemas import (
     AgentLanguageCreateRequest,
     AgentLanguageResponse,
@@ -470,4 +476,102 @@ async def get_memory_session_trace(
 ) -> JSONResponse:
     """取單一 session 的記憶 pipeline trace（admin 限定）。"""
     result = await admin_service.get_memory_trace(session_uid, limit)
+    return success(data=result)
+
+
+# ============================================================
+# v1.3.5 跨層記憶（admin only）：
+# - 列三層記憶（admin 管理頁 / debug 用）
+# - 手動觸發 project / user 聚合 worker
+# - 檢索診斷：三層未融合 + 融合後完整結果
+# ============================================================
+
+
+@router.get(
+    "/memory/projects/{chat_project_uid}",
+    response_model=ApiResponse[ProjectMemoryListData],
+    summary="列出指定 project 的 project_memory（不含 embedding）",
+    description="v1.3.5：給 admin 管理頁 / 診斷頁觀察 project 層聚合結果。",
+)
+async def list_admin_project_memories(
+    chat_project_uid: str,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await admin_service.list_project_memories(chat_project_uid, db)
+    return success(data=result)
+
+
+@router.get(
+    "/memory/users/{user_uid}",
+    response_model=ApiResponse[UserMemoryListData],
+    summary="列出指定 user 的 user_memory",
+    description="v1.3.5：給 admin 管理頁 / 診斷頁觀察 user 層長期偏好。",
+)
+async def list_admin_user_memories(
+    user_uid: str,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await admin_service.list_user_memories(user_uid, db)
+    return success(data=result)
+
+
+@router.post(
+    "/memory/aggregate/project/{chat_project_uid}",
+    response_model=ApiResponse[AggregateTriggerResult],
+    summary="手動觸發 project 二次聚合",
+    description=(
+        "v1.3.5：LPUSH 觸發訊號至 `project:memory:queue`，由 project_memory_worker 消費。\n"
+        "可帶 `owner_user_uid` query 參數（給 metering 用，可省）。"
+    ),
+)
+async def trigger_project_aggregate(
+    chat_project_uid: str,
+    _current_user: TokenPayload = require_role("admin"),
+    owner_user_uid: str | None = Query(
+        None, description="該 project 的 owner（給 metering 用，可省）"
+    ),
+) -> JSONResponse:
+    result = await admin_service.queue_project_aggregate(
+        chat_project_uid, owner_user_uid
+    )
+    return success(data=result)
+
+
+@router.post(
+    "/memory/aggregate/user/{user_uid}",
+    response_model=ApiResponse[AggregateTriggerResult],
+    summary="手動觸發 user 長期偏好聚合",
+    description=(
+        "v1.3.5：LPUSH 觸發訊號至 `user:memory:queue`，由 user_memory_worker 消費。\n"
+        "聚合條件由 system_setting 的 N（min_session_count）/ M（topic_concentration_pct）決定。"
+    ),
+)
+async def trigger_user_aggregate(
+    user_uid: str,
+    _current_user: TokenPayload = require_role("admin"),
+) -> JSONResponse:
+    result = await admin_service.queue_user_aggregate(user_uid)
+    return success(data=result)
+
+
+@router.get(
+    "/debug/memory/retrieve",
+    response_model=ApiResponse[ThreeLayerRagResult],
+    summary="三層 RAG 檢索診斷（未融合 + RRF 融合）",
+    description=(
+        "v1.3.5：對指定 session 跑一次三層 RAG 完整流程，回傳每層 raw 結果與 RRF 融合結果。\n"
+        "對齊 propose §3-4 層 3『檢索診斷』。"
+    ),
+)
+async def debug_three_layer_retrieve(
+    _current_user: TokenPayload = require_role("admin"),
+    session_uid: str = Query(..., description="目標 session uid"),
+    query: str = Query(..., description="檢索 query 文字"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await admin_service.debug_three_layer_retrieve(
+        session_uid, query, db
+    )
     return success(data=result)

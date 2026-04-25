@@ -336,21 +336,21 @@
 
 ### 7-1 手動觸發聚合
 
-- [ ] `backend/app/api/v1/admin/memory_router.py`（或併入既有 admin router）：
-  - `POST /admin/memory/aggregate/project/{chat_project_uid}` — 驗 admin role → LPUSH `project:memory:queue`
-  - `POST /admin/memory/aggregate/user/{user_uid}` — 驗 admin role → LPUSH `user:memory:queue`
-  - response：`{ "queued": true, "queue_depth": int }`
+- [x] `backend/app/api/v1/admin/memory_router.py`（或併入既有 admin router） —（已併入既有 `admin/router.py`，避免新檔分散）
+  - [x] `POST /admin/memory/aggregate/project/{chat_project_uid}` — 驗 admin role → LPUSH `project:memory:queue`
+  - [x] `POST /admin/memory/aggregate/user/{user_uid}` — 驗 admin role → LPUSH `user:memory:queue`
+  - [x] response：`{ "queued": true, "queue_depth": int }`
 
 ### 7-2 三層記憶讀取（給 admin debug 頁用）
 
-- [ ] `GET /admin/memory/projects/{chat_project_uid}` — 列出 `project_memory` 全部（不含 embedding）
-- [ ] `GET /admin/memory/users/{user_uid}` — 列出 `user_memory` 全部
-- [ ] `GET /admin/debug/memory/retrieve?session_uid=&query=` — 回傳 `ThreeLayerRagResult`（含未融合三層 + 融合後）；給 propose §3-4 層 3「檢索診斷」用
+- [x] `GET /admin/memory/projects/{chat_project_uid}` — 列出 `project_memory` 全部（不含 embedding）
+- [x] `GET /admin/memory/users/{user_uid}` — 列出 `user_memory` 全部
+- [x] `GET /admin/debug/memory/retrieve?session_uid=&query=` — 回傳 `ThreeLayerRagResult`（含未融合三層 + 融合後）；給 propose §3-4 層 3「檢索診斷」用
 
 ### 7-3 Swagger
 
-- [ ] 全部端點掛 `response_model` + `summary` + 中文 `description`
-- [ ] `/api/docs` 顯示新 admin 端點
+- [x] 全部端點掛 `response_model` + `summary` + 中文 `description`
+- [x] `/api/docs` 顯示新 admin 端點
 
 ---
 
