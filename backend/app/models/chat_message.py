@@ -50,3 +50,7 @@ class ChatMessage(MessageBase):
     attachment_uids: Mapped[list[uuid.UUID] | None] = mapped_column(
         ARRAY(Uuid), nullable=True
     )
+    # v1.3.3：assistant 訊息綁一個 Agent；user 訊息為 NULL。
+    responding_agent_uid: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, nullable=True
+    )
