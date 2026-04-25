@@ -284,7 +284,7 @@ async def update_skill(
             status_code=400,
         )
 
-    await skill_repository.update(skill, update_data, db)
+    await skill_repository.update_obj(skill, update_data, db)
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "skill", [skill_uid], db
     )
@@ -313,7 +313,7 @@ async def toggle_visibility(
         skill, user_uid, NOT_FOUND_DETAIL, "只有擁有者可以切換可見性"
     )
     assert skill is not None
-    await skill_repository.update(skill, {"visibility": data.visibility}, db)
+    await skill_repository.update_obj(skill, {"visibility": data.visibility}, db)
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "skill", [skill_uid], db
     )
@@ -635,7 +635,7 @@ async def reupload_skill(
             status_code=500,
         )
 
-    await skill_repository.update(
+    await skill_repository.update_obj(
         skill,
         {
             "original_filename": original_filename,
@@ -739,7 +739,7 @@ async def update_file_content(
 
     new_size = _rebuild_zip_with_replacement(zip_path, normalized, encoded)
 
-    await skill_repository.update(skill, {"file_size": new_size}, db)
+    await skill_repository.update_obj(skill, {"file_size": new_size}, db)
 
     return {
         "file_path": normalized,

@@ -70,7 +70,7 @@ async def create(agent_data: dict, db: AsyncSession) -> Agent:
     return agent
 
 
-async def update(agent: Agent, update_data: dict, db: AsyncSession) -> Agent:
+async def update_obj(agent: Agent, update_data: dict, db: AsyncSession) -> Agent:
     for key, value in update_data.items():
         setattr(agent, key, value)
     await db.flush()

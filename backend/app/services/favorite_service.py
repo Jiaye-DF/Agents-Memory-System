@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.access import ensure_readable
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
+from app.models.user_favorite import UserFavorite
 from app.repositories import (
     agent_repository,
     script_repository,
@@ -230,6 +231,30 @@ def _script_snapshot(script) -> dict:
     }
 
 
+async def _build_snapshot_map(
+    favs: list[UserFavorite],
+    resource_type: str,
+    db: AsyncSession,
+) -> dict[str, dict]:
+    """依型別批次撈出資源並回傳 {uid: snapshot}；軟刪 / 不存在的 uid 不會出現在 map 中（→ tombstone）。"""
+    uids = [
+        str(f.resource_uid) for f in favs if f.resource_type == resource_type
+    ]
+    if not uids:
+        return {}
+
+    if resource_type == "agent":
+        rows = await agent_repository.get_by_uids(uids, db)
+        return {str(r.agent_uid): _agent_snapshot(r) for r in rows}
+    if resource_type == "skill":
+        rows = await skill_repository.get_by_uids(uids, db)
+        return {str(r.skill_uid): _skill_snapshot(r) for r in rows}
+    if resource_type == "script":
+        rows = await script_repository.get_by_uids(uids, db)
+        return {str(r.script_uid): _script_snapshot(r) for r in rows}
+    return {}
+
+
 async def list_my_favorites(
     user_uid: str,
     resource_type: str | None,
@@ -245,63 +270,21 @@ async def list_my_favorites(
         user_uid, resource_type, page, size, db
     )
 
-    # 依 resource_type 分桶 → 批次抓 → 逐項組裝
-    agent_uids = [
-        str(f.resource_uid) for f in favs if f.resource_type == "agent"
-    ]
-    skill_uids = [
-        str(f.resource_uid) for f in favs if f.resource_type == "skill"
-    ]
-    script_uids = [
-        str(f.resource_uid) for f in favs if f.resource_type == "script"
-    ]
-
-    agent_map: dict[str, object] = {}
-    skill_map: dict[str, object] = {}
-    script_map: dict[str, object] = {}
-    if agent_uids:
-        # include_deleted=False：軟刪的資源當作 tombstone 處理
-        agents = await agent_repository.get_by_uids(agent_uids, db)
-        agent_map = {str(a.agent_uid): a for a in agents}
-    if skill_uids:
-        skills = await skill_repository.get_by_uids(skill_uids, db)
-        skill_map = {str(s.skill_uid): s for s in skills}
-    if script_uids:
-        scripts = await script_repository.get_by_uids(script_uids, db)
-        script_map = {str(s.script_uid): s for s in scripts}
+    snap_maps = {
+        rt: await _build_snapshot_map(favs, rt, db)
+        for rt in ("agent", "skill", "script")
+    }
 
     items: list[dict] = []
     for f in favs:
-        resource_snapshot: dict | None = None
-        tombstone: str | None = None
-        if f.resource_type == "agent":
-            agent = agent_map.get(str(f.resource_uid))
-            if agent is not None:
-                resource_snapshot = _agent_snapshot(agent)
-            else:
-                tombstone = "resource_removed"
-        elif f.resource_type == "skill":
-            skill = skill_map.get(str(f.resource_uid))
-            if skill is not None:
-                resource_snapshot = _skill_snapshot(skill)
-            else:
-                tombstone = "resource_removed"
-        elif f.resource_type == "script":
-            script = script_map.get(str(f.resource_uid))
-            if script is not None:
-                resource_snapshot = _script_snapshot(script)
-            else:
-                tombstone = "resource_removed"
-        else:
-            tombstone = "resource_removed"
-
+        snap = snap_maps[f.resource_type].get(str(f.resource_uid))
         items.append(
             {
                 "user_favorite_uid": str(f.user_favorite_uid),
                 "resource_type": f.resource_type,
                 "resource_uid": str(f.resource_uid),
-                "resource": resource_snapshot,
-                "tombstone_reason": tombstone,
+                "resource": snap,
+                "tombstone_reason": None if snap else "resource_removed",
                 "created_at": to_taipei_iso(f.created_at),
             }
         )

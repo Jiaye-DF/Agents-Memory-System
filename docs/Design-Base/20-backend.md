@@ -15,9 +15,16 @@ backend/app/
 │       ├── router.py       # v1 總路由（掛載各資源路由）
 │       ├── agents/         # Agent 管理
 │       ├── skills/         # Skills 管理
+│       ├── scripts/        # Script 管理（zip 打包資源）
 │       ├── chat/           # 對話領域（projects / sessions / messages / memories）
 │       ├── admin/          # admin 專屬（users / roles / llm-models / settings 等）
 │       ├── auth/           # 登入驗證
+│       ├── agent_languages/# Agent 語言清單（唯讀）
+│       ├── agent_templates/# Agent 範本清單（唯讀）
+│       ├── dashboard/      # 儀錶板（排行榜等）
+│       ├── models/         # LLM 模型清單（唯讀）
+│       ├── settings/       # 系統設定（公開部分唯讀）
+│       ├── social/         # 收藏 / 社群互動（與 agents/skills/scripts 共享路徑前綴）
 │       └── health.py       # 健康檢查
 ├── core/
 │   ├── config.py           # Settings（Pydantic BaseSettings）
@@ -29,9 +36,17 @@ backend/app/
 ├── schemas/                # Pydantic Request / Response Schema（結構對映 api/v1/）
 │   ├── agents/
 │   ├── skills/
+│   ├── scripts/
 │   ├── chat/
 │   ├── admin/
 │   ├── auth/
+│   ├── agent_languages/
+│   ├── agent_templates/
+│   ├── dashboard/
+│   ├── models/             # LLM 模型相關 Schema（對映 api/v1/models/）
+│   ├── settings/           # 系統設定相關 Schema（對映 api/v1/settings/）
+│   ├── social/             # 收藏 / 社群互動 Schema（對映 social router）
+│   ├── common.py           # 跨資源共用（如 VisibilityRequest）
 │   └── response.py         # ApiResponse 共用 Schema
 ├── services/               # 業務邏輯
 ├── repositories/           # 資料存取（SQL 查詢）

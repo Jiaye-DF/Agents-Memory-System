@@ -30,6 +30,8 @@ frontend/src/
 │       │   ├── page.tsx        # 游離 Session 列表
 │       │   ├── new/page.tsx    # 新建游離 Session
 │       │   └── [uid]/page.tsx  # Session 對話頁
+│       ├── scripts/
+│       │   └── page.tsx        # Script 管理（zip 打包資源，v1.2.3 起）
 │       ├── admin/              # admin 專屬路由群組
 │       │   ├── users/
 │       │   ├── models/

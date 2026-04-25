@@ -53,7 +53,7 @@ async def create(skill_data: dict, db: AsyncSession) -> Skill:
     return skill
 
 
-async def update(skill: Skill, update_data: dict, db: AsyncSession) -> Skill:
+async def update_obj(skill: Skill, update_data: dict, db: AsyncSession) -> Skill:
     for key, value in update_data.items():
         setattr(skill, key, value)
     await db.flush()

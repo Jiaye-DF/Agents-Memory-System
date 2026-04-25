@@ -219,7 +219,7 @@ async def update_agent(
         update_data["response_format_example"] = data.response_format_example
 
     if update_data:
-        await agent_repository.update(agent, update_data, db)
+        await agent_repository.update_obj(agent, update_data, db)
 
     if data.skill_uids is not None:
         await agent_repository.set_skill_uids(agent_uid, data.skill_uids, db)
@@ -257,7 +257,7 @@ async def toggle_visibility(
     )
     assert agent is not None
 
-    await agent_repository.update(agent, {"visibility": data.visibility}, db)
+    await agent_repository.update_obj(agent, {"visibility": data.visibility}, db)
     skills = await agent_repository.get_skills_summary(agent_uid, db)
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "agent", [agent_uid], db

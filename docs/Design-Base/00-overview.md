@@ -97,6 +97,33 @@
 
 ---
 
+## Monorepo 目錄結構
+
+```text
+Agents-Memory-System/
+├── backend/                # FastAPI 後端（詳見 20-backend.md § 目錄結構與分層）
+├── frontend/               # Next.js 前端（詳見 10-frontend.md § 目錄結構）
+├── migrations/             # Flyway 資料庫 Migration
+│   └── sql/                # V{版號}__{描述}.sql 檔（詳見 21-database.md § Migration）
+├── docs/                   # 規範與任務文件
+│   ├── Design-Base/        # 專案規範（本目錄）
+│   └── Tasks/              # 版本任務規格與 fixed.md
+│       ├── v{X.Y}/         # 各版本資料夾（含 propose / tasks / fixed.md）
+│       └── scan-project/   # `/scan-project` 指令輸出的歷次掃描報告
+├── .claude/                # Claude Code 自訂指令與 skills
+├── docker-compose.dev.yml  # 本機開發環境編排（postgres / redis / flyway / backend / frontend）
+├── .env.example            # 環境變數範本（供新開發者複製為 .env）
+├── .env                    # 實際環境變數（gitignored）
+├── .gitignore
+├── CLAUDE.md               # Claude Code 共用基本規範
+└── README.md
+```
+
+- 頂層**禁止**新增規範未登記的目錄；如有跨模組共用工具（scripts、tools 等），先於 Design-Base 補規範再建立。
+- `data/`（執行期儲存）由後端服務於 runtime 自動建立，已被 `.gitignore` 排除，不屬版控結構。
+
+---
+
 ## 細部規範索引
 
 | 文件 | 涵蓋範圍 |

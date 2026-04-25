@@ -108,17 +108,22 @@ COMMENT ON COLUMN "user".role_uid IS '所屬角色 UID（關聯 user_role）';
 
 ### member + admin 共用端點
 
-| 端點                               | 說明                                       |
-| ---------------------------------- | ------------------------------------------ |
-| `POST /api/v1/auth/logout`         | 登出                                       |
-| `POST /api/v1/auth/refresh`        | 換發 Token                                 |
-| `/api/v1/agents/*`                 | Agent 管理（僅限自身資源）                 |
-| `/api/v1/skills/*`                 | Skills 管理（僅限自身資源）                |
-| `/api/v1/memories/*`               | 記憶管理（僅限自身資源）                   |
-| `/api/v1/conversations/*`          | 對話管理（僅限自身資源）                   |
-| `GET /api/v1/models`               | 取得啟用中的 LLM 模型清單（唯讀）          |
-| `GET /api/v1/agent-languages`      | 取得啟用中的 Agent 語言清單（唯讀）        |
-| `GET /api/v1/settings/public`      | 取得 `is_public = TRUE` 的系統設定字典     |
+| 端點                                                    | 說明                                                                       |
+| ------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `POST   /api/v1/auth/logout`                            | 登出                                                                       |
+| `POST   /api/v1/auth/refresh`                           | 換發 Token                                                                 |
+| `/api/v1/agents/*`                                      | Agent 管理（僅限自身資源）                                                 |
+| `/api/v1/skills/*`                                      | Skills 管理（僅限自身資源）                                                |
+| `/api/v1/scripts/*`                                     | Script 管理（僅限自身資源；含 `GET /scripts/public` 公開瀏覽）             |
+| `/api/v1/chat/*`                                        | 對話 / 記憶管理（projects / sessions / messages / memories；僅限自身資源） |
+| `POST   /api/v1/{agents,skills,scripts}/{uid}/favorite` | 收藏（idempotent；軟刪後再呼叫即復活）                                     |
+| `DELETE /api/v1/{agents,skills,scripts}/{uid}/favorite` | 取消收藏（軟刪 `user_favorite`）                                           |
+| `GET    /api/v1/users/me/favorites`                     | 我的收藏列表（支援 tombstone 顯示已刪除來源）                              |
+| `GET    /api/v1/dashboard/*`                            | 儀錶板（如 `GET /dashboard/rankings` 排行榜）                              |
+| `GET    /api/v1/agent-templates`                        | 取得啟用中的 Agent 範本清單（唯讀）                                        |
+| `GET    /api/v1/models`                                 | 取得啟用中的 LLM 模型清單（唯讀）                                          |
+| `GET    /api/v1/agent-languages`                        | 取得啟用中的 Agent 語言清單（唯讀）                                        |
+| `GET    /api/v1/settings/public`                        | 取得 `is_public = TRUE` 的系統設定字典                                     |
 
 ### admin 專屬端點
 
@@ -128,6 +133,7 @@ COMMENT ON COLUMN "user".role_uid IS '所屬角色 UID（關聯 user_role）';
 | `/api/v1/admin/roles/*`           | 角色管理（新增、修改、停用角色）           |
 | `/api/v1/admin/llm-models/*`      | LLM 模型清單管理（新增、編輯、啟停、刪除） |
 | `/api/v1/admin/agent-languages/*` | Agent 語言清單管理（含預設語言切換）       |
+| `/api/v1/admin/agent-templates/*` | Agent 範本管理（新增、編輯、停用）         |
 | `/api/v1/admin/settings/*`        | 系統設定管理（含 `is_public` 切換）        |
 
 ---

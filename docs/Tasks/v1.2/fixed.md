@@ -181,6 +181,34 @@
 
 ---
 
+## 7. 收藏 Agent / Skill API 觸發 500 — 本地 `update` 函式 shadow 掉 SQLAlchemy `update`  〔2026-04-25 08:33:00〕
+
+**問題**：`POST /api/v1/agents/{uid}/favorite`（skill 同路徑同症狀）回 500。後端 log：
+
+```
+TypeError: update() missing 2 required positional arguments: 'update_data' and 'db'
+  File "/app/app/repositories/agent_repository.py", line 94, in increment_favorite_count
+    update(Agent)
+```
+
+**根因**：`agent_repository.py` / `skill_repository.py` 同時 `from sqlalchemy import ... update` 並定義 `async def update(entity, update_data, db)`，模組層的本地函式覆蓋了 SQLAlchemy 的 `update()`；`increment_favorite_count` / `increment_download_count` 內 `update(Agent)` 實際命中本地 async 函式，傳參不符 → TypeError。`script_repository` 已將本地函式命名為 `update_obj` 規避，agent / skill 兩個 repo 漏了。
+
+**修正**：
+
+1. `agent_repository.update` / `skill_repository.update` → `update_obj`（對齊 `script_repository` 既有慣例）
+2. `agent_service.py` / `skill_service.py` 對應 caller 同步改名
+3. 順手簡化 `favorite_service.list_my_favorites`：抽出 `_build_snapshot_map(favs, resource_type, db)` helper，主函式從約 70 行縮到 25 行（語意不變、tombstone 規則未動）
+
+**影響檔案**：
+
+- `backend/app/repositories/agent_repository.py`
+- `backend/app/repositories/skill_repository.py`
+- `backend/app/services/agent_service.py`
+- `backend/app/services/skill_service.py`
+- `backend/app/services/favorite_service.py`
+
+---
+
 ## 處理狀態
 
 | # | 項目 | 狀態 | Commit |
@@ -191,6 +219,7 @@
 | 4 | 儀錶板缺公開 Scripts 頁籤 + Script 缺 visibility | ✅ 已修 | — 待 commit-all |
 | 5 | 公開頁籤缺排序切換 + Ranking API 缺 `order` | ✅ 已修 | — 待 commit-all |
 | 6 | 排序 chip 分軸分向重構 + 「你最常用的」改 tab | ✅ 已修 | — 待 commit-all |
+| 7 | 收藏 API 500 — `update` shadow 修正 + favorite_service helper 抽出 | ✅ 已修 | — 待 commit-all |
 
 ---
 
