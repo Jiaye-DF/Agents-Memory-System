@@ -534,6 +534,7 @@ async def _process_batch(
                 session_uid, str(created.chat_memory_uid)
             )
             # v1.1.7：觸發 Skill 工廠（不阻塞；由 skill_factory_worker 獨立消費）
+            # v1.3.6：payload 加 scope='session'（向後相容：worker 缺 scope 時也視為 session）
             try:
                 if owner_user_uid:
                     redis = get_redis()
@@ -542,7 +543,9 @@ async def _process_batch(
                         json.dumps(
                             {
                                 "user_uid": owner_user_uid,
-                                "session_uid": session_uid,
+                                "scope": "session",
+                                "scope_uid": session_uid,
+                                "session_uid": session_uid,  # 過渡期保留兼容欄位
                             }
                         ),
                     )

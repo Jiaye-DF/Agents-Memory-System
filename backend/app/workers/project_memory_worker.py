@@ -259,6 +259,35 @@ async def _aggregate_project(
         groups_written=aggregated_count,
     )
 
+    # v1.3.6：聚合完成 → 觸發 Skill 工廠 project scope analyzer
+    if aggregated_count > 0 and owner_user_uid:
+        try:
+            redis = get_redis()
+            await redis.lpush(
+                "skill_factory_queue",
+                json.dumps(
+                    {
+                        "user_uid": owner_user_uid,
+                        "scope": "project",
+                        "scope_uid": project_uid,
+                    }
+                ),
+            )
+            _log_event(
+                "skill_factory_trigger",
+                project_uid,
+                outcome="ok",
+                user_uid=owner_user_uid,
+            )
+        except Exception as exc:
+            _log_event(
+                "skill_factory_trigger",
+                project_uid,
+                outcome="failed",
+                level="warning",
+                error=str(exc),
+            )
+
 
 def _group_by_topic(memories: list[ChatMemory]) -> dict[str, list[ChatMemory]]:
     """以 topic 字串為 key 分群（None / 空字串歸到 "_untitled"）。

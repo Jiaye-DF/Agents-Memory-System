@@ -270,6 +270,34 @@ async def _aggregate_user(user_uid: str, db: Any) -> None:
         groups_written=aggregated_count,
     )
 
+    # v1.3.6：聚合完成 → 觸發 Skill 工廠 user scope analyzer
+    if aggregated_count > 0:
+        try:
+            redis = get_redis()
+            await redis.lpush(
+                "skill_factory_queue",
+                json.dumps(
+                    {
+                        "user_uid": user_uid,
+                        "scope": "user",
+                        "scope_uid": user_uid,
+                    }
+                ),
+            )
+            _log_event(
+                "skill_factory_trigger",
+                user_uid,
+                outcome="ok",
+            )
+        except Exception as exc:
+            _log_event(
+                "skill_factory_trigger",
+                user_uid,
+                outcome="failed",
+                level="warning",
+                error=str(exc),
+            )
+
 
 def _group_by_topic(memories: list[ChatMemory]) -> dict[str, list[ChatMemory]]:
     groups: dict[str, list[ChatMemory]] = defaultdict(list)

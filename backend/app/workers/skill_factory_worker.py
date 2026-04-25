@@ -1,4 +1,17 @@
-"""v1.1.7 Skill 工廠 worker：消費 skill_factory_queue，呼叫 analyze_session。"""
+"""Agentic Skill 工廠 Worker（v1.3.6）。
+
+消費 `skill_factory_queue`，依 payload 的 `scope` 路由到對應 analyzer：
+- scope='session' → analyze_session
+- scope='project' → analyze_project
+- scope='user'    → analyze_user
+
+向後相容：v1.1.7 PoC payload `{ user_uid, session_uid }`（無 scope）
+視為 scope='session' 處理。
+
+失敗策略沿用 v1.1.7：重試 2 次後純 log，不阻塞其他任務。
+"""
+
+from __future__ import annotations
 
 import asyncio
 import json
@@ -17,8 +30,8 @@ MAX_RETRY = 2
 
 
 async def run() -> None:
-    """主迴圈：從 skill_factory_queue 取事件 → analyze_session。失敗記 log 不阻塞。"""
-    logger.info("skill_factory_worker 啟動")
+    """主迴圈：從 skill_factory_queue 取事件 → analyze。失敗記 log 不阻塞。"""
+    logger.info("skill_factory_worker 啟動（v1.3.6 三 scope 路由）")
 
     while True:
         try:
@@ -44,48 +57,74 @@ async def run() -> None:
             _, raw = item
             data = json.loads(raw)
             user_uid = data.get("user_uid")
-            session_uid = data.get("session_uid")
+            # v1.3.6：新欄位 scope / scope_uid；缺則退回 v1.1.7 行為
+            scope = data.get("scope") or "session"
+            scope_uid = data.get("scope_uid") or data.get("session_uid")
         except Exception as exc:
             logger.warning("skill_factory_worker 解析 queue item 失敗: %s", exc)
             continue
 
-        if not user_uid or not session_uid:
+        if not user_uid or not scope_uid:
             logger.warning(
-                "skill_factory_worker 收到不完整事件: user_uid=%s session_uid=%s",
+                "skill_factory_worker 收到不完整事件: user_uid=%s scope=%s scope_uid=%s",
                 user_uid,
-                session_uid,
+                scope,
+                scope_uid,
             )
             continue
 
-        await _handle(user_uid, session_uid)
+        if scope not in ("session", "project", "user"):
+            logger.warning(
+                "skill_factory_worker 不認識的 scope=%s（user=%s scope_uid=%s）",
+                scope,
+                user_uid,
+                scope_uid,
+            )
+            continue
+
+        await _handle(scope, scope_uid, user_uid)
 
 
-async def _handle(user_uid: str, session_uid: str) -> None:
+async def _handle(scope: str, scope_uid: str, user_uid: str) -> None:
     last_err: Exception | None = None
     for attempt in range(MAX_RETRY):
         try:
             async with AsyncSessionLocal() as db:
-                await skill_factory_service.analyze_session(
-                    session_uid=session_uid,
-                    user_uid=user_uid,
-                    db=db,
-                )
+                if scope == "session":
+                    await skill_factory_service.analyze_session(
+                        session_uid=scope_uid,
+                        user_uid=user_uid,
+                        db=db,
+                    )
+                elif scope == "project":
+                    await skill_factory_service.analyze_project(
+                        project_uid=scope_uid,
+                        user_uid=user_uid,
+                        db=db,
+                    )
+                else:  # user
+                    await skill_factory_service.analyze_user(
+                        user_uid=scope_uid,
+                        db=db,
+                    )
                 await db.commit()
             return
         except Exception as exc:
             last_err = exc
             logger.warning(
-                "skill_factory_worker 處理失敗 session=%s attempt=%s: %s",
-                session_uid,
+                "skill_factory_worker 處理失敗 scope=%s scope_uid=%s attempt=%s: %s",
+                scope,
+                scope_uid,
                 attempt + 1,
                 exc,
             )
             await asyncio.sleep(1 + attempt)
 
     logger.exception(
-        "skill_factory_worker 重試耗盡 session=%s err=%s",
-        session_uid,
+        "skill_factory_worker 重試耗盡 scope=%s scope_uid=%s err=%s",
+        scope,
+        scope_uid,
         last_err,
     )
-    # 本 PoC 不設 DLQ：純失敗只 log，不阻塞其他 session
+    # 本版不設 DLQ：純失敗只 log，不阻塞其他事件
     _ = time.time()
