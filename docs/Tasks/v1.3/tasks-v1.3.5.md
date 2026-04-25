@@ -201,7 +201,7 @@
 
 ### 3-1 Worker 主體
 
-- [ ] `backend/app/workers/project_memory_worker.py`
+- [x] `backend/app/workers/project_memory_worker.py`
   - 參考 `memory_worker.py` 結構（Redis queue + lifespan）
   - QUEUE_KEY = `project:memory:queue`、DLQ = `project:memory:dlq`
   - 主迴圈：
@@ -212,28 +212,28 @@
     - 聚合輸出產生 `embedding`
     - 寫入 `project_memory`（v0.1 先 insert，無 mem0 四向決策）
     - 同 transaction 寫入 `source_session_uids` = 該群涉及的 session_uid 集合
-- [ ] 觸發來源：
+- [x] 觸發來源：
   - 自動：`memory_worker` 寫完 `chat_memory` 後若該 project 距上次聚合 ≥ idle_hours，LPUSH 一筆觸發訊號
   - 手動：admin endpoint（§7）
 
 ### 3-2 LLM prompt（繁體中文硬規範）
 
-- [ ] 在 `app/clients/openrouter/client.py` 或新檔 `prompts/memory_aggregation.py` 定義 `PROJECT_MEMORY_AGGREGATE_SYSTEM_PROMPT`
+- [x] 在 `app/clients/openrouter/client.py` 或新檔 `prompts/memory_aggregation.py` 定義 `PROJECT_MEMORY_AGGREGATE_SYSTEM_PROMPT` —（已建於 `app/clients/openrouter/memory_aggregation_prompts.py`，與既有 prompt 同 package）
   - 明確指示「輸出一律使用**繁體中文**，禁止依輸入語言切換」（propose §2-1 硬規範）
   - 抽取目標：合併同主題的 keywords / entities / 重新生成 topic 摘要
   - response 格式對齊既有 `extract_memory` 的 pydantic schema
-- [ ] worker 呼叫端點：`extract_memory(messages, model, system_prompt=PROJECT_MEMORY_AGGREGATE_SYSTEM_PROMPT)` — 須走 `llm_metering` wrapper（call_kind=`memory_aggregate_project`）
+- [x] worker 呼叫端點：`extract_memory(messages, model, system_prompt=PROJECT_MEMORY_AGGREGATE_SYSTEM_PROMPT)` — 須走 `llm_metering` wrapper（call_kind=`memory_aggregate_project`） —（已改為共用 `purpose='memory_extract'` + `system_prompt` override；call_kind 區分由 v1.3.0 wrapper 後續擴 metadata 欄位再分）
 
 ### 3-3 容錯與 DLQ
 
-- [ ] MAX_RETRY = 3，重試之間 `sleep(1 + attempt)`
-- [ ] 超過上限 → `project:memory:dlq`，log error
-- [ ] 任一群聚合失敗不影響其他群（per-group try / except）
+- [x] MAX_RETRY = 3，重試之間 `sleep(1 + attempt)`
+- [x] 超過上限 → `project:memory:dlq`，log error
+- [x] 任一群聚合失敗不影響其他群（per-group try / except）
 
 ### 3-4 lifespan 整合
 
-- [ ] `backend/app/main.py` lifespan 啟動 `project_memory_worker.run` 為 background task（與 `memory_worker` 並列）
-- [ ] 健康檢查：`/health` endpoint 補回報 `project_memory_queue_depth` / `project_memory_dlq_depth`（沿用 v1.3.1 的 health 擴充慣例）
+- [x] `backend/app/main.py` lifespan 啟動 `project_memory_worker.run` 為 background task（與 `memory_worker` 並列）
+- [x] 健康檢查：`/health` endpoint 補回報 `project_memory_queue_depth` / `project_memory_dlq_depth`（沿用 v1.3.1 的 health 擴充慣例）
 
 ---
 

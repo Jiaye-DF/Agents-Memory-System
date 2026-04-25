@@ -10,7 +10,11 @@ from app.api.v1.router import v1_router
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.redis import close_redis, init_redis
-from app.workers import memory_worker, skill_factory_worker
+from app.workers import (
+    memory_worker,
+    project_memory_worker,
+    skill_factory_worker,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +31,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         worker_tasks.append(asyncio.create_task(skill_factory_worker.run()))
     except Exception as exc:
         logger.warning("skill_factory_worker 啟動失敗: %s", exc)
+    # v1.3.5：跨層聚合 worker（user_memory_worker 於 Phase 4 加入）
+    try:
+        worker_tasks.append(asyncio.create_task(project_memory_worker.run()))
+    except Exception as exc:
+        logger.warning("project_memory_worker 啟動失敗: %s", exc)
     try:
         yield
     finally:

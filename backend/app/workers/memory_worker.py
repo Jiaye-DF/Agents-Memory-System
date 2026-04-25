@@ -9,7 +9,12 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
-from app.core.queue_keys import MEMORY_DLQ_KEY, MEMORY_QUEUE_KEY
+from app.core.queue_keys import (
+    MEMORY_DLQ_KEY,
+    MEMORY_QUEUE_KEY,
+    PROJECT_MEMORY_QUEUE_KEY,
+    USER_MEMORY_QUEUE_KEY,
+)
 from app.core.redis import get_redis
 from app.models.chat_message import ChatMessage
 from app.repositories import (
@@ -547,6 +552,21 @@ async def _process_batch(
                     session_uid,
                     exc,
                 )
+            # v1.3.5：條件式觸發 project / user 二次聚合
+            #   project：session 屬某 project + 距上次觸發 ≥ idle_hours
+            #   user：每寫一筆 chat_memory + 距上次觸發 ≥ idle_hours
+            try:
+                await _maybe_enqueue_aggregations(
+                    session_obj=session_obj,
+                    owner_user_uid=owner_user_uid,
+                    db=db,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "memory_worker 觸發跨層聚合失敗（不影響主流程） session=%s: %s",
+                    session_uid,
+                    exc,
+                )
             return
         except Exception as exc:
             last_err = exc
@@ -610,3 +630,129 @@ async def _process_batch(
         [str(u) for u in message_uids],
         str(last_err) if last_err else "unknown",
     )
+
+
+# ---------- v1.3.5：跨層聚合觸發（idle 閾值控制） ----------
+
+# 記住上次觸發時間：Redis key（每個 project / user 各一）
+_PROJECT_LAST_TRIGGER_KEY = "project:memory:last_trigger:{}"
+_USER_LAST_TRIGGER_KEY = "user:memory:last_trigger:{}"
+_DEFAULT_PROJECT_IDLE_HOURS = 6
+_DEFAULT_USER_IDLE_HOURS = 24
+
+
+async def _maybe_enqueue_aggregations(
+    *,
+    session_obj: Any,
+    owner_user_uid: str | None,
+    db: AsyncSession,
+) -> None:
+    """寫完 chat_memory 後判斷是否觸發 project / user 聚合。
+
+    觸發條件：距上次觸發 ≥ idle_hours（從 Redis key 讀），達標才 LPUSH 訊號。
+    無 project（游離 session）時跳過 project 觸發；user 觸發只要有 owner 即可。
+    """
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        return
+
+    now_ts = time.time()
+
+    # ---- project 層 ----
+    project_uid: str | None = None
+    if session_obj is not None and session_obj.chat_project_uid is not None:
+        project_uid = str(session_obj.chat_project_uid)
+
+    if project_uid:
+        try:
+            project_idle_hours = await system_setting_service.get_int(
+                "memory.project.aggregate_idle_hours",
+                _DEFAULT_PROJECT_IDLE_HOURS,
+                db,
+            )
+        except Exception:
+            project_idle_hours = _DEFAULT_PROJECT_IDLE_HOURS
+        idle_seconds = max(1, project_idle_hours) * 3600
+
+        last_key = _PROJECT_LAST_TRIGGER_KEY.format(project_uid)
+        try:
+            last_raw = await redis.get(last_key)
+            last_ts = float(last_raw) if last_raw else 0.0
+        except Exception:
+            last_ts = 0.0
+
+        if now_ts - last_ts >= idle_seconds:
+            try:
+                await redis.lpush(
+                    PROJECT_MEMORY_QUEUE_KEY,
+                    json.dumps(
+                        {
+                            "project_uid": project_uid,
+                            "owner_user_uid": owner_user_uid,
+                            "trigger_at": now_ts,
+                        }
+                    ),
+                )
+                # idle 計時用 SETEX，TTL 取 idle 的兩倍避免過早遺忘
+                await redis.set(
+                    last_key,
+                    str(now_ts),
+                    ex=idle_seconds * 2,
+                )
+                logger.info(
+                    "memory_worker 觸發 project 聚合 project=%s",
+                    project_uid,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "memory_worker 推入 project_memory_queue 失敗 project=%s: %s",
+                    project_uid,
+                    exc,
+                )
+
+    # ---- user 層 ----
+    if owner_user_uid:
+        try:
+            user_idle_hours = await system_setting_service.get_int(
+                "memory.user.aggregate_idle_hours",
+                _DEFAULT_USER_IDLE_HOURS,
+                db,
+            )
+        except Exception:
+            user_idle_hours = _DEFAULT_USER_IDLE_HOURS
+        idle_seconds = max(1, user_idle_hours) * 3600
+
+        last_key = _USER_LAST_TRIGGER_KEY.format(owner_user_uid)
+        try:
+            last_raw = await redis.get(last_key)
+            last_ts = float(last_raw) if last_raw else 0.0
+        except Exception:
+            last_ts = 0.0
+
+        if now_ts - last_ts >= idle_seconds:
+            try:
+                await redis.lpush(
+                    USER_MEMORY_QUEUE_KEY,
+                    json.dumps(
+                        {
+                            "user_uid": owner_user_uid,
+                            "trigger_at": now_ts,
+                        }
+                    ),
+                )
+                await redis.set(
+                    last_key,
+                    str(now_ts),
+                    ex=idle_seconds * 2,
+                )
+                logger.info(
+                    "memory_worker 觸發 user 聚合 user=%s",
+                    owner_user_uid,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "memory_worker 推入 user_memory_queue 失敗 user=%s: %s",
+                    owner_user_uid,
+                    exc,
+                )

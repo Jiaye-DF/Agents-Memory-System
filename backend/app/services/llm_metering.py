@@ -204,9 +204,11 @@ async def _dispatch_non_stream(
         # extract_memory(messages, model) → MemoryExtractResult，本身不回 usage
         # OpenRouter API 回應的 usage 在 client 內部已被丟棄，此處 baseline / actual 將為 0
         # （v1.3.0 暫不回填，後續若需精確計費再擴 client 介面）
+        # v1.3.5：support system_prompt override（project / user 二次聚合用）
         result = await openrouter_client.extract_memory(
             messages=call_kwargs["messages"],
             model=call_kwargs["model"],
+            system_prompt=call_kwargs.get("system_prompt"),
         )
         return result, None
 

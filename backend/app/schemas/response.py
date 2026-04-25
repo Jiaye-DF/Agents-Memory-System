@@ -28,6 +28,11 @@ class HealthData(BaseModel):
     # v1.3.1：記憶 pipeline queue / DLQ 長度（Redis 不通時為 None）
     memory_queue_len: int | None = None
     memory_dlq_len: int | None = None
+    # v1.3.5：跨層聚合 worker queue / DLQ 長度
+    project_memory_queue_len: int | None = None
+    project_memory_dlq_len: int | None = None
+    user_memory_queue_len: int | None = None
+    user_memory_dlq_len: int | None = None
 
 
 class TokenData(BaseModel):

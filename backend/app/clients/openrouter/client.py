@@ -457,11 +457,17 @@ async def embed(text: str) -> list[float]:
 
 
 async def extract_memory(
-    messages: list[dict], model: str
+    messages: list[dict],
+    model: str,
+    system_prompt: str | None = None,
 ) -> MemoryExtractResult:
     """
     呼叫 OpenRouter 小模型，以 JSON schema 結構化輸出抽取記憶欄位。
     失敗直接拋 AppError 由呼叫端決定重試 / DLQ。
+
+    `system_prompt` 為 v1.3.5 新增：當為 `project_memory_worker` /
+    `user_memory_worker` 二次聚合時，需要指定不同的 prompt（合併同主題 /
+    抽長期偏好）。未指定時沿用 `MEMORY_EXTRACT_SYSTEM_PROMPT`。
 
     **內部 API**：外部請呼叫 ``app.services.llm_metering.call_llm_metered``
     （purpose='memory_extract'）。集中進入點規範見
@@ -481,8 +487,9 @@ async def extract_memory(
         "X-Title": settings.OPENROUTER_APP_TITLE,
     }
 
+    effective_system = system_prompt or MEMORY_EXTRACT_SYSTEM_PROMPT
     payload_messages: list[dict] = [
-        {"role": "system", "content": MEMORY_EXTRACT_SYSTEM_PROMPT},
+        {"role": "system", "content": effective_system},
         *messages,
     ]
 
