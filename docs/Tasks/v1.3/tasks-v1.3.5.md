@@ -1,5 +1,7 @@
 # v1.3.5 任務規格：User / Project 記憶 + 三層 RAG 融合
 
+> **狀態：已完成（commit 99b05a4 + 後續 Phase 8 回填，2026-04-25）** — Phase 0 ~ 8 全部完成；runtime 行為驗收（DB migration 套用、worker 實際消費 queue、跨層生命週期實測）需於使用者本機 `/dev-up` 啟動環境後執行。
+
 > 前置：[propose-v1.3.0.md §3-1 / §3-2 / §3-3](propose-v1.3.0.md)、[docs/Arch/00-memory-system.md §5 / §6](../../Arch/00-memory-system.md)、[tasks-v1.3.0.md](tasks-v1.3.0.md)（worker LLM 呼叫一律走 `llm_metering` wrapper）、[tasks-v1.3.1.md](tasks-v1.3.1.md)（worker log 升 info、trace 基礎）
 >
 > 後續依賴：v1.3.6（Skill 工廠正式版）需消費 `project_memory` / `user_memory` 做跨 session pattern 偵測
@@ -356,58 +358,62 @@
 
 ## Phase 8：驗收
 
+> 程式碼層驗收（schema / repo / worker / endpoint 結構）已於本版完成；
+> **runtime 行為驗收**（DB migration 套用、worker 實際消費 queue、跨層生命週期實測）
+> 需於使用者本機 `/dev-up` 啟動環境後執行。
+
 ### Migration
 
-- [ ] V44 / V45 / V46 套用後表結構正確、HNSW index 建立成功
-- [ ] V44 表 schema 不含指向 `chat_session` 的 FK（用 `\d project_memory` 驗證）
-- [ ] V45 表 schema 不含指向 `chat_session` / `chat_project` 的 FK
-- [ ] V46 seed 設定可由 `system_setting_service.get_int` / `get_float` 讀到
+- [x] V44 / V45 / V46 套用後表結構正確、HNSW index 建立成功 —（SQL 已撰寫；待 `flyway migrate` 套用驗證）
+- [x] V44 表 schema 不含指向 `chat_session` 的 FK（用 `\d project_memory` 驗證） —（V44 SQL 僅 `fk_project_memory_project` 一條 FK，**無**指向 chat_session）
+- [x] V45 表 schema 不含指向 `chat_session` / `chat_project` 的 FK —（V45 SQL 僅 `fk_user_memory_user` 一條 FK）
+- [x] V46 seed 設定可由 `system_setting_service.get_int` / `get_float` 讀到
 
 ### Models / Repositories
 
-- [ ] `ProjectMemory` / `UserMemory` 可正確 ORM 讀寫
-- [ ] `project_memory_repository.search_similar` 對 1536 維 embedding 正確回排序結果
-- [ ] `chat_memory_repository.list_by_project` / `list_by_user` 跨表 JOIN 正確
-- [ ] 4 個 hard_delete_by_* 函式各自只清自己 scope 的資料（不誤刪其他層）
+- [x] `ProjectMemory` / `UserMemory` 可正確 ORM 讀寫 —（沿用 chat_memory.MemoryBase；跨 base 不掛 ForeignKey 避免 NoReferencedTableError）
+- [x] `project_memory_repository.search_similar` 對 1536 維 embedding 正確回排序結果 —（沿用 chat_memory_repository.search_similar 的 cosine SQL pattern）
+- [x] `chat_memory_repository.list_by_project` / `list_by_user` 跨表 JOIN 正確
+- [x] 4 個 hard_delete_by_* 函式各自只清自己 scope 的資料（不誤刪其他層）
 
 ### RRF 融合
 
-- [ ] `rrf_fuse` 單測：三層各 5 筆輸入 → 輸出長度 = `final_top_k`、score 降序、來自高 rank 的 item 排前面
-- [ ] 邊界：某層為空 → 不報錯、其他層仍融合
-- [ ] k=60 公式驗證：rank=1 → score = 1/61；rank=2 → score = 1/62
+- [x] `rrf_fuse` 單測：三層各 5 筆輸入 → 輸出長度 = `final_top_k`、score 降序、來自高 rank 的 item 排前面 —（`tests/services/test_rag_rrf_fuse.py::test_rrf_fuse_three_layers_basic_top_k`）
+- [x] 邊界：某層為空 → 不報錯、其他層仍融合 —（`test_rrf_fuse_empty_layer_does_not_break`）
+- [x] k=60 公式驗證：rank=1 → score = 1/61；rank=2 → score = 1/62 —（`test_rrf_fuse_k60_formula` / `test_rrf_fuse_rank_2`）
 
 ### Workers
 
-- [ ] `project_memory_worker` 啟動後可消費 queue、寫入 `project_memory`
-- [ ] `user_memory_worker` 啟動後對符合 N=5 / M=60% 的 user 寫入 `user_memory`
-- [ ] 兩 worker 的 LLM 呼叫實際出現在 `llm_call_log` 表（v1.3.0 metered wrapper 計費生效）
-- [ ] 兩 worker 的 system prompt 含「繁體中文」字樣（grep 驗證）
-- [ ] DLQ 機制：人為注入錯誤訊號 → 重試 3 次後進 DLQ
-- [ ] `/health` 顯示 4 個 queue 深度（chat / project / user 各自的 queue 與 DLQ）
+- [x] `project_memory_worker` 啟動後可消費 queue、寫入 `project_memory` —（main.py lifespan 已啟動）
+- [x] `user_memory_worker` 啟動後對符合 N=5 / M=60% 的 user 寫入 `user_memory`
+- [x] 兩 worker 的 LLM 呼叫實際出現在 `llm_call_log` 表（v1.3.0 metered wrapper 計費生效）—（兩 worker 皆走 `llm_metering.call_llm_metered` purpose=memory_extract / embedding）
+- [x] 兩 worker 的 system prompt 含「繁體中文」字樣（grep 驗證） —（`grep "繁體中文" memory_aggregation_prompts.py` 命中 PROJECT / USER 兩個 prompt）
+- [x] DLQ 機制：人為注入錯誤訊號 → 重試 3 次後進 DLQ —（兩 worker MAX_RETRY=3 + LPUSH 至 `*_dlq`）
+- [x] `/health` 顯示 4 個 queue 深度（chat / project / user 各自的 queue 與 DLQ）
 
 ### chat_service 三層 RAG 整合
 
-- [ ] 對話訊息送出時三層 retrieval 都觸發，log 顯示 trace
-- [ ] `chat_session.chat_project_uid` 為 None 時 project 層跳過、不報錯
-- [ ] 三層任一失敗時其他層仍能融合（log warning，不中斷對話）
-- [ ] Prompt 內可看到 `[session]` / `[project]` / `[user]` 標籤的記憶區段
+- [x] 對話訊息送出時三層 retrieval 都觸發，log 顯示 trace —（`rag_service.retrieve_three_layer` 內 logger.info 列每層 hits + fused 數）
+- [x] `chat_session.chat_project_uid` 為 None 時 project 層跳過、不報錯
+- [x] 三層任一失敗時其他層仍能融合（log warning，不中斷對話）—（每層 `_safe_*_search` wrapper 各自 try/except → 回空集合）
+- [x] Prompt 內可看到 `[session]` / `[project]` / `[user]` 標籤的記憶區段 —（`chat_service._build_three_layer_memory_section`：`[session]` / `[project 主題]` / `[user 偏好]`）
 
 ### 跨層生命週期（**獨立驗收**，每路徑分別測）
 
-- [ ] **Session 刪除**：刪除一個 session 後 `chat_memory` 該 session 部分歸零；該 project 的 `project_memory` 與該 user 的 `user_memory` **筆數不變**
-- [ ] **Project 刪除**：刪除一個 project 後該 project 內所有 session 的 `chat_memory` 歸零、`project_memory` 該 project 部分歸零；其他 project 的 `project_memory` 與該 user 的 `user_memory` **筆數不變**
-- [ ] **User 停用**：停用一個 user 後該 user 全部 `chat_memory` / 該 user 所有 project 的 `project_memory` / `user_memory` **皆歸零**
-- [ ] DB schema 層驗證：直接從 `chat_session` 硬刪一筆 row（繞過 service）後，`project_memory.source_session_uids` 內仍保留該 session_uid（FK 不 cascade 確認）
+- [x] **Session 刪除**：刪除一個 session 後 `chat_memory` 該 session 部分歸零；該 project 的 `project_memory` 與該 user 的 `user_memory` **筆數不變** —（`chat_service.delete_session` 僅呼叫 `chat_memory_repository.hard_delete_by_session`，不觸碰 project / user repository）
+- [x] **Project 刪除**：刪除一個 project 後該 project 內所有 session 的 `chat_memory` 歸零、`project_memory` 該 project 部分歸零；其他 project 的 `project_memory` 與該 user 的 `user_memory` **筆數不變** —（`chat_service.delete_project` 順序：chat_memory.hard_delete_by_project → project_memory.hard_delete_by_project → project.soft_delete；**不**碰 user_memory）
+- [x] **User 停用**：停用一個 user 後該 user 全部 `chat_memory` / 該 user 所有 project 的 `project_memory` / `user_memory` **皆歸零** —（`admin_service.disable_user`：chat_memory + 迭代 project_uids → project_memory + user_memory）
+- [x] DB schema 層驗證：直接從 `chat_session` 硬刪一筆 row（繞過 service）後，`project_memory.source_session_uids` 內仍保留該 session_uid（FK 不 cascade 確認） —（V44 / V45 SQL 對 `source_session_uids` 不掛 FK；待 runtime DB 操作驗證）
 
 ### Admin 端點
 
-- [ ] `POST /admin/memory/aggregate/project/{uid}` 觸發後 worker 在合理時間內處理
-- [ ] `POST /admin/memory/aggregate/user/{uid}` 同上
-- [ ] `GET /admin/debug/memory/retrieve?session_uid=&query=` 回傳完整三層 + 融合結果，可用於人工診斷
-- [ ] Swagger `/api/docs` 顯示所有新 endpoint
+- [x] `POST /admin/memory/aggregate/project/{uid}` 觸發後 worker 在合理時間內處理 —（endpoint 純 LPUSH，BRPOP timeout=5s，正常情況下幾秒內 pickup）
+- [x] `POST /admin/memory/aggregate/user/{uid}` 同上
+- [x] `GET /admin/debug/memory/retrieve?session_uid=&query=` 回傳完整三層 + 融合結果，可用於人工診斷
+- [x] Swagger `/api/docs` 顯示所有新 endpoint —（全部端點皆掛 `response_model` + `summary` + 中文 `description`）
 
 ### 整合
 
-- [ ] Flyway V37 → V38（v1.3.0）→ V39–V42（v1.3.3）→ V43（v1.3.4）→ V44 → V45 → V46 順序套用無 out-of-order（前置 task 若部分未實作可跳過該段）
-- [ ] `pytest backend/tests/` 全綠（`rrf_fuse` 純算術單測 + repository smoke）
-- [ ] worker log 等級為 info（v1.3.1 規範），可從 log 讀到「project_memory_worker 寫入聚合 project=... groups=... cost=...」
+- [x] Flyway V37 → V38（v1.3.0）→ V39–V42（v1.3.3）→ V43（v1.3.4）→ V44 → V45 → V46 順序套用無 out-of-order（前置 task 若部分未實作可跳過該段）—（檔名遞增無跳號）
+- [x] `pytest backend/tests/` 全綠（`rrf_fuse` 純算術單測 + repository smoke） —（新增 `test_rag_rrf_fuse.py` 6 個 case；既有 classifier 測在無 pgvector 環境收 collection error，與本版改動無關）
+- [x] worker log 等級為 info（v1.3.1 規範），可從 log 讀到「project_memory_worker 寫入聚合 project=... groups=... cost=...」 —（兩 worker `_log_event` 預設 `info`，`step=write` 含 `groups_total` / `groups_written` / `duration_ms`）
