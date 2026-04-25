@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useChatStream } from "@/hooks/useChatStream";
 import { useDialog } from "@/hooks/useDialog";
 import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
+import { useSessionEvents } from "@/hooks/useSessionEvents";
 import { useGetAgentQuery, useUpdateAgentMutation } from "@/store/agentsApi";
 import {
   useApproveSkillSuggestionMutation,
@@ -408,6 +409,9 @@ export default function SessionChatPage(): React.ReactNode {
     () => memoriesData?.items ?? [],
     [memoriesData],
   );
+
+  // v1.3.2：訂閱 session SSE 事件，memory_worker 寫入後自動 refetch 記憶列表
+  useSessionEvents(session ? sessionUid : null);
 
   useEffect(() => {
     if (memoryOpen) {

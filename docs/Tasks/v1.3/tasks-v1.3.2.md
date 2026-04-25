@@ -180,19 +180,19 @@
 
 ### 4-1 Session 頁面 mount hook
 
-- [ ] `frontend/src/app/(main)/sessions/[uid]/page.tsx`：
-  - 在現有 `useListMemoriesQuery({ sessionUid })` 旁，呼叫 `useSessionEvents(sessionUid)`
+- [x] `frontend/src/app/(main)/sessions/[uid]/page.tsx`：
+  - 在現有 `useListMemoriesQuery({ sessionUid })` 旁，呼叫 `useSessionEvents(sessionUid)` —（已改為 `useSessionEvents(session ? sessionUid : null)`，先確保 session 載入成功 / 擁有權通過再建連，避免 404 觸發 SSE 重連風暴）
   - 驗證：mount 時建連、unmount 時關閉（透過瀏覽器 DevTools Network → EventStream 觀察）
 
 ### 4-2 抽屜 / 記憶面板互動確認
 
-- [ ] 既有「打開抽屜時 refetch」與「手動 🔄 refetch」行為**不**移除（fail-safe，使用者仍可主動觸發）
-- [ ] SSE invalidate 與既有手動 refetch 共存，RTK Query 內建 dedup 不會重複請求
+- [x] 既有「打開抽屜時 refetch」與「手動 🔄 refetch」行為**不**移除（fail-safe，使用者仍可主動觸發）
+- [x] SSE invalidate 與既有手動 refetch 共存，RTK Query 內建 dedup 不會重複請求
 
 ### 4-3 既有 `POST /messages` SSE 不動
 
-- [ ] 確認既有訊息 SSE 行為與本版互不影響（兩條獨立 EventSource / fetch stream）
-- [ ] 既有 `useSendMessageMutation` 流程不變
+- [x] 確認既有訊息 SSE 行為與本版互不影響（兩條獨立 EventSource / fetch stream）
+- [x] 既有 `useSendMessageMutation` 流程不變
 
 ---
 
