@@ -138,19 +138,19 @@
 
 ### 3-1 Hook 介面與型別
 
-- [ ] 新增 `frontend/src/hooks/useSessionEvents.ts`：
+- [x] 新增 `frontend/src/hooks/useSessionEvents.ts`：
   - 簽名：`useSessionEvents(sessionUid: string | null | undefined): void`（無回傳；side-effect hook）
   - `sessionUid` 為空時：直接 return（避免空頁載入時建連）
-- [ ] 事件型別常數：與後端對齊
+- [x] 事件型別常數：與後端對齊
   ```ts
   export type SessionEventName = "memory_updated" | "memory_failed" | "session_archived" | "ready";
   ```
-  
+
 ### 3-2 EventSource 建立與 token 取得
 
-- [ ] hook 內 `useEffect`：
-  - 從既有 token 來源（與 RTK Query baseQuery 同一處）取 access token；若無 token，return（不建連）
-  - URL：`${API_BASE_URL}/api/v1/chat/sessions/${sessionUid}/events?token=${encodeURIComponent(token)}`
+- [x] hook 內 `useEffect`：
+  - 從既有 token 來源（與 RTK Query baseQuery 同一處）取 access token；若無 token，return（不建連） —（已改為 token 缺漏時直接 fallback 到 polling，避免使用者剛登入頁面切過來時錯失連線）
+  - URL：`${API_BASE_URL}/api/v1/chat/sessions/${sessionUid}/events?token=${encodeURIComponent(token)}`（`NEXT_PUBLIC_API_URL` 已含 `/api/v1` 前綴，故 URL 拼接時不再重覆）
   - `const es = new EventSource(url);`
   - `es.addEventListener("memory_updated", handler)`：parse `event.data` → `dispatch(chatApi.util.invalidateTags([{type: "ChatMessages", id: \`memories-${sessionUid}\`}]))`
   - `es.addEventListener("memory_failed", handler)`：parse → 本版**僅 log**（`console.warn`），不顯示 UI；保留事件 listener 給後續 UI badge 接入
@@ -159,20 +159,20 @@
 
 ### 3-3 Polling fallback
 
-- [ ] hook 內維護 state：`const [pollingActive, setPollingActive] = useState(false);`
-- [ ] `es.onerror`：
+- [x] hook 內維護 state：`const [pollingActive, setPollingActive] = useState(false);` —（已改為以 `useRef` 持有 polling timer，避免每次切換都觸發 re-render）
+- [x] `es.onerror`：
   - `setPollingActive(true)`
   - `es.close()`
   - 排程 5 秒後重新嘗試建立 EventSource（exponential backoff，可選；首版 5s 固定）
-- [ ] polling 邏輯：`pollingActive === true` 時，`setInterval` 每 30 秒 `dispatch(chatApi.util.invalidateTags([{type: "ChatMessages", id: \`memories-${sessionUid}\`}]))`
-- [ ] EventSource 重連成功（收到 `ready` 或任意 event）：`setPollingActive(false)` 並 `clearInterval`
-- [ ] cleanup：unmount 時關閉 EventSource、清掉 polling timer、清掉重連 timer
+- [x] polling 邏輯：`pollingActive === true` 時，`setInterval` 每 30 秒 `dispatch(chatApi.util.invalidateTags([{type: "ChatMessages", id: \`memories-${sessionUid}\`}]))`
+- [x] EventSource 重連成功（收到 `ready` 或任意 event）：`setPollingActive(false)` 並 `clearInterval`
+- [x] cleanup：unmount 時關閉 EventSource、清掉 polling timer、清掉重連 timer
 
 ### 3-4 重連與例外保護
 
-- [ ] 同一 session 重複建連保護：`useEffect` deps 為 `[sessionUid]`，避免 token 變動觸發爆量重連
-- [ ] 連續錯誤：保留錯誤計數，超過閾值（如 5 次連續失敗）退化為僅 polling（不再重試 SSE），避免無謂連線風暴
-- [ ] hook 自身**不**處理「多分頁同 session SSE 連線數」議題（範圍外，於監控階段觀察）
+- [x] 同一 session 重複建連保護：`useEffect` deps 為 `[sessionUid]`，避免 token 變動觸發爆量重連
+- [x] 連續錯誤：保留錯誤計數，超過閾值（如 5 次連續失敗）退化為僅 polling（不再重試 SSE），避免無謂連線風暴
+- [x] hook 自身**不**處理「多分頁同 session SSE 連線數」議題（範圍外，於監控階段觀察）
 
 ---
 
