@@ -8,11 +8,13 @@ from app.models.chat_project import ChatProject
 from app.models.chat_session import ChatSession
 from app.models.llm_call_log import LlmCallLog, LlmCallLogBase
 from app.models.llm_model import LlmModel
+from app.models.project_memory import ProjectMemory
 from app.models.script import Script
 from app.models.skill import Skill
 from app.models.system_setting import SystemSetting
 from app.models.user import User, UserRole
 from app.models.user_favorite import UserFavorite
+from app.models.user_memory import UserMemory
 
 __all__ = [
     "Base",
@@ -29,10 +31,12 @@ __all__ = [
     "LlmCallLog",
     "LlmCallLogBase",
     "LlmModel",
+    "ProjectMemory",
     "Script",
     "Skill",
     "SystemSetting",
     "User",
     "UserRole",
     "UserFavorite",
+    "UserMemory",
 ]

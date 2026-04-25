@@ -131,16 +131,16 @@
 
 ### 1-1 Models
 
-- [ ] `backend/app/models/project_memory.py`：`ProjectMemory(MemoryBase)`，欄位對齊 V44；複用 `chat_memory.py` 的 `MemoryBase`（無 `updated_at` / `is_deleted` / `is_active`）
-- [ ] `backend/app/models/user_memory.py`：`UserMemory(MemoryBase)`，欄位對齊 V45
-- [ ] `backend/app/models/__init__.py` export 兩個新 model（若該檔案有 export 慣例）
+- [x] `backend/app/models/project_memory.py`：`ProjectMemory(MemoryBase)`，欄位對齊 V44；複用 `chat_memory.py` 的 `MemoryBase`（無 `updated_at` / `is_deleted` / `is_active`）
+- [x] `backend/app/models/user_memory.py`：`UserMemory(MemoryBase)`，欄位對齊 V45
+- [x] `backend/app/models/__init__.py` export 兩個新 model（若該檔案有 export 慣例）
 
 ### 1-2 Schemas（`backend/app/schemas/memory/schemas.py` 新建或併入）
 
-- [ ] `ProjectMemoryItem`：`{ project_memory_uid, chat_project_uid, source_session_uids, keywords, entities, topic, created_at }`（不回 embedding）
-- [ ] `UserMemoryItem`：`{ user_memory_uid, owner_user_uid, source_session_uids, source_project_uids, keywords, entities, topic, created_at }`
-- [ ] `ThreeLayerRagResult`：`{ session: list[ChatMemoryItem], project: list[ProjectMemoryItem], user: list[UserMemoryItem], fused: list[FusedMemoryItem] }`（給 admin debug 用）
-- [ ] `FusedMemoryItem`：`{ scope: Literal["session","project","user"], memory_uid, topic, keywords, entities, rrf_score, source_rank }`
+- [x] `ProjectMemoryItem`：`{ project_memory_uid, chat_project_uid, source_session_uids, keywords, entities, topic, created_at }`（不回 embedding）—（已改為 `backend/app/schemas/chat/three_layer_memory_schemas.py`，併入 chat schema 模組與既有 memory_schemas 一致）
+- [x] `UserMemoryItem`：`{ user_memory_uid, owner_user_uid, source_session_uids, source_project_uids, keywords, entities, topic, created_at }`
+- [x] `ThreeLayerRagResult`：`{ session: list[ChatMemoryItem], project: list[ProjectMemoryItem], user: list[UserMemoryItem], fused: list[FusedMemoryItem] }`（給 admin debug 用）
+- [x] `FusedMemoryItem`：`{ scope: Literal["session","project","user"], memory_uid, topic, keywords, entities, rrf_score, source_rank }`
 
 ---
 
