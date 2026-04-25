@@ -12,8 +12,10 @@ import type {
   ChatMemory,
   ChatAttachment,
   ChatAttachmentListData,
+  SessionAgentsListData,
   SkillSuggestion,
   SkillSuggestionApproveResult,
+  SkillSuggestionPlaceholderData,
 } from "@/types";
 
 interface ListProjectsParams {
@@ -216,6 +218,60 @@ export const chatApi = baseApi.injectEndpoints({
       ],
     }),
 
+    // ===== Session Agents（v1.3.3 多 Agent 對話） =====
+    listSessionAgents: builder.query<SessionAgentsListData, string>({
+      query: (sessionUid) => ({
+        method: "get",
+        path: `/chat/sessions/${sessionUid}/agents`,
+      }),
+      providesTags: (_result, _error, sessionUid) => [
+        { type: "SessionAgents", id: sessionUid },
+      ],
+    }),
+
+    addSessionAgent: builder.mutation<
+      SessionAgentsListData,
+      { sessionUid: string; agentUid: string }
+    >({
+      query: ({ sessionUid, agentUid }) => ({
+        method: "post",
+        path: `/chat/sessions/${sessionUid}/agents`,
+        body: { agent_uid: agentUid },
+      }),
+      invalidatesTags: (_result, _error, { sessionUid }) => [
+        { type: "SessionAgents", id: sessionUid },
+        { type: "ChatSessions", id: sessionUid },
+      ],
+    }),
+
+    removeSessionAgent: builder.mutation<
+      SessionAgentsListData,
+      { sessionUid: string; agentUid: string }
+    >({
+      query: ({ sessionUid, agentUid }) => ({
+        method: "delete",
+        path: `/chat/sessions/${sessionUid}/agents/${agentUid}`,
+      }),
+      invalidatesTags: (_result, _error, { sessionUid }) => [
+        { type: "SessionAgents", id: sessionUid },
+        { type: "ChatSessions", id: sessionUid },
+      ],
+    }),
+
+    promoteSessionAgent: builder.mutation<
+      SessionAgentsListData,
+      { sessionUid: string; agentUid: string }
+    >({
+      query: ({ sessionUid, agentUid }) => ({
+        method: "patch",
+        path: `/chat/sessions/${sessionUid}/agents/${agentUid}/promote`,
+      }),
+      invalidatesTags: (_result, _error, { sessionUid }) => [
+        { type: "SessionAgents", id: sessionUid },
+        { type: "ChatSessions", id: sessionUid },
+      ],
+    }),
+
     // ===== ChatMessage（只有 list，送訊息走 SSE 不走 RTK Query） =====
     listMessages: builder.query<PaginatedData<ChatMessage>, ListMessagesParams>({
       query: ({ sessionUid, limit = 50, cursor }) => {
@@ -302,6 +358,23 @@ export const chatApi = baseApi.injectEndpoints({
         { type: "SkillSuggestions", id: sessionUid },
       ],
     }),
+
+    // ===== Agent Skill 自動推薦 placeholder（v1.3.3 stub，v1.3.6 接真實邏輯） =====
+    getAgentSkillSuggestions: builder.query<
+      SkillSuggestionPlaceholderData,
+      { agentUid: string; scope?: string; scopeUid?: string }
+    >({
+      query: ({ agentUid, scope, scopeUid }) => {
+        const params: Record<string, string> = {};
+        if (scope) params.scope = scope;
+        if (scopeUid) params.scope_uid = scopeUid;
+        return {
+          method: "get",
+          path: `/agents/${agentUid}/skill-suggestions`,
+          params,
+        };
+      },
+    }),
   }),
 });
 
@@ -323,7 +396,12 @@ export const {
   useListMessagesQuery,
   useListSessionMemoriesQuery,
   useUploadAttachmentsMutation,
+  useListSessionAgentsQuery,
+  useAddSessionAgentMutation,
+  useRemoveSessionAgentMutation,
+  usePromoteSessionAgentMutation,
   useListSkillSuggestionsQuery,
   useApproveSkillSuggestionMutation,
   useRejectSkillSuggestionMutation,
+  useGetAgentSkillSuggestionsQuery,
 } = chatApi;

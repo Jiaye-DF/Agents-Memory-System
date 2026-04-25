@@ -52,6 +52,7 @@ export const baseApi = createApi({
     "ChatSessions",
     "OrphanChatSessions",
     "ChatMessages",
+    "SessionAgents",
     "SkillSuggestions",
     "Favorites",
     "Rankings",

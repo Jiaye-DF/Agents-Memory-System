@@ -11,8 +11,9 @@ from app.schemas.agents.schemas import (
 )
 from app.schemas.common import VisibilityRequest
 from app.schemas.auth.schemas import TokenPayload
+from app.schemas.chat.schemas import SkillSuggestionPlaceholderData
 from app.schemas.response import ApiResponse, MessageData, PaginatedData
-from app.services import agent_service
+from app.services import agent_service, chat_service
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -122,3 +123,39 @@ async def download_agent(
         media_type="text/markdown",
         headers={"Content-Disposition": "attachment; filename=AGENTS.md"},
     )
+
+
+# ---------- Skill 推薦 placeholder（v1.3.3 stub，v1.3.6 接真實邏輯） ----------
+
+@router.get(
+    "/{agent_uid}/skill-suggestions",
+    response_model=ApiResponse[SkillSuggestionPlaceholderData],
+    tags=["skills", "preview"],
+    summary="Skill 自動推薦（v1.3.3 占位）",
+    description=(
+        "v1.3.3 占位 endpoint：固定回 `{ items: [], hint: 'pending v1.3.6' }`。"
+        "前端 UI 入口先佔位，v1.3.6 將以真實推薦邏輯取代此 stub。"
+    ),
+)
+async def get_agent_skill_suggestions_stub(
+    agent_uid: str,
+    scope: str | None = Query(
+        None,
+        description="範圍 hint，目前支援 'session'；其他值或省略不會影響 stub 結果",
+    ),
+    scope_uid: str | None = Query(
+        None,
+        description="若 scope='session'，此處填 chat_session_uid 以驗證擁有權",
+    ),
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    # TODO(v1.3.6): 取代為真實推薦邏輯（取代此 stub），UI 結構不變即可亮起。
+    result = await chat_service.get_skill_suggestions_stub(
+        agent_uid,
+        current_user.user_uid,
+        db,
+        scope=scope,
+        scope_uid=scope_uid,
+    )
+    return success(data=result)

@@ -12,14 +12,23 @@ import { useDispatch } from "react-redux";
 import { Button } from "@/components/ui/Button";
 import { PageLoading, Spinner } from "@/components/ui/Loading";
 import { ModalDialog } from "@/components/ui/ModalDialog";
+import {
+  MentionSelector,
+  type MentionSelectorHandle,
+} from "@/components/chat/MentionSelector";
+import { SessionAgentBar } from "@/components/chat/SessionAgentBar";
 import { useAuth } from "@/hooks/useAuth";
 import { useChatStream } from "@/hooks/useChatStream";
 import { useDialog } from "@/hooks/useDialog";
 import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
 import { useSessionEvents } from "@/hooks/useSessionEvents";
-import { useGetAgentQuery, useUpdateAgentMutation } from "@/store/agentsApi";
+import {
+  useGetAgentQuery,
+  useUpdateAgentMutation,
+} from "@/store/agentsApi";
 import {
   useApproveSkillSuggestionMutation,
+  useGetAgentSkillSuggestionsQuery,
   useGetSessionQuery,
   useListMessagesQuery,
   useListProjectsQuery,
@@ -36,6 +45,7 @@ import type {
   ChatAttachment,
   ChatMessage,
   ChatMessageRole,
+  SessionAgent,
   SkillSuggestion,
 } from "@/types";
 import { formatDateTime } from "@/utils/datetime";
@@ -135,6 +145,10 @@ interface MessageBubbleProps {
   copied?: boolean;
   onCopy?: () => void;
   attachments?: ChatAttachment[] | null;
+  /** v1.3.3：assistant 訊息附帶來源 Agent 名稱顯示在卡片左上 */
+  respondingAgentName?: string | null;
+  /** v1.3.3：Skill 推薦 placeholder 入口（assistant 訊息下方） */
+  onSuggestSkill?: () => void;
 }
 
 const MessageBubble = React.memo(function MessageBubble({
@@ -145,6 +159,8 @@ const MessageBubble = React.memo(function MessageBubble({
   copied,
   onCopy,
   attachments,
+  respondingAgentName,
+  onSuggestSkill,
 }: MessageBubbleProps): React.ReactNode {
   const isUser = role === "user";
   const isSystem = role === "system" || role === "tool";
@@ -161,8 +177,14 @@ const MessageBubble = React.memo(function MessageBubble({
 
   return (
     <div
-      className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}
+      className={`flex w-full flex-col ${isUser ? "items-end" : "items-start"}`}
     >
+      {!isUser && respondingAgentName && (
+        <div className="mb-1 flex items-center gap-1 text-xs text-muted">
+          <span aria-hidden="true">🤖</span>
+          <span className="font-medium">{respondingAgentName}</span>
+        </div>
+      )}
       <div
         className={`group relative max-w-[80%] rounded-xl px-4 py-3 shadow-sm ${
           isUser
@@ -216,6 +238,16 @@ const MessageBubble = React.memo(function MessageBubble({
           </div>
         )}
       </div>
+      {!isUser && onSuggestSkill && (
+        <button
+          type="button"
+          onClick={onSuggestSkill}
+          className="mt-1 text-xs text-muted hover:cursor-pointer hover:text-primary"
+          title="查看可掛載的推薦 Skill（v1.3.6 起亮起）"
+        >
+          💡 推薦 Skill
+        </button>
+      )}
     </div>
   );
 });
@@ -371,11 +403,35 @@ export default function SessionChatPage(): React.ReactNode {
     [messagesData],
   );
 
-  const { data: agent } = useGetAgentQuery(session?.agent_uid ?? "", {
-    skip: !session?.agent_uid,
+  // v1.3.3：session.agents 取代單 agent；primary 用於 greeting 與 Skill 推薦入口
+  const sessionAgents = useMemo(
+    (): SessionAgent[] => session?.agents ?? [],
+    [session],
+  );
+  const primaryAgent = useMemo(
+    (): SessionAgent | null =>
+      sessionAgents.find((a) => a.role === "primary") ?? null,
+    [sessionAgents],
+  );
+  const isMultiAgent = sessionAgents.length > 1;
+
+  // 取 primary 的完整資料（v1.1.7 Skill 建議掛載流程仍需 skill_uids）
+  const { data: agent } = useGetAgentQuery(primaryAgent?.agent_uid ?? "", {
+    skip: !primaryAgent?.agent_uid,
   });
 
   const [input, setInput] = useState<string>("");
+  // v1.3.3：@mention 對應的目標 agent_uid；MentionSelector 設定後送出時帶入
+  const [mentionedAgentUid, setMentionedAgentUid] = useState<string | null>(
+    null,
+  );
+  const [mentionTipDismissed, setMentionTipDismissed] =
+    useState<boolean>(false);
+  const mentionRef = useRef<MentionSelectorHandle>(null);
+  // v1.3.3：Skill 推薦 placeholder 入口要顯示哪個 agent_uid 的占位提示
+  const [skillSuggestAgentUid, setSkillSuggestAgentUid] = useState<
+    string | null
+  >(null);
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<
     PendingAttachment[]
@@ -824,7 +880,23 @@ export default function SessionChatPage(): React.ReactNode {
     );
     const snapshot = pendingAttachments;
 
+    // v1.3.3：mention 解析在輸入時已寫入 mentionedAgentUid；
+    // 若使用者後來把 @mention 文字刪掉、就不再帶入（檢查 input 內仍含 @AgentName）。
+    let resolvedMention: string | null = mentionedAgentUid;
+    if (resolvedMention) {
+      const mentionedAgent = sessionAgents.find(
+        (a) => a.agent_uid === resolvedMention,
+      );
+      if (
+        !mentionedAgent ||
+        !content.includes(`@${mentionedAgent.agent_name ?? ""}`)
+      ) {
+        resolvedMention = null;
+      }
+    }
+
     setInput("");
+    setMentionedAgentUid(null);
     // 清空後把 textarea 高度重置，避免保持最後的大高度
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -866,13 +938,21 @@ export default function SessionChatPage(): React.ReactNode {
         });
         textareaRef.current?.focus();
       },
-      attachmentUids.length > 0 ? { attachmentUids } : undefined,
+      attachmentUids.length > 0 || resolvedMention
+        ? {
+            attachmentUids:
+              attachmentUids.length > 0 ? attachmentUids : undefined,
+            mentionedAgentUid: resolvedMention,
+          }
+        : undefined,
     );
   }, [
     input,
     isStreaming,
     uploading,
     pendingAttachments,
+    mentionedAgentUid,
+    sessionAgents,
     sendMessage,
     refetchMessages,
     refetchMemories,
@@ -884,6 +964,8 @@ export default function SessionChatPage(): React.ReactNode {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+      // v1.3.3：先讓 MentionSelector 處理上下鍵 / Enter / Esc
+      if (mentionRef.current?.handleKeyDown(e)) return;
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
@@ -959,7 +1041,6 @@ export default function SessionChatPage(): React.ReactNode {
             </button>
           )}
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
-            {session.agent_name && <span>Agent：{session.agent_name}</span>}
             <span>訊息數：{session.message_count}</span>
             {session.last_message_at && (
               <span>最後訊息：{formatDateTime(session.last_message_at)}</span>
@@ -987,6 +1068,30 @@ export default function SessionChatPage(): React.ReactNode {
             {session.chat_project_uid ? "返回專案" : "返回對話列表"}
           </Button>
         </div>
+      </div>
+
+      {/* v1.3.3：多 Agent badge 列 + 加入按鈕 + 設 primary / 移除 */}
+      <div className="mb-3 shrink-0">
+        <SessionAgentBar
+          sessionUid={sessionUid}
+          agents={sessionAgents}
+        />
+        {isMultiAgent && !mentionTipDismissed && (
+          <div className="mt-2 flex items-start justify-between gap-2 rounded-md border border-border bg-muted-bg px-3 py-2 text-xs text-muted">
+            <span>
+              這是多 Agent 對話：輸入 <code className="font-mono">@</code>{" "}
+              即可指定 Agent；不指定時由 primary（標星號）回覆。
+            </span>
+            <button
+              type="button"
+              onClick={() => setMentionTipDismissed(true)}
+              className="shrink-0 hover:cursor-pointer text-muted hover:text-foreground"
+              aria-label="關閉提示"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       {moveOpen && (
@@ -1027,6 +1132,10 @@ export default function SessionChatPage(): React.ReactNode {
                     msg.model !== null ||
                     msg.finish_reason === "length");
                 const isAssistant = msg.role === "assistant";
+                const respondingAgentName =
+                  msg.responding_agent?.name ?? null;
+                const respondingAgentUid =
+                  msg.responding_agent_uid ?? null;
                 return (
                   <MessageBubble
                     key={msg.chat_message_uid}
@@ -1045,6 +1154,12 @@ export default function SessionChatPage(): React.ReactNode {
                         : undefined
                     }
                     attachments={msg.attachments}
+                    respondingAgentName={respondingAgentName}
+                    onSuggestSkill={
+                      isAssistant && respondingAgentUid
+                        ? () => setSkillSuggestAgentUid(respondingAgentUid)
+                        : undefined
+                    }
                   />
                 );
               })}
@@ -1139,22 +1254,36 @@ export default function SessionChatPage(): React.ReactNode {
             >
               {uploading ? <Spinner size="sm" /> : "📎"}
             </button>
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              disabled={isStreaming}
-              rows={2}
-              placeholder={
-                isStreaming
-                  ? "回應生成中…"
-                  : dragOver
-                    ? "放開以加入附件…"
-                    : "輸入訊息，Enter 送出，Shift+Enter 換行"
-              }
-              className="min-h-11 max-h-60 flex-1 resize-none overflow-y-auto rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
-            />
+            <div className="relative flex-1">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                disabled={isStreaming}
+                rows={2}
+                placeholder={
+                  isStreaming
+                    ? "回應生成中…"
+                    : dragOver
+                      ? "放開以加入附件…"
+                      : isMultiAgent
+                        ? "輸入訊息（@ 指定 Agent）；Enter 送出"
+                        : "輸入訊息，Enter 送出，Shift+Enter 換行"
+                }
+                className="min-h-11 max-h-60 w-full resize-none overflow-y-auto rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              {isMultiAgent && (
+                <MentionSelector
+                  ref={mentionRef}
+                  agents={sessionAgents}
+                  value={input}
+                  onChange={(next) => setInput(next)}
+                  textareaRef={textareaRef}
+                  onSelect={(uid) => setMentionedAgentUid(uid)}
+                />
+              )}
+            </div>
             <Button
               onClick={handleSend}
               loading={isStreaming}
@@ -1301,7 +1430,66 @@ export default function SessionChatPage(): React.ReactNode {
           </aside>
         )}
       </div>
+
+      {/* v1.3.3：Skill 推薦 placeholder（v1.3.6 接真實邏輯） */}
+      {skillSuggestAgentUid && (
+        <SkillSuggestPlaceholderModal
+          agentUid={skillSuggestAgentUid}
+          sessionUid={sessionUid}
+          onClose={() => setSkillSuggestAgentUid(null)}
+        />
+      )}
     </div>
+  );
+}
+
+interface SkillSuggestPlaceholderModalProps {
+  agentUid: string;
+  sessionUid: string;
+  onClose: () => void;
+}
+
+function SkillSuggestPlaceholderModal({
+  agentUid,
+  sessionUid,
+  onClose,
+}: SkillSuggestPlaceholderModalProps): React.ReactNode {
+  const { data, isFetching } = useGetAgentSkillSuggestionsQuery(
+    { agentUid, scope: "session", scopeUid: sessionUid },
+    { refetchOnMountOrArgChange: true },
+  );
+  const items = data?.items ?? [];
+  return (
+    <ModalDialog title="推薦 Skill" onClose={onClose} size="md">
+      <div className="flex flex-col gap-3">
+        {isFetching ? (
+          <div className="py-6 text-center text-sm text-muted">
+            載入中…
+          </div>
+        ) : items.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted">
+            目前沒有可推薦的 Skill。
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {items.map((item, idx) => (
+              <li
+                key={`suggest-${idx}`}
+                className="rounded-lg border border-border bg-input-bg p-3 text-sm text-foreground"
+              >
+                {/* v1.3.6 接真實邏輯後此處渲染推薦項目 */}
+                {JSON.stringify(item)}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
+          <Button variant="secondary" onClick={onClose}>
+            關閉
+          </Button>
+        </div>
+      </div>
+    </ModalDialog>
   );
 }
 
