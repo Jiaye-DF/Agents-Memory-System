@@ -20,6 +20,9 @@ from app.schemas.chat.schemas import (
     ChatSessionMoveRequest,
     ChatSessionResponse,
     ChatSessionUpdateRequest,
+    SessionAgentAddRequest,
+    SessionAgentsListData,
+    SkillSuggestionPlaceholderData,
 )
 from app.schemas.chat.skill_suggestion_schemas import (
     SkillSuggestionApproveData,
@@ -220,6 +223,83 @@ async def delete_session(
     return success(data={"message": "Session 已刪除"})
 
 
+# ---------- Session Agents (v1.3.3 多 Agent 對話) ----------
+
+@router.get(
+    "/sessions/{chat_session_uid}/agents",
+    response_model=ApiResponse[SessionAgentsListData],
+    summary="列出 session 已掛 Agent",
+    description="回傳該 session 下所有有效掛載的 Agent（含 primary / member 角色）。",
+)
+async def list_session_agents(
+    chat_session_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.list_session_agents(
+        chat_session_uid, current_user.user_uid, db
+    )
+    return success(data=result)
+
+
+@router.post(
+    "/sessions/{chat_session_uid}/agents",
+    response_model=ApiResponse[SessionAgentsListData],
+    summary="加掛 Agent 至 session",
+    description="加掛 Agent 至 session；超過 multi_agent.max_per_session 上限回 422。",
+)
+async def add_session_agent(
+    chat_session_uid: str,
+    data: SessionAgentAddRequest,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.add_agent_to_session(
+        chat_session_uid, data.agent_uid, current_user.user_uid, db
+    )
+    return success(data=result, response_code=201)
+
+
+@router.delete(
+    "/sessions/{chat_session_uid}/agents/{agent_uid}",
+    response_model=ApiResponse[SessionAgentsListData],
+    summary="移除 session 上的 Agent",
+    description=(
+        "從 session 移除指定 Agent。"
+        "最後一個 Agent 不可移除（回 422 cannot_remove_last_agent）；"
+        "移除 primary 時會自動將加入時間最早的 member 提升為 primary。"
+    ),
+)
+async def remove_session_agent(
+    chat_session_uid: str,
+    agent_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.remove_agent_from_session(
+        chat_session_uid, agent_uid, current_user.user_uid, db
+    )
+    return success(data=result)
+
+
+@router.patch(
+    "/sessions/{chat_session_uid}/agents/{agent_uid}/promote",
+    response_model=ApiResponse[SessionAgentsListData],
+    summary="把 Agent 設為 session 的 primary",
+    description="將指定 Agent 設為 primary，原 primary 改為 member。Agent 必須是 session 成員。",
+)
+async def promote_session_agent(
+    chat_session_uid: str,
+    agent_uid: str,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await chat_service.promote_primary(
+        chat_session_uid, agent_uid, current_user.user_uid, db
+    )
+    return success(data=result)
+
+
 # ---------- Messages ----------
 
 @router.get(
@@ -321,6 +401,7 @@ async def send_message(
         data.content,
         db,
         attachment_uids=data.attachment_uids,
+        mentioned_agent_uid=data.mentioned_agent_uid,
     )
     return StreamingResponse(
         generator,
