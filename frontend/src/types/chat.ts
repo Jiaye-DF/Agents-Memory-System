@@ -19,10 +19,28 @@ export interface ChatProjectUpdateRequest {
   description?: string | null;
 }
 
+/** Session 上掛載的 Agent（v1.3.3 多 Agent 對話）。 */
+export interface SessionAgent {
+  session_agent_uid: string;
+  agent_uid: string;
+  agent_name: string | null;
+  agent_avatar_url: string | null;
+  role: "primary" | "member";
+  created_at: string;
+}
+
+/** Agent 簡要資訊（訊息卡片 responding_agent 用）。 */
+export interface AgentBrief {
+  agent_uid: string;
+  name: string;
+  avatar_url: string | null;
+}
+
 export interface ChatSession {
   chat_session_uid: string;
   chat_project_uid: string | null;
-  agent_uid: string;
+  /** [DEPRECATED v1.3.3] 多 Agent 改看 agents；保留以容過渡期。 */
+  agent_uid: string | null;
   agent_name: string | null;
   title: string;
   last_message_at: string | null;
@@ -30,12 +48,21 @@ export interface ChatSession {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /** v1.3.3：session 上的所有掛載 agents（primary 排在前面）。 */
+  agents: SessionAgent[];
 }
 
 export interface ChatSessionCreateRequest {
   chat_project_uid?: string | null;
-  agent_uid: string;
+  /** [DEPRECATED v1.3.3] 單 Agent 路徑；新建議使用 agent_uids。 */
+  agent_uid?: string;
+  /** v1.3.3：第一個視為 primary，其餘為 member。 */
+  agent_uids?: string[];
   title?: string | null;
+}
+
+export interface SessionAgentsListData {
+  agents: SessionAgent[];
 }
 
 export interface ChatSessionUpdateRequest {
@@ -74,6 +101,14 @@ export interface ChatMessage {
   created_at: string;
   attachment_uids: string[] | null;
   attachments: ChatAttachment[] | null;
+  /** v1.3.3：哪個 Agent 回的（assistant 訊息有值；user 訊息為 null）。 */
+  responding_agent_uid: string | null;
+  responding_agent: AgentBrief | null;
+}
+
+export interface SkillSuggestionPlaceholderData {
+  items: unknown[];
+  hint: string;
 }
 
 export interface ChatMemory {

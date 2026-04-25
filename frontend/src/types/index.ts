@@ -83,7 +83,11 @@ export type {
   ChatMemory,
   ChatAttachment,
   ChatAttachmentListData,
+  SessionAgent,
+  SessionAgentsListData,
+  AgentBrief,
   SkillSuggestion,
   SkillSuggestionStatus,
   SkillSuggestionApproveResult,
+  SkillSuggestionPlaceholderData,
 } from "./chat";

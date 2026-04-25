@@ -5,6 +5,8 @@ import { openStream } from "@/lib/api/stream";
 
 interface SendMessageOptions {
   attachmentUids?: string[];
+  /** v1.3.3 多 Agent：使用者於前端 @mention 後對應的 agent_uid。 */
+  mentionedAgentUid?: string | null;
 }
 
 interface UseChatStreamResult {
@@ -55,6 +57,9 @@ export function useChatStream(sessionUid: string): UseChatStreamResult {
         const body: Record<string, unknown> = { content };
         if (options?.attachmentUids && options.attachmentUids.length > 0) {
           body.attachment_uids = options.attachmentUids;
+        }
+        if (options?.mentionedAgentUid) {
+          body.mentioned_agent_uid = options.mentionedAgentUid;
         }
         const resp = await openStream(
           `/chat/sessions/${sessionUid}/messages`,
