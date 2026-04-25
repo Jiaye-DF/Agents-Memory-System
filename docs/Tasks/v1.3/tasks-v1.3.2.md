@@ -96,24 +96,24 @@
 
 ### 2-1 Query string token 驗證
 
-- [ ] 新增 `backend/app/api/deps.py` 的輔助函式 `get_current_user_from_query(token: str) -> TokenPayload`（或同層獨立函式）：
+- [x] 新增 `backend/app/api/deps.py` 的輔助函式 `get_current_user_from_query(token: str) -> TokenPayload`（或同層獨立函式）：
   - 沿用既有 JWT decode 邏輯（與 `get_current_user` 共用底層 decoder）
   - 失敗 raise `AppError`（401 / `invalid_token`）
-- [ ] 不修改既有 `get_current_user`（避免影響其他 endpoint）
+- [x] 不修改既有 `get_current_user`（避免影響其他 endpoint）
 
 ### 2-2 `/events` SSE handler
 
-- [ ] `backend/app/api/v1/chat/router.py` 新增：
+- [x] `backend/app/api/v1/chat/router.py` 新增：
   - `GET /sessions/{chat_session_uid}/events`
   - Query：`token: str = Query(...)`（必填）
   - 不掛 `Depends(get_current_user)`（header 路徑）；改在 handler 內走 `get_current_user_from_query(token)` 解析
-  - 驗證 session 擁有者：呼叫 `chat_service._ensure_session_owner` 等價邏輯；非擁有者回 404
+  - 驗證 session 擁有者：呼叫 `chat_service._ensure_session_owner` 等價邏輯；非擁有者回 404 —（已改為對外公開的 `chat_service.ensure_session_owner_for_events`，內部仍委派 `_ensure_session_owner`）
   - 回 `StreamingResponse(generator(), media_type="text/event-stream")`
   - 加 `headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}`（避免 nginx / 反向代理 buffer）
 
 ### 2-3 SSE generator：訂閱 Redis pub/sub
 
-- [ ] `chat_service.subscribe_session_events(session_uid: str) -> AsyncIterator[str]`：
+- [x] `chat_service.subscribe_session_events(session_uid: str) -> AsyncIterator[str]`：
   - 取 `redis = get_redis()`
   - `pubsub = redis.pubsub()`、`await pubsub.subscribe(MEMORY_CHANNEL_FMT.format(session_uid=session_uid))`
   - 開場先 yield 一次 `event: ready\ndata: {}\n\n`（讓前端能確認連線建立）
@@ -125,12 +125,12 @@
 
 ### 2-4 Session 不存在 / 非擁有者
 
-- [ ] 在 SSE 連線**建立前**驗證並回 404；不要先回 200 再 yield error event（避免前端 EventSource 進入重連循環）
+- [x] 在 SSE 連線**建立前**驗證並回 404；不要先回 200 再 yield error event（避免前端 EventSource 進入重連循環）
 
 ### 2-5 Swagger / OpenAPI
 
-- [ ] handler 補 `summary="訂閱 Session 級別非同步事件（SSE）"`、`description` 列出可能的 event names 與 payload 範例
-- [ ] 回應 schema 文件化以註解形式（FastAPI 對 SSE 無內建 response_model 表示）；`/api/docs` 應顯示此端點
+- [x] handler 補 `summary="訂閱 Session 級別非同步事件（SSE）"`、`description` 列出可能的 event names 與 payload 範例
+- [x] 回應 schema 文件化以註解形式（FastAPI 對 SSE 無內建 response_model 表示）；`/api/docs` 應顯示此端點
 
 ---
 

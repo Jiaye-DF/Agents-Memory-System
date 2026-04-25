@@ -38,6 +38,25 @@ async def get_current_user(
     return TokenPayload(user_uid=user_uid, role=role)
 
 
+def get_current_user_from_query(token: str) -> TokenPayload:
+    """SSE 等不支援自訂 header 的場景：以 query string token 驗證。
+
+    與 `get_current_user` 共用底層 `verify_token`，但不依賴 OAuth2 Bearer header；
+    僅供 EventSource 連線使用，不要套到一般 endpoint。
+    """
+    payload = verify_token(token)
+    if payload is None or payload.get("type") != "access":
+        raise AppError(detail="認證失敗", response_code=401, status_code=401)
+
+    user_uid = payload.get("user_uid")
+    role = payload.get("role")
+
+    if user_uid is None or role is None:
+        raise AppError(detail="認證失敗", response_code=401, status_code=401)
+
+    return TokenPayload(user_uid=user_uid, role=role)
+
+
 def require_role(*allowed_roles: str) -> params.Depends:
     async def checker(
         current_user: TokenPayload = Depends(get_current_user),

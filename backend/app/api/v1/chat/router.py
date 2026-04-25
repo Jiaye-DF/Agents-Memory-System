@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_current_user_from_query, get_db
 from app.core.response import success
 from app.schemas.auth.schemas import TokenPayload
 from app.schemas.chat.attachment_schemas import ChatAttachmentListData
@@ -306,6 +306,49 @@ async def reject_skill_suggestion(
         current_user.user_uid, chat_session_uid, idx, db
     )
     return success(data={"message": "已拒絕該 Skill 候選"})
+
+
+@router.get(
+    "/sessions/{chat_session_uid}/events",
+    summary="訂閱 Session 級別非同步事件（SSE）",
+    description=(
+        "v1.3.2：以 SSE 推送 memory_worker 寫入結果，前端收到後 invalidate 記憶 RTK Query tag。\n\n"
+        "因 EventSource 不支援自訂 header，token 走 query string 驗證；非擁有者 / 不存在 session 一律 404。\n\n"
+        "可能的事件：\n"
+        "- `ready`：連線握手成功（payload `{session_uid}`），前端據此停掉 polling fallback。\n"
+        "- `memory_updated`：memory_worker 寫入新 chat_memory（payload `{event, memory_uid, ts}`）。\n"
+        "- `memory_failed`：DLQ 進入時觸發（payload `{event, message_uids, error, ts}`）；本版前端僅 log。\n"
+        "- `session_archived`：保留型別，本版不觸發。\n\n"
+        "另每 15 秒會送 SSE comment `: ping\\n\\n` 作 keep-alive。"
+    ),
+    responses={
+        200: {
+            "description": "SSE 事件流（text/event-stream）",
+            "content": {"text/event-stream": {}},
+        },
+        401: {"description": "token 失效或缺漏"},
+        404: {"description": "session 不存在或非擁有者"},
+    },
+)
+async def subscribe_session_events_sse(
+    chat_session_uid: str,
+    token: str = Query(..., description="access token（EventSource 不支援自訂 header）"),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    # query string 驗證 access token；失敗回 401
+    current_user = get_current_user_from_query(token)
+    # 連線建立前先驗證 session 擁有者；非擁有者 / 不存在皆 404
+    await chat_service.ensure_session_owner_for_events(
+        chat_session_uid, current_user.user_uid, db
+    )
+    return StreamingResponse(
+        chat_service.subscribe_session_events(chat_session_uid),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/sessions/{chat_session_uid}/messages")

@@ -37,6 +37,7 @@ from app.services import (
     chat_attachment_service,
     llm_metering,
     rag_service,
+    session_event_service,
     system_setting_service,
 )
 
@@ -933,3 +934,107 @@ async def send_message(
         f"event: done\ndata: "
         f"{json.dumps({'message_uid': str(assistant_msg.chat_message_uid), 'token_in': token_in, 'token_out': token_out, 'cost_usd': cost_usd, 'model': model, 'finish_reason': finish_reason})}\n\n"
     )
+
+
+# ---------- v1.3.2：Session 級別非同步事件 SSE ----------
+
+# keep-alive 心跳間隔（秒）；亦作為 pubsub.get_message timeout，
+# 沒事件時 yield SSE comment（瀏覽器忽略）防反向代理閒置斷線
+_SESSION_EVENT_PING_INTERVAL = 15.0
+
+
+async def ensure_session_owner_for_events(
+    chat_session_uid: str, user_uid: str, db: AsyncSession
+) -> ChatSession:
+    """SSE 連線建立前驗證 session 擁有權；不存在 / 非擁有者一律 404，不洩漏存在性差異。"""
+    session = await chat_session_repository.get_by_uid(chat_session_uid, db)
+    s, _ = await _ensure_session_owner(session, user_uid, db)
+    return s
+
+
+async def subscribe_session_events(
+    chat_session_uid: str,
+) -> AsyncIterator[str]:
+    """訂閱 Redis pub/sub 並轉成 SSE 事件 stream。
+
+    - 開場 yield `event: ready` 讓前端確認連線成功並停掉 polling fallback
+    - 主迴圈以 `_SESSION_EVENT_PING_INTERVAL` 為 timeout：
+      * 收到事件 → yield `event: <name>\\ndata: <json>\\n\\n`
+      * 無事件 → yield SSE comment `: ping\\n\\n` keep-alive
+    - finally 區塊 unsubscribe + close pubsub，避免 redis 連線洩漏
+    """
+    redis = get_redis()
+    pubsub = redis.pubsub()
+    channel = session_event_service.channel_for_session(chat_session_uid)
+    await pubsub.subscribe(channel)
+    try:
+        # 開場握手：前端用 `ready` 事件停掉 polling fallback、確認 SSE 通道可用
+        yield (
+            f"event: {session_event_service.EVENT_READY}\n"
+            f"data: {json.dumps({'session_uid': chat_session_uid})}\n\n"
+        )
+
+        while True:
+            try:
+                message = await pubsub.get_message(
+                    ignore_subscribe_messages=True,
+                    timeout=_SESSION_EVENT_PING_INTERVAL,
+                )
+            except asyncio.CancelledError:
+                # 客戶端斷線 → 走 finally 清理
+                raise
+            except Exception as exc:
+                logger.warning(
+                    "subscribe_session_events 取訊息失敗 session=%s: %s",
+                    chat_session_uid,
+                    exc,
+                )
+                # 短暫休息避免空轉並繼續嘗試
+                await asyncio.sleep(1)
+                continue
+
+            if message is None:
+                # timeout：送 SSE comment 作 keep-alive（瀏覽器忽略）
+                yield ": ping\n\n"
+                continue
+
+            data = message.get("data") if isinstance(message, dict) else None
+            if not data:
+                continue
+
+            # decode_responses=True 已使 data 為 str；保險處理 bytes
+            if isinstance(data, bytes):
+                try:
+                    data = data.decode("utf-8")
+                except Exception:
+                    continue
+
+            try:
+                payload = json.loads(data)
+            except Exception:
+                logger.warning(
+                    "subscribe_session_events 解析 payload 失敗 session=%s: %s",
+                    chat_session_uid,
+                    data,
+                )
+                continue
+
+            event_name = payload.get("event") or "message"
+            yield f"event: {event_name}\ndata: {json.dumps(payload)}\n\n"
+    finally:
+        try:
+            await pubsub.unsubscribe(channel)
+        except Exception as exc:
+            logger.warning(
+                "subscribe_session_events unsubscribe 失敗 session=%s: %s",
+                chat_session_uid,
+                exc,
+            )
+        try:
+            await pubsub.close()
+        except Exception as exc:
+            logger.warning(
+                "subscribe_session_events close pubsub 失敗 session=%s: %s",
+                chat_session_uid,
+                exc,
+            )
