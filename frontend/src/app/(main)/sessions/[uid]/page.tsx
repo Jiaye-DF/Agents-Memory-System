@@ -16,6 +16,7 @@ import {
   MentionSelector,
   type MentionSelectorHandle,
 } from "@/components/chat/MentionSelector";
+import { AgentSkillSuggestionsDrawer } from "@/components/chat/AgentSkillSuggestionsDrawer";
 import { SessionAgentBar } from "@/components/chat/SessionAgentBar";
 import { useAuth } from "@/hooks/useAuth";
 import { useChatStream } from "@/hooks/useChatStream";
@@ -28,7 +29,6 @@ import {
 } from "@/store/agentsApi";
 import {
   useApproveSkillSuggestionMutation,
-  useGetAgentSkillSuggestionsQuery,
   useGetSessionQuery,
   useListMessagesQuery,
   useListProjectsQuery,
@@ -1431,65 +1431,18 @@ export default function SessionChatPage(): React.ReactNode {
         )}
       </div>
 
-      {/* v1.3.3：Skill 推薦 placeholder（v1.3.6 接真實邏輯） */}
+      {/* v1.3.6：Skill 推薦抽屜（取代 v1.3.3 placeholder） */}
       {skillSuggestAgentUid && (
-        <SkillSuggestPlaceholderModal
+        <AgentSkillSuggestionsDrawer
           agentUid={skillSuggestAgentUid}
-          sessionUid={sessionUid}
+          agentName={
+            sessionAgents.find((a) => a.agent_uid === skillSuggestAgentUid)
+              ?.agent_name ?? null
+          }
           onClose={() => setSkillSuggestAgentUid(null)}
         />
       )}
     </div>
-  );
-}
-
-interface SkillSuggestPlaceholderModalProps {
-  agentUid: string;
-  sessionUid: string;
-  onClose: () => void;
-}
-
-function SkillSuggestPlaceholderModal({
-  agentUid,
-  sessionUid,
-  onClose,
-}: SkillSuggestPlaceholderModalProps): React.ReactNode {
-  const { data, isFetching } = useGetAgentSkillSuggestionsQuery(
-    { agentUid, scope: "session", scopeUid: sessionUid },
-    { refetchOnMountOrArgChange: true },
-  );
-  const items = data?.items ?? [];
-  return (
-    <ModalDialog title="推薦 Skill" onClose={onClose} size="md">
-      <div className="flex flex-col gap-3">
-        {isFetching ? (
-          <div className="py-6 text-center text-sm text-muted">
-            載入中…
-          </div>
-        ) : items.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted">
-            目前沒有可推薦的 Skill。
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {items.map((item, idx) => (
-              <li
-                key={`suggest-${idx}`}
-                className="rounded-lg border border-border bg-input-bg p-3 text-sm text-foreground"
-              >
-                {/* v1.3.6 接真實邏輯後此處渲染推薦項目 */}
-                {JSON.stringify(item)}
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
-          <Button variant="secondary" onClick={onClose}>
-            關閉
-          </Button>
-        </div>
-      </div>
-    </ModalDialog>
   );
 }
 

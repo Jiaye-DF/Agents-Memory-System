@@ -54,6 +54,8 @@ export const baseApi = createApi({
     "ChatMessages",
     "SessionAgents",
     "SkillSuggestions",
+    "AgenticSkillSuggestions",
+    "AgentSkillSuggestions",
     "Favorites",
     "Rankings",
   ],

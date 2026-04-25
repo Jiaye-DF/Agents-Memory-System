@@ -16,12 +16,15 @@ import { useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { getAccessToken } from "@/lib/api/client";
 import { chatApi } from "@/store/chatApi";
+import { setSessionRecommendations } from "@/store/skillSuggestionSlice";
 import type { AppDispatch } from "@/store/store";
+import type { RecommendSuggestionItem } from "@/types";
 
 export type SessionEventName =
   | "memory_updated"
   | "memory_failed"
   | "session_archived"
+  | "skill_recommendation"
   | "ready";
 
 const POLLING_INTERVAL_MS = 30 * 1000;
@@ -147,6 +150,24 @@ export function useSessionEvents(
           console.warn("[useSessionEvents] memory_failed", payload);
         } catch {
           console.warn("[useSessionEvents] memory_failed (unparsable)", event.data);
+        }
+      });
+
+      // v1.3.6：Skill 推薦事件 → 暫存到 redux slice，由 UI 抽屜顯示
+      es.addEventListener("skill_recommendation", (event: MessageEvent) => {
+        try {
+          const payload = JSON.parse(event.data) as {
+            items?: RecommendSuggestionItem[];
+          };
+          const items = Array.isArray(payload?.items) ? payload.items : [];
+          dispatch(
+            setSessionRecommendations({
+              sessionUid,
+              items,
+            }),
+          );
+        } catch (err) {
+          console.warn("[useSessionEvents] skill_recommendation parse 失敗", err);
         }
       });
 

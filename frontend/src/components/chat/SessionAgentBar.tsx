@@ -7,11 +7,15 @@ import { useDialog } from "@/hooks/useDialog";
 import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
 import { useListAgentsQuery } from "@/store/agentsApi";
 import {
+  useListAgentSkillSuggestionsQuery,
+} from "@/store/agenticApi";
+import {
   useAddSessionAgentMutation,
   usePromoteSessionAgentMutation,
   useRemoveSessionAgentMutation,
 } from "@/store/chatApi";
 import type { SessionAgent } from "@/types";
+import { AgentSkillSuggestionsDrawer } from "./AgentSkillSuggestionsDrawer";
 
 const MAX_AGENTS_PER_SESSION = 5;
 
@@ -31,6 +35,9 @@ export function SessionAgentBar({
   agents,
 }: SessionAgentBarProps): React.ReactNode {
   const [adderOpen, setAdderOpen] = useState<boolean>(false);
+  const [openSuggestionAgentUid, setOpenSuggestionAgentUid] = useState<
+    string | null
+  >(null);
   const reachedLimit = agents.length >= MAX_AGENTS_PER_SESSION;
 
   const { showDialog } = useDialog();
@@ -86,13 +93,22 @@ export function SessionAgentBar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {agents.map((a) => (
-        <AgentBadge
+        <div
           key={a.session_agent_uid}
-          agent={a}
-          disabled={removing || promoting}
-          onRemove={handleRemove}
-          onPromote={handlePromote}
-        />
+          className="flex items-center gap-1"
+        >
+          <AgentBadge
+            agent={a}
+            disabled={removing || promoting}
+            onRemove={handleRemove}
+            onPromote={handlePromote}
+          />
+          {/* v1.3.6：Skill 推薦徽章（建議 N），N=0 時隱藏 */}
+          <SkillSuggestionBadge
+            agentUid={a.agent_uid}
+            onOpen={() => setOpenSuggestionAgentUid(a.agent_uid)}
+          />
+        </div>
       ))}
       <Button
         variant="secondary"
@@ -119,7 +135,49 @@ export function SessionAgentBar({
           onClose={() => setAdderOpen(false)}
         />
       )}
+
+      {openSuggestionAgentUid && (
+        <AgentSkillSuggestionsDrawer
+          agentUid={openSuggestionAgentUid}
+          agentName={
+            agents.find((x) => x.agent_uid === openSuggestionAgentUid)
+              ?.agent_name ?? null
+          }
+          onClose={() => setOpenSuggestionAgentUid(null)}
+        />
+      )}
     </div>
+  );
+}
+
+
+interface SkillSuggestionBadgeProps {
+  agentUid: string;
+  onOpen: () => void;
+}
+
+/**
+ * v1.3.6：「建議 N」徽章；N=0 時不顯示。
+ *
+ * 直接走 useListAgentSkillSuggestionsQuery 取數量，避免另外維護全域計數。
+ */
+function SkillSuggestionBadge({
+  agentUid,
+  onOpen,
+}: SkillSuggestionBadgeProps): React.ReactNode {
+  const { data } = useListAgentSkillSuggestionsQuery({ agentUid });
+  const count = data?.items.length ?? 0;
+  if (count === 0) return null;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title={`此 Agent 有 ${count} 則 Skill 建議`}
+      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary hover:cursor-pointer hover:bg-primary/20 transition-colors"
+    >
+      <span aria-hidden="true">★</span>
+      <span>建議 {count}</span>
+    </button>
   );
 }
 

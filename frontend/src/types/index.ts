@@ -91,3 +91,16 @@ export type {
   SkillSuggestionApproveResult,
   SkillSuggestionPlaceholderData,
 } from "./chat";
+export type {
+  AgenticSuggestionScope,
+  AgenticSuggestionStatus,
+  AgenticSkillSuggestionItem,
+  AgenticSkillSuggestionListResponse,
+  SuggestionSourceMemoryBrief,
+  AgenticSkillSuggestionDetailResponse,
+  AgenticSkillSuggestionAcceptRequest,
+  AgenticSkillSuggestionAcceptResponse,
+  AgenticSkillSuggestionRejectResponse,
+  RecommendSuggestionItem,
+  RecommendSuggestionListResponse,
+} from "./agentic";
