@@ -1,5 +1,7 @@
 # v1.3.2 任務規格：記憶 UI 即時性（SSE 擴充 `memory_updated` 事件）
 
+> **狀態：已完成（commit 待提交, 2026-04-25）**（程式碼層面；docker / runtime 驗收項目標 「需使用者執行」）
+>
 > 前置：[propose-v1.3.0.md §3-5](propose-v1.3.0.md)、[tasks-v1.3.1.md](tasks-v1.3.1.md)（worker log 基礎）
 > 後續依賴：（無，這版獨立）
 
@@ -200,27 +202,27 @@
 
 ### Backend
 
-- [ ] memory_worker 寫入 `chat_memory` 後，Redis `PUBLISH chat:session:{uid}:memory` 收得到 payload（用 `redis-cli SUBSCRIBE` 手動驗證）
-- [ ] payload 為 JSON：`{"event": "memory_updated", "memory_uid": "<uuid>", "ts": <unix>}`
-- [ ] memory_worker DLQ 進入時，publish `{"event": "memory_failed", "message_uids": [...], "error": "...", "ts": ...}`
-- [ ] publish 失敗（如 Redis 暫時離線）僅 log warning，主流程仍完成 commit
-- [ ] `GET /api/v1/chat/sessions/{uid}/events?token=<valid>` 回 200、`Content-Type: text/event-stream`
-- [ ] 開啟連線後 15 秒內若無事件，可收到 `: ping\n\n` keep-alive
-- [ ] 非擁有者 / 不存在 session 回 404
-- [ ] token 失效 / 缺漏回 401
-- [ ] `/api/docs` 顯示 `/sessions/{uid}/events` endpoint 與描述
+- [ ] memory_worker 寫入 `chat_memory` 後，Redis `PUBLISH chat:session:{uid}:memory` 收得到 payload（用 `redis-cli SUBSCRIBE` 手動驗證） —（需使用者執行：`docker compose -f docker-compose.dev.yml up` 後以 `redis-cli SUBSCRIBE 'chat:session:*:memory'` 手動驗證）
+- [x] payload 為 JSON：`{"event": "memory_updated", "memory_uid": "<uuid>", "ts": <unix>}` —（程式碼已落地於 `session_event_service.publish_memory_updated`）
+- [x] memory_worker DLQ 進入時，publish `{"event": "memory_failed", "message_uids": [...], "error": "...", "ts": ...}` —（程式碼已落地於 `session_event_service.publish_memory_failed` + worker DLQ 區塊）
+- [x] publish 失敗（如 Redis 暫時離線）僅 log warning，主流程仍完成 commit —（`_publish` 內 try/except 僅 `logger.warning`，不 raise）
+- [ ] `GET /api/v1/chat/sessions/{uid}/events?token=<valid>` 回 200、`Content-Type: text/event-stream` —（需使用者執行：`/dev-up` 後實際發 GET 驗證）
+- [ ] 開啟連線後 15 秒內若無事件，可收到 `: ping\n\n` keep-alive —（需使用者執行：以 curl `--no-buffer` 或瀏覽器 EventStream 觀察）
+- [x] 非擁有者 / 不存在 session 回 404 —（`ensure_session_owner_for_events` 委派 `_ensure_session_owner` 沿用既有 404 行為）
+- [x] token 失效 / 缺漏回 401 —（`get_current_user_from_query` raise `AppError(401)`；缺漏由 FastAPI Query(...) 必填驗證 422，token 字串不合法仍回 401）
+- [ ] `/api/docs` 顯示 `/sessions/{uid}/events` endpoint 與描述 —（需使用者執行：啟服務後造訪 `/api/docs` 確認）
 
 ### Frontend
 
-- [ ] 進入 session 頁面後，DevTools Network 出現 EventStream 連線、狀態為 pending（持續開啟）
-- [ ] 送出訊息 → 等待 memory_worker 寫入（< 60s）→ 抽屜 / 記憶面板**自動**出現新項目，無需手動 🔄
-- [ ] 離開 session 頁面，EventStream 連線立刻關閉
-- [ ] 模擬 SSE 斷線（手動 kill backend）：30s 內自動 polling 觸發 refetch；backend 恢復後重連並停掉 polling
+- [ ] 進入 session 頁面後，DevTools Network 出現 EventStream 連線、狀態為 pending（持續開啟） —（需使用者執行）
+- [ ] 送出訊息 → 等待 memory_worker 寫入（< 60s）→ 抽屜 / 記憶面板**自動**出現新項目，無需手動 🔄 —（需使用者執行）
+- [ ] 離開 session 頁面，EventStream 連線立刻關閉 —（需使用者執行；hook cleanup 已確保 close）
+- [ ] 模擬 SSE 斷線（手動 kill backend）：30s 內自動 polling 觸發 refetch；backend 恢復後重連並停掉 polling —（需使用者執行）
 
 ### 整合 / 邊界
 
-- [ ] 同一 session 多次寫入 `chat_memory`，每次都收到對應的 `memory_updated`、UI 累計顯示
-- [ ] `memory_failed` 事件可從前端 console 確認接收（UI badge 不在本版）
-- [ ] 既有「打開抽屜時 refetch」「手動 🔄」行為不變
-- [ ] 既有 `POST /messages` 訊息 SSE 不受影響
-- [ ] CLAUDE.md：時區仍為 Asia/Taipei；payload 中 `ts` 以 unix seconds 傳遞，前端如需顯示則於 UI 層轉 Asia/Taipei
+- [ ] 同一 session 多次寫入 `chat_memory`，每次都收到對應的 `memory_updated`、UI 累計顯示 —（需使用者執行）
+- [ ] `memory_failed` 事件可從前端 console 確認接收（UI badge 不在本版） —（需使用者執行；hook 已 `console.warn`）
+- [x] 既有「打開抽屜時 refetch」「手動 🔄」行為不變 —（page.tsx 中既有 `useEffect(memoryOpen → refetch)` 與按鈕 `onClick={refetchMemories}` 未動）
+- [x] 既有 `POST /messages` 訊息 SSE 不受影響 —（事件 SSE 走獨立 endpoint，未動 `send_message` generator）
+- [x] CLAUDE.md：時區仍為 Asia/Taipei；payload 中 `ts` 以 unix seconds 傳遞，前端如需顯示則於 UI 層轉 Asia/Taipei —（payload 以 `int(time.time())` 寫入，前端目前僅作觸發訊號未顯示時間）
