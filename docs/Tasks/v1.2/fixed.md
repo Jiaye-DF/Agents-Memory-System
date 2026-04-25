@@ -332,6 +332,54 @@ TypeError: update() missing 2 required positional arguments: 'update_data' and '
 
 ---
 
+## 11. 我的資源 filter「全部」名實不符 + Redis 連線封裝無法切 db + 詳情下載與登入登出快取一致性  〔2026-04-25 09:39:32〕
+
+**問題**：
+
+1. **`/agents` / `/skills` / `/scripts` 三頁的 `FilterNav` 含「全部」分頁**：實作上「全部」拿的是 `useListXQuery` 全部 items（後端 `stmt_visible_to_user` 回「自己擁有 + 公開」），但這三頁名為「我的資源管理」，列出他人公開資源在概念上越界；使用者實測也認定「全部」與「我的」語意混淆。
+2. **`REDIS_DB` 環境變數實質不可用**：`docker-compose.dev.yml` 的 `backend.environment` 將 `REDIS_URL` 寫死為 `redis://redis:6379/0`，未從 `.env` 讀；`core/redis._build_redis_url()` 又優先用 `REDIS_URL`，導致 `REDIS_DB` 即使被傳進 container 也會被忽略。同時封裝層只有單一 client，呼叫端無法依用途指定 db，所有 key（dedup / queue / suggestion / log）全擠 db 0。
+3. **Agent / Skill 詳情頁下載成功後 RTK Query cache 未 invalidate**：`download_count` 已在後端遞增（§10 補上），但 `/agents`、`/skills`、`/dashboard/rankings`、收藏列表的快照不會重 fetch，使用者切回列表仍看到舊值；Agent 下載還連動 Skills，未 invalidate `Skills` tag 會讓相關 Skill 卡片計數也滯後。
+4. **Auth login / logout 不 reset RTK Query state**：切換使用者時前一位的快取仍在記憶體，存在跨使用者資料殘留風險（私人資源 list、收藏狀態、user-scoped queries 等）。
+
+**根因**：
+
+1. `FilterNav` 在 v1.2.1 新增「我的收藏」tab 時複用 dashboard 那套「全部 / 我的 / 我的收藏」三軸範本，未針對「個人管理頁不該有跨人公開資源」此語境收斂；`scopedAgents/Skills/Scripts` 的 `if (scope === "mine") filter` 也對應殘留。
+2. `core/redis.py` 設計為「Redis 連線單例」、`_build_redis_url` 走 `REDIS_URL || HOST/PORT/DB` 二擇一，未考量「程式內按用途分散 db」需求；docker-compose 寫死 URL 又繞過 `${REDIS_URL:-...}` 模板，雙層覆寫衝突。
+3. v1.2.4 RankingPanel 與 §10 Agent 下載連動 Skills 雖補了後端遞增，但 detail 頁下載成功只觸發 `triggerBrowserDownload`，無對應 RTK Query tag invalidation，列表 / 排行 / 收藏 staleness 一致性破口。
+4. v1.0.x 的 auth flow 預設「同一 browser tab 永遠同一 user」，未考慮多使用者切換場景；隨 v1.2 累積大量 user-scoped query 後 leak 風險擴大。
+
+**修正**：
+
+- **前端 FilterNav 收斂**：
+  - `types/social.ts`：`FilterScope` 由 `"all" | "mine" | "favorites"` 收斂為 `"mine" | "favorites"`
+  - `components/social/FilterNav.tsx`：`ORDER` 與 `DEFAULT_LABELS` 移除 `all` 條目
+  - 三個列表頁（`agents/page.tsx` / `skills/page.tsx` / `scripts/page.tsx`）的 `scopedX` 簡化為 `filter(owner_uid === userUid)`，移除 `if (scope === "mine")` 分支（型別收緊後 TS 編譯器自動阻止任何漏改字串）
+- **Redis 連線封裝多 db 化**：
+  - `core/redis.py` 改 `_clients: dict[int, aioredis.Redis]`；`get_redis(db: int | None = None)` 不帶參數走 `settings.REDIS_DB`，帶 int 走指定 db；首次對某 db 呼叫時 lazy 建立 + cache 重用；`init_redis()` 啟動時只 ping 預設 db
+  - `_build_redis_url(db)` 用 regex 把 `REDIS_URL` 末段 `/N` 替換為新 db，避免跟 `REDIS_HOST/PORT` 衝突
+  - `clients/redis_client.py` 的 `get_redis()` / `try_setnx_with_ttl()` 對齊新介面，加 `db` optional 參數透傳
+  - 既有 caller 不帶 db 參數 → 走預設 db 0，零破壞性
+- **詳情頁下載後補 invalidateTags**：
+  - `agents/[uid]/page.tsx`：下載 `AGENTS.md` 後 `dispatch(invalidateTags(["Agents", "Skills", "Rankings", "Favorites"]))`（連動 Skills）
+  - `skills/[uid]/page.tsx`：下載 zip 後 `dispatch(invalidateTags(["Skills", "Rankings", "Favorites"]))`
+- **Auth state reset**：`authApi.ts` login `onQueryStarted` 成功後 + logout `onQueryStarted` finally 補 `dispatch(baseApi.util.resetApiState())`
+
+**影響檔案**：
+
+- 前端：`frontend/src/types/social.ts`、`frontend/src/components/social/FilterNav.tsx`、`frontend/src/app/(main)/agents/page.tsx`、`frontend/src/app/(main)/skills/page.tsx`、`frontend/src/app/(main)/scripts/page.tsx`、`frontend/src/app/(main)/agents/[uid]/page.tsx`、`frontend/src/app/(main)/skills/[uid]/page.tsx`、`frontend/src/store/authApi.ts`
+- 後端：`backend/app/core/redis.py`、`backend/app/clients/redis_client.py`
+
+**驗證方式**：
+
+- 前端：開 `/agents` / `/skills` / `/scripts`，FilterNav 只剩兩顆「我的 / 我的收藏」；列表只顯示自己擁有的資源
+- Redis：呼叫端 `get_redis(2)` 後 `redis-cli -n 2 KEYS '*'` 可看到該類 key 進到 db 2
+- 下載連動：在 `/agents/{uid}` 或 `/skills/{uid}` 按下載後切回列表，`download_count` 立即更新（不需手動重整）
+- Auth：以 A 帳號登入瀏覽資源 → logout → 以 B 帳號登入，A 的 user-scoped query 不應出現在 B 的瀏覽中
+
+**交叉引用**：本條的 §11-3（詳情下載 invalidate）銜接 §10 Agent 下載連動 Skills 的後端計數補強，組成「後端遞增 → 前端刷新」完整鏈。
+
+---
+
 ## 處理狀態
 
 | # | 項目 | 狀態 | Commit |
@@ -346,6 +394,7 @@ TypeError: update() missing 2 required positional arguments: 'update_data' and '
 | 8 | /scan-project 規範落差批量修補（Design-Base + 程式碼層） | ✅ 已修 | — 待 commit-all |
 | 9 | 排序 chip 全站統一為「軸前綴 + 方向 chip」格式（結清 §6 殘留） | ✅ 已修 | — 待 commit-all |
 | 10 | Agent 下載連動 Skills 計數 + 儀錶板 / 管理頁收藏下載顯示一致化 + Script 描述必填 | ✅ 已修 | — 待 commit-all |
+| 11 | 我的資源「全部」filter 移除 + Redis 多 db 封裝 + 詳情下載 / 登入登出快取一致性 | ✅ 已修 | — 待 commit-all |
 
 ---
 

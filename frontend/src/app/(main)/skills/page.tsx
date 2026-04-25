@@ -249,12 +249,10 @@ export default function SkillsListPage(): React.ReactNode {
 
   const skills = useMemo((): Skill[] => data?.items ?? [], [data]);
 
-  const scopedSkills = useMemo((): Skill[] => {
-    if (scope === "mine") {
-      return skills.filter((s) => s.owner_uid === userUid);
-    }
-    return skills;
-  }, [skills, scope, userUid]);
+  const scopedSkills = useMemo(
+    (): Skill[] => skills.filter((s) => s.owner_uid === userUid),
+    [skills, userUid]
+  );
 
   const parsed = useMemo(() => parseSearch(query), [query]);
 

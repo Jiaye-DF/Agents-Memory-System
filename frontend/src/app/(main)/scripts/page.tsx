@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useMemo } from "react";
+import { useDispatch } from "react-redux";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PageLoading } from "@/components/ui/Loading";
@@ -19,6 +20,8 @@ import {
   useListMyFavoritesQuery,
   useUnfavoriteResourceMutation,
 } from "@/store/socialApi";
+import { baseApi } from "@/store/api";
+import type { AppDispatch } from "@/store/store";
 import type {
   Script,
   FilterScope,
@@ -218,6 +221,7 @@ const FilterChip = React.memo(function FilterChip({
 export default function ScriptsListPage(): React.ReactNode {
   const { userUid, isLoading: authLoading } = useAuth();
   const { showDialog } = useDialog();
+  const dispatch = useDispatch<AppDispatch>();
 
   const [scope, setScope] = useState<FilterScope>("mine");
   const [query, setQuery] = useState<string>("");
@@ -243,12 +247,10 @@ export default function ScriptsListPage(): React.ReactNode {
 
   const scripts = useMemo((): Script[] => data?.items ?? [], [data]);
 
-  const scopedScripts = useMemo((): Script[] => {
-    if (scope === "mine") {
-      return scripts.filter((s) => s.owner_user_uid === userUid);
-    }
-    return scripts;
-  }, [scripts, scope, userUid]);
+  const scopedScripts = useMemo(
+    (): Script[] => scripts.filter((s) => s.owner_user_uid === userUid),
+    [scripts, userUid]
+  );
 
   const parsed = useMemo(() => parseSearch(query), [query]);
 
@@ -302,13 +304,17 @@ export default function ScriptsListPage(): React.ReactNode {
     async (scriptUid: string): Promise<void> => {
       try {
         await downloadScript(scriptUid);
+        // Script 下載後讓列表 / 排行 / 收藏快照 refetch 取新 download_count
+        dispatch(
+          baseApi.util.invalidateTags(["Scripts", "Rankings", "Favorites"]),
+        );
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "下載失敗，請稍後再試";
         showDialog({ type: "error", title: "下載失敗", message });
       }
     },
-    [showDialog]
+    [showDialog, dispatch]
   );
 
   const handleDownloadSync = useCallback(

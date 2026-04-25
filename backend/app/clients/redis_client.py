@@ -17,12 +17,14 @@ from app.core.redis import get_redis as _core_get_redis
 logger = logging.getLogger(__name__)
 
 
-def get_redis() -> aioredis.Redis:
-    """取得全域 Redis 連線（於 lifespan 初始化）。"""
-    return _core_get_redis()
+def get_redis(db: int | None = None) -> aioredis.Redis:
+    """取得全域 Redis 連線（於 lifespan 初始化）。可選 `db` 切換到指定資料庫。"""
+    return _core_get_redis(db)
 
 
-async def try_setnx_with_ttl(key: str, ttl_seconds: int) -> bool | None:
+async def try_setnx_with_ttl(
+    key: str, ttl_seconds: int, db: int | None = None
+) -> bool | None:
     """嘗試 SETNX + 設 TTL。
 
     回傳：
@@ -31,7 +33,7 @@ async def try_setnx_with_ttl(key: str, ttl_seconds: int) -> bool | None:
     - None  → Redis 不通 / 其他錯誤（呼叫端自行決定 fallback）
     """
     try:
-        client = get_redis()
+        client = get_redis(db)
         # NX + EX 一步完成：避免 TTL 漏設的競態
         ok = await client.set(name=key, value="1", ex=ttl_seconds, nx=True)
         return bool(ok)

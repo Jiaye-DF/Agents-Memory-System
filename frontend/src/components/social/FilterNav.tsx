@@ -10,12 +10,11 @@ interface FilterNavProps {
 }
 
 const DEFAULT_LABELS: Record<FilterScope, string> = {
-  all: "全部",
   mine: "我的",
   favorites: "我的收藏",
 };
 
-const ORDER: FilterScope[] = ["all", "mine", "favorites"];
+const ORDER: FilterScope[] = ["mine", "favorites"];
 
 interface TabProps {
   scope: FilterScope;

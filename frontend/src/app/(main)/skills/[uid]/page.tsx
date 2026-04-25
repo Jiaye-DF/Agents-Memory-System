@@ -7,6 +7,7 @@ import React, {
   useRef,
 } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import {
   oneLight,
@@ -26,6 +27,8 @@ import {
   useReuploadSkillMutation,
   useUpdateSkillFileMutation,
 } from "@/store/skillsApi";
+import { baseApi } from "@/store/api";
+import type { AppDispatch } from "@/store/store";
 import {
   downloadBlob,
   extractFilename,
@@ -716,6 +719,7 @@ export default function SkillDetailPage(): React.ReactNode {
   const router = useRouter();
   const { showDialog } = useDialog();
   const { isLoading: authLoading, userUid } = useAuth();
+  const dispatch = useDispatch<AppDispatch>();
   const uid = params.uid as string;
 
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -860,6 +864,10 @@ export default function SkillDetailPage(): React.ReactNode {
         }
         const filename = extractFilename(result.headers, "download.zip");
         triggerBrowserDownload(result.blob, filename);
+        // Skill 下載後讓列表 / 排行 / 收藏快照 refetch 取新 download_count
+        dispatch(
+          baseApi.util.invalidateTags(["Skills", "Rankings", "Favorites"]),
+        );
       } catch {
         showDialog({
           type: "error",
@@ -870,7 +878,7 @@ export default function SkillDetailPage(): React.ReactNode {
     };
 
     void downloadAsync();
-  }, [uid, showDialog]);
+  }, [uid, showDialog, dispatch]);
 
   const handleBack = useCallback((): void => {
     router.push("/skills");

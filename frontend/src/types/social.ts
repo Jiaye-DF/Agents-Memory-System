@@ -1,6 +1,6 @@
 export type ResourceType = "agent" | "skill" | "script";
 
-export type FilterScope = "all" | "mine" | "favorites";
+export type FilterScope = "mine" | "favorites";
 
 export interface FavoriteToggleResponse {
   favorited: boolean;

@@ -273,12 +273,10 @@ export default function AgentsPage(): React.ReactNode {
 
   const agents = useMemo((): Agent[] => data?.items ?? [], [data]);
 
-  const scopedAgents = useMemo((): Agent[] => {
-    if (scope === "mine") {
-      return agents.filter((a) => a.owner_uid === userUid);
-    }
-    return agents;
-  }, [agents, scope, userUid]);
+  const scopedAgents = useMemo(
+    (): Agent[] => agents.filter((a) => a.owner_uid === userUid),
+    [agents, userUid]
+  );
 
   const parsed = useMemo(() => parseSearch(query), [query]);
 

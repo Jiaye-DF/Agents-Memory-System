@@ -3,11 +3,14 @@
 import React, { useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useDispatch } from "react-redux";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
 import { useDialog } from "@/hooks/useDialog";
 import { useGetAgentQuery } from "@/store/agentsApi";
 import { useListAgentLanguagesQuery } from "@/store/agentLanguagesApi";
+import { baseApi } from "@/store/api";
+import type { AppDispatch } from "@/store/store";
 import {
   downloadText,
   triggerBrowserDownload,
@@ -20,6 +23,7 @@ export default function AgentDetailPage(): React.ReactNode {
   const agentUid = params.uid;
   const { userUid } = useAuth();
   const { showDialog } = useDialog();
+  const dispatch = useDispatch<AppDispatch>();
 
   const { data: agent, isLoading } = useGetAgentQuery(agentUid);
   const { data: languagesData } = useListAgentLanguagesQuery();
@@ -37,6 +41,15 @@ export default function AgentDetailPage(): React.ReactNode {
       }
       const blob = new Blob([result.text], { type: "text/markdown" });
       triggerBrowserDownload(blob, "AGENTS.md");
+      // 下載連動 Agent + 關聯 Skills 計數，需讓相關列表 / 排行 / 收藏 refetch
+      dispatch(
+        baseApi.util.invalidateTags([
+          "Agents",
+          "Skills",
+          "Rankings",
+          "Favorites",
+        ]),
+      );
     } catch {
       showDialog({
         type: "error",
@@ -44,7 +57,7 @@ export default function AgentDetailPage(): React.ReactNode {
         message: "下載過程中發生錯誤",
       });
     }
-  }, [agentUid, showDialog]);
+  }, [agentUid, showDialog, dispatch]);
 
   if (isLoading) {
     return <PageLoading />;

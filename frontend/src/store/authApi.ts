@@ -24,10 +24,12 @@ export const authApi = baseApi.injectEndpoints({
         path: "/auth/login",
         body,
       }),
-      onQueryStarted: async (_arg, { queryFulfilled }) => {
+      onQueryStarted: async (_arg, { queryFulfilled, dispatch }) => {
         try {
           const { data } = await queryFulfilled;
           setAccessToken(data.access_token);
+          // 防止前一位使用者的 RTK Query cache 在新登入後被沿用
+          dispatch(baseApi.util.resetApiState());
         } catch {
           // 登入失敗不做額外處理
         }
@@ -39,11 +41,12 @@ export const authApi = baseApi.injectEndpoints({
         method: "post",
         path: "/auth/logout",
       }),
-      onQueryStarted: async (_arg, { queryFulfilled }) => {
+      onQueryStarted: async (_arg, { queryFulfilled, dispatch }) => {
         try {
           await queryFulfilled;
         } finally {
           setAccessToken(null);
+          dispatch(baseApi.util.resetApiState());
         }
       },
     }),
