@@ -243,7 +243,7 @@
 
 ### 4-1 Worker 主體
 
-- [ ] `backend/app/workers/user_memory_worker.py`
+- [x] `backend/app/workers/user_memory_worker.py`
   - QUEUE_KEY = `user:memory:queue`、DLQ = `user:memory:dlq`
   - 觸發訊號：`{ user_uid, trigger_at }`
   - 讀設定：`memory.user.aggregate_idle_hours` / `memory.user.min_session_count` / `memory.user.topic_concentration_pct`
@@ -255,20 +255,20 @@
 
 ### 4-2 LLM prompt（繁體中文硬規範）
 
-- [ ] `USER_MEMORY_AGGREGATE_SYSTEM_PROMPT`：
+- [x] `USER_MEMORY_AGGREGATE_SYSTEM_PROMPT`：
   - 明確指示「輸出一律使用**繁體中文**」
   - 任務描述：從多 session 的對話片段抽取「使用者長期偏好」（語言、風格、領域、慣用工具等），不是事件性記憶
-  - call_kind=`memory_aggregate_user`
+  - call_kind=`memory_aggregate_user` —（已改為共用 `purpose='memory_extract'` + `system_prompt` override，與 project worker 對齊）
 
 ### 4-3 觸發排程
 
-- [ ] 自動：每日由 `memory_worker` 或新 scheduler tick 在達 `aggregate_idle_hours` 時 LPUSH 一筆訊號
-- [ ] 手動：admin endpoint（§7）
+- [x] 自動：每日由 `memory_worker` 或新 scheduler tick 在達 `aggregate_idle_hours` 時 LPUSH 一筆訊號 —（在 memory_worker 寫完 chat_memory 後檢查 idle Redis key 觸發；獨立 scheduler 視後續量產資料再評估）
+- [x] 手動：admin endpoint（§7）
 
 ### 4-4 容錯與 lifespan
 
-- [ ] MAX_RETRY / DLQ / health 同 §3-3 / §3-4 模式
-- [ ] `main.py` lifespan 啟動 `user_memory_worker.run`
+- [x] MAX_RETRY / DLQ / health 同 §3-3 / §3-4 模式
+- [x] `main.py` lifespan 啟動 `user_memory_worker.run`
 
 ---
 

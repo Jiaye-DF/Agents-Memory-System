@@ -14,6 +14,7 @@ from app.workers import (
     memory_worker,
     project_memory_worker,
     skill_factory_worker,
+    user_memory_worker,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,11 +32,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         worker_tasks.append(asyncio.create_task(skill_factory_worker.run()))
     except Exception as exc:
         logger.warning("skill_factory_worker 啟動失敗: %s", exc)
-    # v1.3.5：跨層聚合 worker（user_memory_worker 於 Phase 4 加入）
+    # v1.3.5：跨層聚合 worker
     try:
         worker_tasks.append(asyncio.create_task(project_memory_worker.run()))
     except Exception as exc:
         logger.warning("project_memory_worker 啟動失敗: %s", exc)
+    try:
+        worker_tasks.append(asyncio.create_task(user_memory_worker.run()))
+    except Exception as exc:
+        logger.warning("user_memory_worker 啟動失敗: %s", exc)
     try:
         yield
     finally:
