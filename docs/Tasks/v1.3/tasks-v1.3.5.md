@@ -300,35 +300,35 @@
 
 ### 6-1 Session 刪除路徑（既有，確認**不**連動 project / user）
 
-- [ ] `chat_service.delete_session` 維持 v1.1 行為：呼叫 `chat_memory_repository.hard_delete_by_session`
-- [ ] **明確**：**不**呼叫 `project_memory_repository` / `user_memory_repository` 的任何刪除函式
-- [ ] 加註解：`# v1.3.5：不連動 project_memory / user_memory（propose §3-3 硬規範）`
+- [x] `chat_service.delete_session` 維持 v1.1 行為：呼叫 `chat_memory_repository.hard_delete_by_session`
+- [x] **明確**：**不**呼叫 `project_memory_repository` / `user_memory_repository` 的任何刪除函式
+- [x] 加註解：`# v1.3.5：不連動 project_memory / user_memory（propose §3-3 硬規範）`
 
 ### 6-2 Project 刪除路徑
 
-- [ ] `chat_service.delete_project`（L336）擴充：
+- [x] `chat_service.delete_project`（L336）擴充：
   - 取該 project 下所有 session 的 uid 列表
   - 同 transaction：
     1. `chat_memory_repository.hard_delete_by_project(project_uid, db)` — 清該 project 內所有 session 的 chat_memory
     2. `project_memory_repository.hard_delete_by_project(project_uid, db)` — 清 project_memory
-    3. `chat_session_repository.soft_delete_by_project(project_uid, db)` — 軟刪 sessions（若既有路徑未做）
+    3. `chat_session_repository.soft_delete_by_project(project_uid, db)` — 軟刪 sessions（若既有路徑未做） —（未做：v1.1 既有路徑未提供此函式；本版維持 project 軟刪、sessions 仍掛 chat_project_uid 但 list 端點以 project soft_delete 過濾，不影響 propose §3-3 行為驗收）
     4. `chat_project_repository.soft_delete(project, db)`
   - **不**呼叫 `user_memory_repository.hard_delete_by_user`（user_memory 不連動）
-- [ ] 任一步失敗 → rollback 整個 transaction
+- [x] 任一步失敗 → rollback 整個 transaction（exception 直接 raise，由 endpoint 層的 db 上下文 rollback）
 
 ### 6-3 User 停用 / 刪除路徑
 
-- [ ] 找 `user_service.disable_user` / `delete_user`（若不存在則建立 admin 端點）
-- [ ] 連動清除：
+- [x] 找 `user_service.disable_user` / `delete_user`（若不存在則建立 admin 端點） —（已新增 `admin_service.disable_user` + `POST /admin/users/{user_uid}/disable`，停用即視同清三層）
+- [x] 連動清除：
   1. `chat_memory_repository.hard_delete_by_user(owner_user_uid, db)`
   2. `project_memory_repository` 對該 user 所有 project 各自呼叫 `hard_delete_by_project`（先撈 project 列表）
   3. `user_memory_repository.hard_delete_by_user(owner_user_uid, db)`
-- [ ] 同 transaction 完成
+- [x] 同 transaction 完成
 
 ### 6-4 註解 / 文件
 
-- [ ] 三個刪除路徑的 docstring 列出「連動 / 不連動」對照（複製 propose §3-3 表格）
-- [ ] `docs/Design-Base/` 對應規範若有「跨層生命週期」段落，補連結到本版 task
+- [x] 三個刪除路徑的 docstring 列出「連動 / 不連動」對照（複製 propose §3-3 表格）
+- [x] `docs/Design-Base/` 對應規範若有「跨層生命週期」段落，補連結到本版 task —（Design-Base 無對應段落，propose §3-3 / Arch §5-2 為唯一規範來源；docstring 與 V44/V45 SQL comment 已直接引用）
 
 ---
 

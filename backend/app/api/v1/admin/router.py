@@ -104,6 +104,27 @@ async def update_user(
     return success(data=result)
 
 
+@router.post(
+    "/users/{user_uid}/disable",
+    response_model=ApiResponse[UserResponse],
+    summary="停用使用者並連動清除三層記憶",
+    description=(
+        "v1.3.5：停用 user 同 transaction 連動 hard delete：\n"
+        "- 該 user 全部 chat_memory\n"
+        "- 該 user 名下所有 project 的 project_memory\n"
+        "- 該 user 的 user_memory\n"
+        "對齊 propose §3-3 / Arch §5-2 表格『User 停用 / 刪除』。"
+    ),
+)
+async def disable_user_endpoint(
+    user_uid: str,
+    _current_user: TokenPayload = require_role("admin"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await admin_service.disable_user(user_uid, db)
+    return success(data=result)
+
+
 @router.get("/roles", response_model=ApiResponse[RolesListData])
 async def list_roles(
     _current_user: TokenPayload = require_role("admin"),

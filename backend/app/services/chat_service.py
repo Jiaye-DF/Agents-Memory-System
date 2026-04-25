@@ -24,6 +24,7 @@ from app.repositories import (
     chat_message_repository,
     chat_project_repository,
     chat_session_repository,
+    project_memory_repository,
     session_agent_repository,
     skill_repository,
 )
@@ -471,8 +472,44 @@ async def update_project(
 async def delete_project(
     chat_project_uid: str, user_uid: str, db: AsyncSession
 ) -> None:
+    """刪除 project（v1.3.5 跨層生命週期）。
+
+    propose §3-3 / Arch §5-2 表格：
+    - 連動清除：project 內 sessions 的 `chat_memory`、`project_memory`
+    - **不**連動：`user_memory`（跨 project 的長期偏好應保留）
+
+    任一步失敗 → rollback 整個 transaction（由 endpoint 層的 db 上下文管理）。
+    """
     project = await chat_project_repository.get_by_uid(chat_project_uid, db)
     project = _ensure_project_owner(project, user_uid)
+
+    # 1. 清該 project 內所有 session 的 chat_memory（hard delete）
+    try:
+        await chat_memory_repository.hard_delete_by_project(
+            chat_project_uid, db
+        )
+    except Exception as exc:
+        logger.warning(
+            "刪除 Project chat_memory 失敗 project=%s: %s",
+            chat_project_uid,
+            exc,
+        )
+        raise
+
+    # 2. 清 project_memory（hard delete）
+    try:
+        await project_memory_repository.hard_delete_by_project(
+            chat_project_uid, db
+        )
+    except Exception as exc:
+        logger.warning(
+            "刪除 Project project_memory 失敗 project=%s: %s",
+            chat_project_uid,
+            exc,
+        )
+        raise
+
+    # 3. 軟刪 project（既有路徑）；user_memory **不**連動清除
     await chat_project_repository.soft_delete(project, db)
 
 
@@ -956,6 +993,14 @@ async def get_skill_suggestions_stub(
 async def delete_session(
     chat_session_uid: str, user_uid: str, db: AsyncSession
 ) -> None:
+    """軟刪 Session（v1.3.5 跨層生命週期）。
+
+    propose §3-3 / Arch §5-2 表格：
+    - 連動清除：`chat_memory`（session scope，v1.1 既有行為，不變）
+    - **不**連動：`project_memory` / `user_memory`
+      → 若 session 刪除誤抹 project_memory，跨 session 聚合會被意外抹除（無法做跨層 RAG）。
+      Schema 層也不建立 FK cascade 確保此規範（V44 / V45 hard rule）。
+    """
     session = await chat_session_repository.get_by_uid(chat_session_uid, db)
     session, _ = await _ensure_session_owner(session, user_uid, db)
     # v1.1.2：軟刪 Session 連動清除該 Session 下所有記憶
@@ -965,6 +1010,7 @@ async def delete_session(
         )
     except Exception as exc:
         logger.warning("刪除 Session 記憶失敗 session=%s: %s", chat_session_uid, exc)
+    # v1.3.5：不連動 project_memory / user_memory（propose §3-3 硬規範）
     await chat_session_repository.soft_delete(session, db)
 
 
