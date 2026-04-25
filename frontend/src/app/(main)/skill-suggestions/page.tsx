@@ -70,8 +70,8 @@ export default function SkillSuggestionsPage(): React.ReactNode {
       <div className="mb-4">
         <h1 className="text-3xl font-bold text-foreground">Skill 建議</h1>
         <p className="mt-1 text-sm text-muted">
-          系統會在你跨 session / project / 跨主題形成穩定使用習慣後自動產出 Skill 建議；
-          人工審核通過才會建立 Skill。
+          系統會在你跨 session / project / 跨主題形成穩定使用習慣後自動產出
+          Skill 建議； 人工審核通過才會建立 Skill。
         </p>
       </div>
 
@@ -87,7 +87,7 @@ export default function SkillSuggestionsPage(): React.ReactNode {
               key={tab.key}
               type="button"
               onClick={() => setStatusTab(tab.key)}
-              aria-pressed={active ? "true" : "false"}
+              aria-pressed={active}
               className={`rounded-xl px-4 py-2 text-base font-medium transition-colors hover:cursor-pointer ${
                 active
                   ? "bg-primary text-white shadow-sm"
@@ -140,7 +140,6 @@ export default function SkillSuggestionsPage(): React.ReactNode {
   );
 }
 
-
 function useTabCounts(): Record<StatusFilter, number | undefined> {
   const pending = useListSkillSuggestionsQuery({
     status: "pending",
@@ -170,7 +169,6 @@ function useTabCounts(): Record<StatusFilter, number | undefined> {
     expired: expired.data?.total,
   };
 }
-
 
 interface SuggestionCardProps {
   item: AgenticSkillSuggestionItem;
@@ -287,7 +285,8 @@ function SuggestionCard({ item }: SuggestionCardProps): React.ReactNode {
             onClick={() => setSourceOpen((v) => !v)}
             className="hover:cursor-pointer text-primary hover:underline"
           >
-            來源 {item.source_memory_uids.length} 則記憶 {sourceOpen ? "▴" : "▾"}
+            來源 {item.source_memory_uids.length} 則記憶{" "}
+            {sourceOpen ? "▴" : "▾"}
           </button>
         )}
       </div>
@@ -296,7 +295,11 @@ function SuggestionCard({ item }: SuggestionCardProps): React.ReactNode {
 
       {isPending && (
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <Button onClick={handleAcceptOnly} disabled={disabled} variant="primary">
+          <Button
+            onClick={handleAcceptOnly}
+            disabled={disabled}
+            variant="primary"
+          >
             接受
           </Button>
           <Button
@@ -306,7 +309,11 @@ function SuggestionCard({ item }: SuggestionCardProps): React.ReactNode {
           >
             接受並掛到 Agent ▾
           </Button>
-          <Button onClick={handleReject} disabled={disabled} variant="secondary">
+          <Button
+            onClick={handleReject}
+            disabled={disabled}
+            variant="secondary"
+          >
             拒絕
           </Button>
         </div>
@@ -331,7 +338,6 @@ function SuggestionCard({ item }: SuggestionCardProps): React.ReactNode {
   );
 }
 
-
 interface SourceMemoryListProps {
   suggestionUid: string;
 }
@@ -339,7 +345,9 @@ interface SourceMemoryListProps {
 function SourceMemoryList({
   suggestionUid,
 }: SourceMemoryListProps): React.ReactNode {
-  const { data, isLoading } = useGetSkillSuggestionQuery({ uid: suggestionUid });
+  const { data, isLoading } = useGetSkillSuggestionQuery({
+    uid: suggestionUid,
+  });
   const memories = data?.source_memories ?? [];
   if (isLoading) {
     return (
@@ -370,7 +378,6 @@ function SourceMemoryList({
     </ul>
   );
 }
-
 
 interface AgentPickerModalProps {
   onClose: () => void;

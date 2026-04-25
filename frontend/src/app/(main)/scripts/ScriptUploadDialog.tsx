@@ -382,7 +382,7 @@ export function ScriptUploadDialog({
             placeholder="輸入 Script 描述"
             rows={3}
             required
-            aria-invalid={descriptionError ? "true" : "false"}
+            aria-invalid={descriptionError ? true : undefined}
             className="min-h-16 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground transition-colors placeholder:text-muted focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20"
           />
           {descriptionError && (
