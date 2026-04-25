@@ -162,12 +162,12 @@
 
 ### 4-1 Setting key
 
-- [ ] `backend/app/services/system_setting_service.py` 既有設定機制下新增預設常數 `DEFAULT_SKILL_MD_MAX_CHARS = 8000`（於 `chat_service.py` 或新建 `skill_constants.py` 集中常數，與既有 memory 常數風格一致）
-- [ ] admin 設定畫面**本版不新增 UI**（沿用 system_setting_service 預設值機制，未來 admin 設定頁有需要再補）
+- [x] `backend/app/services/system_setting_service.py` 既有設定機制下新增預設常數 `DEFAULT_SKILL_MD_MAX_CHARS = 8000`（於 `chat_service.py` 或新建 `skill_constants.py` 集中常數，與既有 memory 常數風格一致） —（已置於 `chat_service.py` 與既有 `DEFAULT_MAX_AGENTS_PER_SESSION` 同列；setting key `skill.md_max_chars`）
+- [x] admin 設定畫面**本版不新增 UI**（沿用 system_setting_service 預設值機制，未來 admin 設定頁有需要再補）
 
 ### 4-2 `_skill_prompt_text` 改寫
 
-- [ ] `backend/app/services/chat_service.py`：
+- [x] `backend/app/services/chat_service.py`：
   - 改 `_skill_prompt_text(skill: Skill)` 為 `async def _skill_prompt_text(skill: Skill, db: AsyncSession)`（需讀設定）
   - 流程：
     1. header 維持 `### {name}\n{description}\n`
@@ -176,13 +176,13 @@
     4. 逐份讀取 → 若單份 `len(content) > md_max_chars` 則 `logger.warning("skill md 過長 skill_uid=%s file=%s len=%d", ...)`
     5. 拼接：每份前加 `### {filename}`（取相對路徑去前綴後的純檔名 + 子目錄相對路徑）+ 換行 + 內容 + 兩個換行分隔
   - 例外處理保留：zip 開不起來 / 讀失敗 → log warning + 回 header
-- [ ] 呼叫端改為 `await _skill_prompt_text(skill, db)`（影響範圍以 IDE 全找替換為準，預期不超過 3 處）
+- [x] 呼叫端改為 `await _skill_prompt_text(skill, db)`（影響範圍以 IDE 全找替換為準，預期不超過 3 處） —（實際只有 `_build_system_prompt` 一處呼叫；已改）
 
 ### 4-3 README / Docstring 命名建議
 
-- [ ] 於 `_skill_prompt_text` docstring 補命名建議，例：
+- [x] 於 `_skill_prompt_text` docstring 補命名建議，例：
   > 建議 Design-Base 規範類 Skill 採 `design-base-frontend` / `design-base-backend` / `design-base-auth` 命名（無強制）
-- [ ] 若有 `backend/README.md` 或 `docs/Design-Base/skills.md` 之類的位置，於同段落補一句「v1.3 起 Skill zip 支援多 .md 拼接」（找不到合適位置可省略，避免新增孤立檔案）
+- [x] 若有 `backend/README.md` 或 `docs/Design-Base/skills.md` 之類的位置，於同段落補一句「v1.3 起 Skill zip 支援多 .md 拼接」（找不到合適位置可省略，避免新增孤立檔案） —（找不到合適位置，省略以免新增孤立檔案）
 
 ---
 

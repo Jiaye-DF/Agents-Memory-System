@@ -54,6 +54,8 @@ MAX_RETRIES = 2
 RETRY_BACKOFF_SECONDS = (0.5, 1.5)
 # v1.3.3 多 Agent：軟性上限，可由 system_setting 覆寫
 DEFAULT_MAX_AGENTS_PER_SESSION = 5
+# v1.3.1 Skill 多 md 拼接：單一 md 字數警示閾值（可由 system_setting `skill.md_max_chars` 覆寫）
+DEFAULT_SKILL_MD_MAX_CHARS = 8000
 
 PROJECT_NOT_FOUND = "找不到指定的 Project"
 SESSION_NOT_FOUND = "找不到指定的 Session"
@@ -241,12 +243,26 @@ def _auto_title_from_first_message(content: str) -> str:
     return cleaned[:30]
 
 
-def _skill_prompt_text(skill: Skill) -> str:
-    """讀取 skill zip 內 README.md / {skill_name}.md / 第一個 .md 作為 prompt 內容。"""
+async def _skill_prompt_text(skill: Skill, db: AsyncSession) -> str:
+    """讀取 skill zip 內所有 .md 並按檔名字典序拼接為 prompt 內容。
+
+    v1.3.1：
+    - 全部 `.md`（含子目錄、忽略目錄項）依 `info.filename` 字典序排序
+    - 每份前加 `### {filename}` 標題；header 仍維持 skill name / description
+    - 單份內容超過 `skill.md_max_chars`（預設 8000 字）僅 log warning，不截斷
+
+    建議 Design-Base 規範類 Skill 採 `design-base-frontend` /
+    `design-base-backend` / `design-base-auth` 命名（無強制）。
+    """
     header = f"### {skill.name}\n{skill.description}\n"
     zip_path = skill.file_path
     if not zip_path or not Path(zip_path).exists():
         return header
+
+    md_max_chars = await system_setting_service.get_int(
+        "skill.md_max_chars", DEFAULT_SKILL_MD_MAX_CHARS, db
+    )
+
     try:
         with zipfile.ZipFile(zip_path, "r") as zf:
             md_files = [
@@ -255,22 +271,40 @@ def _skill_prompt_text(skill: Skill) -> str:
             ]
             if not md_files:
                 return header
-            # 優先 README.md、{skill_name}.md，再退為第一個
-            preferred_names = {
-                "readme.md",
-                f"{skill.name.lower()}.md",
-            }
-            chosen = None
+
+            # 字典序：依 filename（含子目錄相對路徑）排序，確保跨平台輸出一致
+            md_files.sort(key=lambda info: info.filename)
+
+            sections: list[str] = [header]
             for info in md_files:
-                base = info.filename.split("/")[-1].lower()
-                if base in preferred_names:
-                    chosen = info
-                    break
-            if chosen is None:
-                chosen = md_files[0]
-            with zf.open(chosen, "r") as f:
-                content = f.read().decode("utf-8", errors="replace")
-            return f"{header}\n{content.strip()}\n"
+                try:
+                    with zf.open(info, "r") as f:
+                        content = f.read().decode("utf-8", errors="replace")
+                except Exception as exc:
+                    logger.warning(
+                        "讀取 skill md 失敗 skill_uid=%s file=%s: %s",
+                        skill.skill_uid,
+                        info.filename,
+                        exc,
+                    )
+                    continue
+
+                content_len = len(content)
+                if content_len > md_max_chars:
+                    logger.warning(
+                        "skill md 過長 skill_uid=%s file=%s len=%d max=%d",
+                        skill.skill_uid,
+                        info.filename,
+                        content_len,
+                        md_max_chars,
+                    )
+
+                # 標題用 zip 內相對路徑（含子目錄）；前面已加總 header，這裡用更深一級
+                sections.append(
+                    f"### {info.filename}\n{content.strip()}\n"
+                )
+
+            return "\n".join(sections).rstrip() + "\n"
     except Exception as exc:
         logger.warning("讀取 skill 內容失敗 skill_uid=%s: %s", skill.skill_uid, exc)
         return header
@@ -303,7 +337,7 @@ async def _build_system_prompt(
             skill = await skill_repository.get_by_uid(skill_uid, db)
             if skill is None:
                 continue
-            lines.append(_skill_prompt_text(skill))
+            lines.append(await _skill_prompt_text(skill, db))
 
     if memories:
         lines.append("")
