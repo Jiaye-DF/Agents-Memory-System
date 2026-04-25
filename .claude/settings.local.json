@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"e:\\\\MyProgramming\\\\Agents-Memory-System\\\\backend\" -Recurse -Depth 3 | Where-Object { $_.Name -notmatch \"__pycache__|\\\\.pyc$\" } | Select-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"e:\\\\MyProgramming\\\\Agents-Memory-System\\\\frontend\" -Recurse -Depth 3 | Where-Object { $_.FullName -notmatch \"node_modules|\\\\.next\" } | Select-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"e:\\\\MyProgramming\\\\Agents-Memory-System\\\\backend\" -Recurse | Where-Object { $_.Name -notmatch \"__pycache__|\\\\.pyc$|^\\\\.pytest_cache$\" } | Select-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"e:\\\\MyProgramming\\\\Agents-Memory-System\\\\backend\" -Recurse -Name | Where-Object { $_ -notmatch \"__pycache__|\\\\.pyc$|\\\\.pytest_cache\" })",
+      "PowerShell(git -C \"e:\\\\MyProgramming\\\\Agents-Memory-System\" ls-files)",
+      "PowerShell(git -C \"e:\\\\MyProgramming\\\\Agents-Memory-System\" ls-files -c)",
+      "PowerShell(git -C \"e:\\\\MyProgramming\\\\Agents-Memory-System\" ls-files | Where-Object { $_ -match \"\\\\.env$|credentials|\\\\.key$|\\\\.pem$|\\\\.p12$\" })",
+      "PowerShell(docker info 2>&1 | Select-Object -First 5; Write-Output \"---EXIT:$LASTEXITCODE---\")",
+      "PowerShell(docker compose -f docker-compose.dev.yml up --build -d 2>&1)",
+      "PowerShell(docker compose -f docker-compose.dev.yml logs flyway --tail=80)",
+      "PowerShell(docker compose -f docker-compose.dev.yml ps -a)",
+      "PowerShell(git log --oneline --all -- migrations/sql/V12__create_agent_language_table.sql migrations/sql/V17__create_agent_template_table.sql)",
+      "PowerShell(docker compose -f docker-compose.dev.yml run --rm flyway repair)",
+      "PowerShell(docker compose -f docker-compose.dev.yml up -d)",
+      "PowerShell(try { Invoke-WebRequest -Uri \"http://localhost:8000/api/docs\" -UseBasicParsing -TimeoutSec 15 | Out-Null; Write-Output \"backend_docs: OK\" } catch { Write-Output \"backend_docs: $\\($_.Exception.Message\\)\" })",
+      "PowerShell(try { Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 15 | Out-Null; Write-Output \"frontend: OK\" } catch { Write-Output \"frontend: $\\($_.Exception.Message\\)\" })"
+    ]
+  }
+}
