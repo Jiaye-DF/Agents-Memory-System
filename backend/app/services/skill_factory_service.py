@@ -18,7 +18,7 @@ import uuid
 import zipfile
 from collections import Counter
 from datetime import datetime
-from typing import Any
+from typing import TypedDict
 
 from fastapi import UploadFile
 from starlette.datastructures import Headers
@@ -542,7 +542,17 @@ async def reject_suggestion(
 # ---------- Admin debug ----------
 
 
-async def list_recent_logs(limit: int = 50) -> dict:
+class _LogItem(TypedDict):
+    id: str
+    ts: str | None
+    event: dict[str, object]
+
+
+class _LogListResult(TypedDict):
+    items: list[_LogItem]
+
+
+async def list_recent_logs(limit: int = 50) -> _LogListResult:
     """讀取 agentic:skill:log stream 最近 N 筆事件。"""
     try:
         redis = get_redis()
@@ -555,11 +565,11 @@ async def list_recent_logs(limit: int = 50) -> dict:
         logger.warning("讀取 agentic:skill:log 失敗: %s", exc)
         return {"items": []}
 
-    items: list[dict[str, Any]] = []
+    items: list[_LogItem] = []
     for entry_id, fields in entries:
         try:
             payload = fields.get("payload") if isinstance(fields, dict) else None
-            data = json.loads(payload) if payload else {}
+            data: dict[str, object] = json.loads(payload) if payload else {}
         except Exception:
             data = {}
         items.append(

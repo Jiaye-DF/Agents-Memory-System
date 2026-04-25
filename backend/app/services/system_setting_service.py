@@ -7,7 +7,7 @@ from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.models.system_setting import SystemSetting
 from app.repositories import system_setting_repository
-from app.schemas.system_settings.schemas import SystemSettingUpdateRequest
+from app.schemas.settings.schemas import SystemSettingUpdateRequest
 
 # TTL 快取：每個 key 獨立快取，避免每次建 Agent 都查 DB
 _CACHE_TTL_SECONDS = 30.0

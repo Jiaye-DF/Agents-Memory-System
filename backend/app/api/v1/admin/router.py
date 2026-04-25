@@ -27,7 +27,7 @@ from app.schemas.response import (
     MessageData,
     PaginatedData,
 )
-from app.schemas.system_settings.schemas import (
+from app.schemas.settings.schemas import (
     SystemSettingResponse,
     SystemSettingUpdateRequest,
 )

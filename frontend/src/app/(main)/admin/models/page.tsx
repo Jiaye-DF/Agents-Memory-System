@@ -739,18 +739,18 @@ export default function AdminModelsPage(): React.ReactNode {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="shrink-0 text-sm text-muted">排序：</span>
+            <span className="shrink-0 text-sm text-muted">按時間：</span>
             <FilterChip
               active={sortOrder === "newest"}
               onClick={() => setSortOrder("newest")}
             >
-              最新
+              由新到舊
             </FilterChip>
             <FilterChip
               active={sortOrder === "oldest"}
               onClick={() => setSortOrder("oldest")}
             >
-              最舊
+              由舊到新
             </FilterChip>
           </div>
         </div>

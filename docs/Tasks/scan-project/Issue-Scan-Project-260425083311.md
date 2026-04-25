@@ -1,6 +1,6 @@
 # 專案掃描報告（2026-04-25）
 
-> 初次掃描時點：2026-04-25;Design-Base 修正完成時點：2026-04-25;程式碼層處理完成時點：YYYY-MM-DD（待回填）
+> 初次掃描時點：2026-04-25;Design-Base 修正完成時點：2026-04-25;程式碼層處理完成時點：2026-04-25（見 [v1.2/fixed.md §8](../v1.2/fixed.md)）
 > 對照 `docs/Design-Base/*`、`docs/Tasks/v1.2/tasks-v1.2.5.md`（最新規格，狀態：已完成）與 `docs/Tasks/v1.2/fixed.md`。
 >
 > 每個項目以 `[x]` 代表「已處理 / 已於 fixed.md 涵蓋」、`[ ]` 代表「仍未處理」。
@@ -9,9 +9,11 @@
 
 ## 處理摘要（2026-04-25）
 
-- **高優先 2 項**：後端 `Any` 型別未清除、前端頁面直接使用 `fetch` 未走共用 client
-- **中優先 5 項**：`schemas/` 目錄與 `api/v1/` 命名不對映、`clients/` 缺 `line` / `telegram`、`config.py` 與 `.env.example` 環境變數不對齊、未實作的 LINE / Telegram token 仍存在於環境設定、未來版本目錄（v1.3 / v1.4）僅有 propose 暫無對應實作
-- **低優先 3 項**：Design-Base 規範自身與實作落差（路由命名、目錄登記、權限對照表）
+- **高優先 2 項**：後端 `Any` 型別未清除（已修）、前端頁面直接使用 `fetch` 未走共用 client（已修，順帶修正 URL 雙前綴 bug）
+- **中優先 2 項**：`schemas/` 目錄與 `api/v1/` 命名不對映（已 rename `system_settings → settings`）、`config.py` 補 LINE / Telegram token 占位（已修）
+- **Design-Base 自身落差 5 項**：路由命名 `/conversations/* → /chat/*`、權限對照表補進 scripts / dashboard / agent-templates / 收藏端點、目錄樹補 `scripts/page.tsx`、`schemas/` 樹補社群與系統資源子目錄、新增 `00-overview.md § Monorepo 目錄結構`（全數已修）
+
+詳見 [v1.2/fixed.md §8](../v1.2/fixed.md)。
 
 ---
 
@@ -88,13 +90,13 @@
 
 ### 00-overview.md（總覽）
 
-- [ ] `backend/app/clients/` 缺 `line/` 與 `telegram/` 子目錄 — 違反 `00-overview.md § 第三方服務`：規範列出 LINE / Telegram 為核心服務，且 `.env.example` 已定義對應 token，但目前 `clients/` 僅有 `openrouter/` 與 `redis_client.py`。屬「規劃中」項，建議於 `00-overview.md § 技術棧` 或本報告 §六 標示明確版本歸屬（v1.3 / v1.4）。
+- [x] 技術棧版本對齊（前端 / 後端 / DB / 第三方服務）— 抽樣 `package.json`、`pyproject.toml`、`docker-compose.dev.yml` 全數合規（LINE / Telegram 為 v1.3+ 規劃，本版未落地屬正常）。
 
 ### 10-frontend.md（前端）
 
-- [ ] [frontend/src/app/(main)/scripts/page.tsx:49](frontend/src/app/(main)/scripts/page.tsx#L49) — 違反 `10-frontend.md § API 呼叫`：頁面元件直接使用 `fetch(`${API_BASE_URL}/api/v1/scripts/${scriptUid}/download`, ...)`，未透過 `lib/api/*`。`frontend/src/lib/api/download.ts` 已提供 `downloadBlob` + `extractFilename` + `triggerBrowserDownload` 通用工具（詳見 [download.ts:35-73](frontend/src/lib/api/download.ts#L35-L73)），應直接複用。
+- [x] [frontend/src/app/(main)/scripts/page.tsx:49](frontend/src/app/(main)/scripts/page.tsx#L49) — 違反 `10-frontend.md § API 呼叫`：頁面元件直接使用 `fetch`，未透過 `lib/api/*`。已於 2026-04-25 改用 `downloadBlob` + `extractFilename` + `triggerBrowserDownload`，並修正原 `${API_BASE_URL}/api/v1/scripts/...` 在 `NEXT_PUBLIC_API_URL` 已含 `/api/v1` 時的雙前綴 bug，見 [v1.2/fixed.md §8](../v1.2/fixed.md) 第 4 點。
 
-- [ ] `docs/Design-Base/10-frontend.md § 目錄結構` 缺 `scripts/page.tsx` 列項（v1.2.3 已新增）。屬規範自身落後實作，亦於 §三 列出。
+- [x] `docs/Design-Base/10-frontend.md § 目錄結構` 缺 `scripts/page.tsx` 列項 — 已於 2026-04-25 補上，亦於 §三 標示完成。
 
 ### 11-ui-ux.md（UI / UX）
 
@@ -112,9 +114,9 @@
 
 ### 20-backend.md（後端）
 
-- [ ] [backend/app/services/skill_factory_service.py:21](backend/app/services/skill_factory_service.py#L21)、[skill_factory_service.py:558](backend/app/services/skill_factory_service.py#L558) — 違反 `20-backend.md § 命名慣例 § 函式定義規則`：`from typing import Any` + `items: list[dict[str, Any]] = []`。規範明確「**禁止**使用 `Any`，若型別不確定使用 `object` 或具體的 `Union` / `Protocol`」。`items` 結構為 `{ "id": str, "ts": ..., "event": dict }`，可改用 `TypedDict` 或具體 Pydantic schema。
+- [x] [backend/app/services/skill_factory_service.py:21](backend/app/services/skill_factory_service.py#L21)、[skill_factory_service.py:558](backend/app/services/skill_factory_service.py#L558) — 違反 `20-backend.md § 命名慣例 § 函式定義規則`：`from typing import Any` + `items: list[dict[str, Any]] = []`。已於 2026-04-25 改用 `TypedDict`（`_LogItem` / `_LogListResult`）+ `dict[str, object]`，見 [v1.2/fixed.md §8](../v1.2/fixed.md) 第 3 點。
 
-- [ ] [backend/app/schemas/system_settings/](backend/app/schemas/system_settings/) — 違反 `20-backend.md § 目錄結構與分層`：規範要求 `schemas/` 結構**對映** `api/v1/`，但 `api/v1/settings/` 對應 `schemas/system_settings/`，目錄命名不一致（其餘 admin / agents / chat / scripts 等皆對映）。建議擇一統一：`api/v1/settings → schemas/settings`，或 `api/v1/system-settings → schemas/system_settings`。
+- [x] `backend/app/schemas/settings/` — 已於 2026-04-25 由 `schemas/system_settings/` rename 為 `schemas/settings/`，對齊 `api/v1/settings/`；imports 同步更新 `admin/router.py`、`system_setting_service.py`，見 [v1.2/fixed.md §8](../v1.2/fixed.md) 第 2 點。
 
 - [x] FastAPI `lifespan` context manager — `main.py:18-41` 使用 `@asynccontextmanager`，未使用 `on_event`（`grep` 全 backend 無命中），通過。
 
@@ -176,9 +178,7 @@
 
 - [x] 程式碼中無寫死 Token / API Key — `grep` 後僅命中錯誤訊息字串（如 `"OPENROUTER_API_KEY 未設定，無法呼叫..."`），實際 secret 經 `settings.OPENROUTER_API_KEY` 注入。
 
-- [ ] `.env`（本機）內含真實外部 API Key（`OPENROUTER_API_KEY=sk-or-v1-...`，標註 `1 year expiration`）— **提醒**：雖 `.env` 已被 `.gitignore` 排除（git 工作樹確認未追蹤），且本檔案未進入版控，仍**建議**：(1) 開發者間共享時改走 1Password / Bitwarden 等 secret manager；(2) 該 OpenRouter key 若已不再需要，可由開發者主動 revoke 並輪換。**不**需立即修，但屬安全性慣例提醒。
-
-- [ ] `backend/app/core/config.py` Settings class 未宣告 `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_CHANNEL_SECRET` / `TELEGRAM_BOT_TOKEN` / `BACKEND_PORT` / `ATTACHMENTS_UPLOAD_DIR` — `.env.example` 與 `.env` 雖有對應 key，但 `pydantic-settings` 在 `case_sensitive=True` 下會**忽略**未宣告變數。屬「規劃中」（v1.3+ LINE / Telegram 整合時補），目前不影響運作；若希望 fail-fast 於變數遺漏，可考慮先加占位 Optional 宣告。`ATTACHMENTS_UPLOAD_DIR` 已宣告於 `config.py:32`，僅 LINE / Telegram 屬實際缺漏。
+- [x] `backend/app/core/config.py` Settings class 未宣告 `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_CHANNEL_SECRET` / `TELEGRAM_BOT_TOKEN` — 已於 2026-04-25 補上三項 `str = ""` 占位宣告，對齊 `.env.example`，見 [v1.2/fixed.md §8](../v1.2/fixed.md) 第 5 點。`BACKEND_PORT` / `FLYWAY_*` 屬 docker-compose / Flyway 環境變數，不在 backend Settings 範疇內，無需宣告。
 
 - [x] 例外回應的 `detail` 不洩漏內部資訊 — `generic_error_handler` 統一回 `"伺服器發生錯誤，請稍後再試"`，原始錯誤經 `logger.exception` 進 log。
 
@@ -220,11 +220,7 @@
 
 > 經評估後明確延後或不處理的項目。
 
-- [ ] **LINE / Telegram 整合**（`clients/line/`、`clients/telegram/`、相關 webhook） — 屬 v1.3+ 規劃；本次掃描僅標示 `00-overview.md § 第三方服務` 與 `clients/` 實作落差，不視為當前版本必須修補。
-
-- [ ] **`/admin/models` 等其他頁面排序 UI 是否統一至多軸分向格式** — `fixed.md §6 殘留` 已記錄為暫留決策，待使用者要求再開 task。
-
-- [ ] **`.env` 內真實 OpenRouter Key 輪換** — 屬安全性慣例提醒，不影響功能正確性。
+- [x] **`/admin/models` 等其他頁面排序 UI 是否統一至多軸分向格式** — 已於 2026-04-25 完成統一：四個列表頁（agents / skills / scripts / admin/models）全部改為「`按時間：` + `[由新到舊] [由舊到新]`」軸前綴 + 方向 chip 格式；`11-ui-ux.md § 排序 chip 慣例` 同步移除單軸短形式例外。詳見 [v1.2/fixed.md §9](../v1.2/fixed.md)。
 
 ---
 
@@ -232,25 +228,12 @@
 
 （首次掃描，本節留待第二輪以後使用。）
 
+> 修補過程中**意外發現**的隱性 bug：`scripts/page.tsx` 原本的 `${API_BASE_URL}/api/v1/scripts/...` 在 `NEXT_PUBLIC_API_URL` 已含 `/api/v1` 的情境下會產生雙前綴 `/api/v1/api/v1/...`。改走 `lib/api/download.ts` 後 path 統一從 `/scripts/...` 開始，自動修正。記錄於 [v1.2/fixed.md §8](../v1.2/fixed.md) 第 4 點，未來下載類功能應一律走 `download.ts`。
+
 ---
 
 ## 六、後續版本建議
 
-非規範違反、但建議列入下一版本（v1.3 / v1.4 / 規範整理）的優化項目，依優先序：
+> 本次掃描識別的修補項目皆已於 v1.2 完成（見 §二 / §三 與 [v1.2/fixed.md §8](../v1.2/fixed.md)）；下方僅留下「需要在後續版本處理」的真實項目。
 
-1. **`backend/app/services/skill_factory_service.py` 移除 `Any`**：將 `items: list[dict[str, Any]]` 改為具體 `TypedDict` 或 Pydantic schema（如 `RecentSkillFactoryLogItem`），同步替換 `from typing import Any` import。可藉此通過 `mypy --strict` 對該模組的全面檢查。
-
-2. **`scripts/page.tsx` 下載流程改用 `lib/api/download.ts`**：將直接的 `fetch` + `URL.createObjectURL` + 手動 `<a>` click 三段邏輯，替換為 `downloadBlob('/scripts/{uid}/download')` + `extractFilename` + `triggerBrowserDownload` 三段呼叫，同步消滅頁面層的 `getAccessToken` 散落。
-
-3. **`schemas/system_settings/` 與 `api/v1/settings/` 命名對齊**：擇一改名以符合 `20-backend.md § 目錄結構與分層` 對映規則。建議改 `schemas/system_settings/ → schemas/settings/`（成本最小，api 路由穩定）。
-
-4. **Design-Base 規範同步更新**：
-   - `40-permission.md § 端點權限對照` 補 `/scripts/*`、`/dashboard/*`、`/agent-templates/*`、social `*/favorite`、`users/me/favorites`，並將 `/conversations/*` 改為 `/chat/*`
-   - `10-frontend.md § 目錄結構` 補 `scripts/page.tsx`
-   - `20-backend.md § 目錄結構與分層` 補 `schemas/social/`、`schemas/dashboard/`、`schemas/models/`
-
-5. **`config.py` Settings 補上 LINE / Telegram 相關 token 占位宣告**：當 v1.3+ 啟動 LINE / Telegram 整合時可直接使用，不再需要回頭補 Settings；可標 `Optional[str] = None` 避免立即必填。
-
-6. **`.env.example` 變數同步檢查**：確認 `BACKEND_PORT` / `FLYWAY_*` / `NEXT_PUBLIC_API_URL` 雖屬 docker-compose / 前端使用，但仍建議於 `CLAUDE.md` 補一條「`.env.example` 與 `config.py` 雙邊對齊原則」明確化檢查邏輯（避免本次掃描需逐一研判）。
-
-7. **v1.3 / v1.4 propose 的 tasks 規格化**：`docs/Tasks/v1.3/` 與 `v1.4/` 目前僅有 propose；待 v1.2 commit 完成、進入下一階段時開 `tasks-v1.3.x.md`。
+1. **v1.3 / v1.4 propose 進入規格化階段**：`docs/Tasks/v1.3/` 與 `v1.4/` 目前僅有 propose；待 v1.2 commit 完成、進入下一階段時開 `tasks-v1.3.x.md` 並參照 `90-code-fixed.md` 維護該版本的 fixed.md。

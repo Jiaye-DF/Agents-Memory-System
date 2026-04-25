@@ -277,11 +277,9 @@ showContentDialog({
 
 ### 排序 chip 慣例
 
-排序本質是「排序欄位 × 方向」兩軸組合。依多/單軸場景採不同 UI：
+排序本質是「排序欄位 × 方向」兩軸組合，**全站一律採用「軸前綴 + 方向 chip」格式**，不分多軸 / 單軸場景，亦不再使用「最新 / 最舊」之類的雙 chip 短形式。
 
-#### 多軸排序（dashboard、公開列表）
-
-以「軸」為前綴標籤，軸內放兩個方向 chip，語意直白、可讀性高。
+軸前綴與對應 chip 標籤對照：
 
 | 軸（前綴） | chip 標籤（desc / asc） | 對應欄位 |
 | --- | --- | --- |
@@ -289,11 +287,9 @@ showContentDialog({
 | `按收藏：` | 由多到少 / 由少到多 | `favorite_count` |
 | `按熱度：` | 由多到少 / 由少到多 | `download_count` |
 
-同頁只能同時選中**一個 chip**（跨軸單選）。切換軸 = 切換排序欄位；切換方向 = 切換 order。
-
-#### 單軸排序（admin 單一資源頁）
-
-單軸場景可用短形式雙 chip：`最新 / 最舊`（例 `/admin/models`）。僅限「只有時間軸」的情境，不得混用多軸簡稱。
+- **單軸場景**（admin 管理頁、個人資源管理頁等只關心時間軸的列表）：僅渲染 `按時間：` 一列，仍維持軸前綴 + 兩顆方向 chip 結構
+- **多軸場景**（dashboard 公開頁籤等）：每軸獨立一列，軸間以縱向堆疊（`flex flex-col gap-2`）；同頁只能同時選中**一個 chip**（跨軸單選），切換軸 = 切換排序欄位，切換方向 = 切換 order
+- 後續加新維度（如「按建立者」）時，延伸同樣「`按X：` + 兩顆方向 chip」結構即可
 
 ### 放置位置
 
@@ -304,8 +300,8 @@ showContentDialog({
 
 ### 範例參考
 
-- 單軸雙 chip：`frontend/src/app/(main)/admin/models/page.tsx`（「最新 / 最舊」）
-- 多軸分組：`frontend/src/app/(main)/dashboard/page.tsx`（按時間 / 按收藏 / 按熱度）
+- 單軸：`frontend/src/app/(main)/admin/models/page.tsx`、`/agents`、`/skills`、`/scripts` 個人管理頁（皆為 `按時間：[由新到舊] [由舊到新]`）
+- 多軸：`frontend/src/app/(main)/dashboard/page.tsx`（按時間 / 按收藏 / 按熱度，三列縱向堆疊）
 
 ---
 

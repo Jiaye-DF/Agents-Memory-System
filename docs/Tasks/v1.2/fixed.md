@@ -209,6 +209,94 @@ TypeError: update() missing 2 required positional arguments: 'update_data' and '
 
 ---
 
+## 8. /scan-project 掃出的規範落差批量修補（Design-Base + 程式碼層）  〔2026-04-25 08:33:11〕
+
+**問題**：執行 `/scan-project`（報告寫入 `docs/Tasks/scan-project/Issue-Scan-Project-260425083311.md`）後，識別出 5 處 Design-Base 自身落差與 4 處程式碼層違規 / 隱性 bug，集中於本條一次修補。
+
+根因：v1.0 ~ v1.2 期間，後端 `api/v1/` 與前端路由持續擴充（scripts、dashboard、agent-templates、social favorite），但 Design-Base 規範樹節錄與權限對照表未同步生長；同時 `schemas/system_settings/` 與 `api/v1/settings/` 命名漂移、`scripts/page.tsx` 下載流程未走共用 `lib/api/download.ts`、`skill_factory_service` 殘留 `Any`。皆屬「規範與實作雙向漂移、缺一次系統性對齊」的累積。
+
+**修正**：
+
+1. **Design-Base 五處同步擴充**：
+   - `40-permission.md`：`/api/v1/conversations/*` 改為 `/api/v1/chat/*`；member + admin 共用端點補進 scripts / chat / dashboard / agent-templates / 收藏端點 / `users/me/favorites`；admin 專屬區補 `agent-templates/*`；表格寬度同步對齊
+   - `10-frontend.md § 目錄結構` 補 `scripts/page.tsx`
+   - `20-backend.md § 目錄結構與分層` 同步擴充 `api/v1/` 與 `schemas/` 兩棵樹（含 scripts / agent_languages / agent_templates / dashboard / models / settings / social / common.py）
+   - `00-overview.md` 新增 `## Monorepo 目錄結構` 小節，列實際頂層目錄
+2. **`schemas/system_settings/` → `schemas/settings/` rename**（對齊 `api/v1/settings/`）：
+   - 新建 `schemas/settings/{__init__.py, schemas.py}` 內容沿用
+   - `admin/router.py`、`system_setting_service.py` import 路徑更新
+   - 移除舊目錄 `schemas/system_settings/`
+3. **`skill_factory_service.py` 移除 `Any`**：以 `TypedDict`（`_LogItem` / `_LogListResult`）取代 `dict[str, Any]`，`event` 改為 `dict[str, object]`；回傳型別由裸 `dict` 改為具型別的 `_LogListResult`
+4. **`scripts/page.tsx` 下載流程改用 `lib/api/download.ts`**：移除頁面內 `getAccessToken` + 手動 `fetch` + 手動 filename 解析 + 手動 `URL.createObjectURL` / `<a>` click；改用 `downloadBlob` + `extractFilename` + `triggerBrowserDownload` 三段呼叫。**順帶修正潛在 bug**：原寫法 `${API_BASE_URL}/api/v1/scripts/...` 在 `NEXT_PUBLIC_API_URL` 已含 `/api/v1` 的情境下會造成雙前綴 `/api/v1/api/v1/...`，改走 `download.ts` 後 path 統一從 `/scripts/...` 開始，自動避開重複。
+5. **`config.py` 補 LINE / Telegram token 占位宣告**：`LINE_CHANNEL_ACCESS_TOKEN` / `LINE_CHANNEL_SECRET` / `TELEGRAM_BOT_TOKEN` 三項 `str = ""`，配合 `.env.example` 既有變數對齊；v1.3+ 啟動 LINE / Telegram 整合時可直接使用，不再需要回頭補 Settings
+
+**影響檔案**：
+
+- `docs/Design-Base/00-overview.md`
+- `docs/Design-Base/10-frontend.md`
+- `docs/Design-Base/20-backend.md`
+- `docs/Design-Base/40-permission.md`
+- `backend/app/schemas/settings/__init__.py`（新增）
+- `backend/app/schemas/settings/schemas.py`（新增，沿用舊內容）
+- `backend/app/schemas/system_settings/`（移除）
+- `backend/app/api/v1/admin/router.py`
+- `backend/app/services/system_setting_service.py`
+- `backend/app/services/skill_factory_service.py`
+- `backend/app/core/config.py`
+- `frontend/src/app/(main)/scripts/page.tsx`
+
+**驗證方式**：
+
+- 後端：`backend/app` 全域 grep `system_settings` 無命中、`from typing import Any` 在 skill_factory_service 無命中
+- 前端：`scripts/page.tsx` 全檔無 `API_BASE_URL` / `getAccessToken` / 直接 `fetch` 命中
+- 規範：`docs/Tasks/scan-project/Issue-Scan-Project-260425083311.md` §三 條目全數標 `[x]`
+
+**殘留 / 後續**：
+
+- `clients/line/` / `clients/telegram/` 子目錄與實際整合留 v1.3+；目前僅完成 Settings 占位
+- `docker-compose.dev.yml` 暫不傳遞 LINE / Telegram env（待真實整合時再補 environment 區塊）
+
+---
+
+## 9. 排序 chip 全站統一為「軸前綴 + 方向 chip」格式  〔2026-04-25 08:55:17〕
+
+**問題**：§6 推翻原「最新 / 最舊」單軸短形式、改為 dashboard 採「軸前綴 + 方向」分軸分向後，遺留 `/admin/models`、`/agents`、`/skills`、`/scripts` 個人管理頁仍混用兩種變形：
+
+- `/agents`、`/skills`、`/scripts`：前綴 `排序：` + chip `由新到舊 / 由舊到新`（前綴未對齊軸命名）
+- `/admin/models`：前綴 `排序：` + chip `最新 / 最舊`（chip label 也是舊短形式）
+
+§6 殘留段落原本標記為「暫留決策，待使用者要求再開 task」，本回合使用者明確要求現在統一。
+
+根因：v1.2.5 新增規範 `11-ui-ux.md § 排序 chip 慣例` 時保留「單軸場景可用短形式雙 chip」例外；fixed.md §6 改寫 dashboard 為多軸後未一併遷移其他頁面，造成風格分裂。
+
+**修正**：
+
+1. **四個列表頁前綴 / chip label 統一**：
+   - `/agents`、`/skills`、`/scripts`：`排序：` → `按時間：`（chip label 已對齊不動）
+   - `/admin/models`：`排序：` → `按時間：`，chip label `最新` → `由新到舊`、`最舊` → `由舊到新`
+2. **`11-ui-ux.md § 排序 chip 慣例` 規範統一**：
+   - 移除「單軸排序短形式雙 chip」例外
+   - 改寫為「全站一律採用軸前綴 + 方向 chip」原則
+   - 單軸場景仍渲染 `按時間：` 一列；多軸場景每軸獨立一列縱向堆疊
+   - 範例參考更新為四個個人 / admin 列表頁 + dashboard
+
+**影響檔案**：
+
+- `docs/Design-Base/11-ui-ux.md`（§ 排序 chip 慣例 改寫）
+- `frontend/src/app/(main)/agents/page.tsx`
+- `frontend/src/app/(main)/skills/page.tsx`
+- `frontend/src/app/(main)/scripts/page.tsx`
+- `frontend/src/app/(main)/admin/models/page.tsx`
+
+**驗證方式**：
+
+- `grep -rn "排序：" frontend/src/app` 應僅命中 `agent-templates/page.tsx` L550、`agent-languages/page.tsx` L308 兩處（皆為 `{x.sort_order}` 資料欄位顯示，非排序 chip 前綴），無「排序：」前綴殘留於排序 chip 上下文
+- 四個列表頁實測排序行為：點「由舊到新」列表確實按 `created_at asc` 重排
+
+**交叉引用**：本條結清 §6 殘留段落「`/admin/models` 與其他頁面既有排序 UI 未同步遷移」。
+
+---
+
 ## 處理狀態
 
 | # | 項目 | 狀態 | Commit |
@@ -220,6 +308,8 @@ TypeError: update() missing 2 required positional arguments: 'update_data' and '
 | 5 | 公開頁籤缺排序切換 + Ranking API 缺 `order` | ✅ 已修 | — 待 commit-all |
 | 6 | 排序 chip 分軸分向重構 + 「你最常用的」改 tab | ✅ 已修 | — 待 commit-all |
 | 7 | 收藏 API 500 — `update` shadow 修正 + favorite_service helper 抽出 | ✅ 已修 | — 待 commit-all |
+| 8 | /scan-project 規範落差批量修補（Design-Base + 程式碼層） | ✅ 已修 | — 待 commit-all |
+| 9 | 排序 chip 全站統一為「軸前綴 + 方向 chip」格式（結清 §6 殘留） | ✅ 已修 | — 待 commit-all |
 
 ---
 

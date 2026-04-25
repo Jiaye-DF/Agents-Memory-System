@@ -401,7 +401,7 @@ export default function SkillsListPage(): React.ReactNode {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="shrink-0 text-sm text-muted">排序：</span>
+            <span className="shrink-0 text-sm text-muted">按時間：</span>
             <FilterChip
               active={sortOrder === "newest"}
               onClick={() => setSortOrder("newest")}

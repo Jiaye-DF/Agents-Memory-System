@@ -178,13 +178,13 @@
 
 ## 驗收
 
-- [ ] 在 session 累積 10+ 筆主題聚焦的 memory（例如同一個技術學習 session）
-- [ ] 等待 memory_worker 寫完後最多 1 分鐘內，Redis `skill:suggestion:...` 出現候選
-- [ ] 前端側邊欄顯示至少 1 個合理的 suggestion（人工判斷 name + description + system_prompt 有關聯）
-- [ ] 點「建立」後 `/skills` 出現新的私人 skill；點「拒絕」後該項 status = rejected
-- [ ] 建立後提示「掛到 Agent」流程可用，掛載後該 Agent 下次對話生效
-- [ ] **admin 不能**看其他使用者的 suggestion 清單（403）
-- [ ] 關閉 `agentic.skill_factory.enabled` 後新 memory 不再觸發 analyzer
-- [ ] 同 signature 在 24h 內**不**重複產 suggestion
-- [ ] `agentic:skill:log` Redis stream 有對應的 generated / approved / rejected 三類紀錄
-- [ ] `GET /admin/debug/skill-factory/recent` 能回最近 50 筆事件
+- [x] 在 session 累積 10+ 筆主題聚焦的 memory（例如同一個技術學習 session）
+- [x] 等待 memory_worker 寫完後最多 1 分鐘內，Redis `skill:suggestion:...` 出現候選
+- [x] 前端側邊欄顯示至少 1 個合理的 suggestion（人工判斷 name + description + system_prompt 有關聯）
+- [x] 點「建立」後 `/skills` 出現新的私人 skill；點「拒絕」後該項 status = rejected
+- [x] 建立後提示「掛到 Agent」流程可用，掛載後該 Agent 下次對話生效
+- [x] **admin 不能**看其他使用者的 suggestion 清單（403）
+- [x] 關閉 `agentic.skill_factory.enabled` 後新 memory 不再觸發 analyzer
+- [x] 同 signature 在 24h 內**不**重複產 suggestion
+- [x] `agentic:skill:log` Redis stream 有對應的 generated / approved / rejected 三類紀錄
+- [x] `GET /admin/debug/skill-factory/recent` 能回最近 50 筆事件

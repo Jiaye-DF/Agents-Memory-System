@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     OPENROUTER_HTTP_REFERER: str = "http://localhost:3000"
     OPENROUTER_APP_TITLE: str = "Agents Memory System"
 
+    LINE_CHANNEL_ACCESS_TOKEN: str = ""
+    LINE_CHANNEL_SECRET: str = ""
+
+    TELEGRAM_BOT_TOKEN: str = ""
+
     @property
     def DATABASE_URL(self) -> str:
         return (

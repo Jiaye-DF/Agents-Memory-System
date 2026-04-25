@@ -194,11 +194,11 @@
 
 ## 驗收
 
-- [ ] 上傳 `.png` < 10MB 成功，預覽縮圖；上傳 > 10MB 被拒；`.exe` 被拒
-- [ ] 圖片送給 Claude 3.5 / Gemini：LLM 能描述圖片內容
-- [ ] 文字檔 `.md` 送給 LLM：LLM 能引用檔案內容回答
-- [ ] 超過 `max_attachments_per_message` 時送出被拒
-- [ ] 記憶層：對含圖片的對話 `SELECT topic, keywords FROM chat_memory` 看到的是**圖片描述文字**（例：「一張藍天白雲的風景照」），不是 `[image]` 字面值
-- [ ] Model 不支援 vision 時，LLM 仍能回覆（附件被略過，prompt 標註）不崩潰
-- [ ] 附件 download endpoint 只有 session owner 可取（別人 403）
-- [ ] Session 軟刪後附件記錄仍在（不物理刪），但不影響上傳使用者後續對話
+- [x] 上傳 `.png` < 10MB 成功，預覽縮圖；上傳 > 10MB 被拒；`.exe` 被拒
+- [x] 圖片送給 Claude 3.5 / Gemini：LLM 能描述圖片內容
+- [x] 文字檔 `.md` 送給 LLM：LLM 能引用檔案內容回答
+- [x] 超過 `max_attachments_per_message` 時送出被拒
+- [x] 記憶層：對含圖片的對話 `SELECT topic, keywords FROM chat_memory` 看到的是**圖片描述文字**（例：「一張藍天白雲的風景照」），不是 `[image]` 字面值
+- [x] Model 不支援 vision 時，LLM 仍能回覆（附件被略過，prompt 標註）不崩潰
+- [x] 附件 download endpoint 只有 session owner 可取（別人 403）
+- [x] Session 軟刪後附件記錄仍在（不物理刪），但不影響上傳使用者後續對話

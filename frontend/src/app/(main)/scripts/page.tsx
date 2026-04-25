@@ -28,11 +28,13 @@ import type {
 import { parseSearch, matchByTextAndAuthor } from "@/utils/search";
 import { formatDateTime } from "@/utils/datetime";
 import { ScriptUploadDialog } from "./ScriptUploadDialog";
-import { getAccessToken } from "@/lib/api/client";
+import {
+  downloadBlob,
+  extractFilename,
+  triggerBrowserDownload,
+} from "@/lib/api/download";
 
 type SortOrder = "newest" | "oldest";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -43,37 +45,12 @@ function formatFileSize(bytes: number): string {
 }
 
 async function downloadScript(scriptUid: string): Promise<void> {
-  const token = getAccessToken();
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/scripts/${scriptUid}/download`,
-    { method: "GET", headers, credentials: "include" }
-  );
-  if (!response.ok) {
+  const result = await downloadBlob(`/scripts/${scriptUid}/download`);
+  if (!result.ok || !result.blob) {
     throw new Error("下載失敗");
   }
-  const blob = await response.blob();
-  const cd = response.headers.get("content-disposition");
-  let filename = `${scriptUid}.zip`;
-  if (cd) {
-    const match = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i);
-    if (match && match[1]) {
-      try {
-        filename = decodeURIComponent(match[1]);
-      } catch {
-        filename = match[1];
-      }
-    }
-  }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const filename = extractFilename(result.headers, `${scriptUid}.zip`);
+  triggerBrowserDownload(result.blob, filename);
 }
 
 interface ScriptRowProps {
@@ -405,7 +382,7 @@ export default function ScriptsListPage(): React.ReactNode {
           />
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="shrink-0 text-sm text-muted">排序：</span>
+            <span className="shrink-0 text-sm text-muted">按時間：</span>
             <FilterChip
               active={sortOrder === "newest"}
               onClick={() => setSortOrder("newest")}

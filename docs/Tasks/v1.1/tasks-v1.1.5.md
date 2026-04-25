@@ -127,11 +127,11 @@
 
 ## 驗收
 
-- [ ] 輸入框：打 1 行 = 基本高度；打 5 行 = 對應增高；打 20 行 = 10 行高度 + 內部 scroll
-- [ ] 送出訊息後輸入框恢復初始高度
-- [ ] Assistant message hover 顯示 Copy 按鈕，點擊後瀏覽器剪貼簿有該則訊息的 content，UI 顯示 ✓ 兩秒
-- [ ] User message **不**出現 Copy 按鈕
-- [ ] 設 agent `max_tokens = 100` 發起長對話：assistant message 尾端出現 ⚠「回覆被截斷」badge
-- [ ] 歷史訊息（無 `finish_reason`）或 `finish_reason === 'stop'` 時，**不**顯示 badge
-- [ ] 重新整理頁面後 badge 仍正確顯示（代表 DB 有持久化 finish_reason）
-- [ ] DB 直接查 `SELECT finish_reason FROM chat_message WHERE role = 'assistant' LIMIT 10` 可見新欄位寫入
+- [x] 輸入框：打 1 行 = 基本高度；打 5 行 = 對應增高；打 20 行 = 10 行高度 + 內部 scroll
+- [x] 送出訊息後輸入框恢復初始高度
+- [x] Assistant message hover 顯示 Copy 按鈕，點擊後瀏覽器剪貼簿有該則訊息的 content，UI 顯示 ✓ 兩秒
+- [x] User message **不**出現 Copy 按鈕
+- [x] 設 agent `max_tokens = 100` 發起長對話：assistant message 尾端出現 ⚠「回覆被截斷」badge
+- [x] 歷史訊息（無 `finish_reason`）或 `finish_reason === 'stop'` 時，**不**顯示 badge
+- [x] 重新整理頁面後 badge 仍正確顯示（代表 DB 有持久化 finish_reason）
+- [x] DB 直接查 `SELECT finish_reason FROM chat_message WHERE role = 'assistant' LIMIT 10` 可見新欄位寫入
