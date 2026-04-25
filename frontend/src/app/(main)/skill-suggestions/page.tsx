@@ -12,6 +12,7 @@
 
 import React, { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { FilterChip } from "@/components/ui/FilterChip";
 import { ModalDialog } from "@/components/ui/ModalDialog";
 import { PageLoading } from "@/components/ui/Loading";
 import { useDialog } from "@/hooks/useDialog";
@@ -74,23 +75,26 @@ export default function SkillSuggestionsPage(): React.ReactNode {
         </p>
       </div>
 
-      {/* 狀態頁籤 */}
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-border">
+      {/* 狀態切換（FilterNav 風格 segmented button）*/}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         {STATUS_TABS.map((tab) => {
           const active = tab.key === statusTab;
           const c = counts[tab.key];
+          const label =
+            typeof c === "number" ? `${tab.label} (${c})` : tab.label;
           return (
             <button
               key={tab.key}
               type="button"
               onClick={() => setStatusTab(tab.key)}
-              className={`rounded-t-xl px-4 py-2 text-sm font-medium transition-colors hover:cursor-pointer ${
+              aria-pressed={active ? "true" : "false"}
+              className={`rounded-xl px-4 py-2 text-base font-medium transition-colors hover:cursor-pointer ${
                 active
-                  ? "border-b-2 border-primary text-primary"
-                  : "text-muted hover:text-foreground"
+                  ? "bg-primary text-white shadow-sm"
+                  : "bg-muted-bg text-muted hover:bg-border"
               }`}
             >
-              {tab.label} {typeof c === "number" ? `(${c})` : ""}
+              {label}
             </button>
           );
         })}
@@ -99,44 +103,38 @@ export default function SkillSuggestionsPage(): React.ReactNode {
       {/* scope chip */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="shrink-0 text-sm text-muted">範疇：</span>
-        {SCOPE_CHIPS.map((chip) => {
-          const active = chip.key === scopeChip;
-          return (
-            <button
-              key={chip.key}
-              type="button"
-              onClick={() => setScopeChip(chip.key)}
-              className={`rounded-full border px-3 py-1 text-sm transition-colors hover:cursor-pointer ${
-                active
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted hover:bg-muted-bg"
-              }`}
-            >
-              {chip.label}
-            </button>
-          );
-        })}
+        {SCOPE_CHIPS.map((chip) => (
+          <FilterChip
+            key={chip.key}
+            active={chip.key === scopeChip}
+            onClick={() => setScopeChip(chip.key)}
+          >
+            {chip.label}
+          </FilterChip>
+        ))}
       </div>
 
       {/* 列表 */}
-      {isLoading ? (
-        <PageLoading />
-      ) : items.length === 0 ? (
-        <div className="rounded-xl bg-card-bg py-12 text-center text-sm text-muted shadow-sm">
-          {statusTab === "pending"
-            ? "目前沒有待處理的 Skill 建議。系統會在你形成穩定使用習慣後自動推薦。"
-            : "此狀態下尚無 Skill 建議紀錄。"}
-        </div>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {items.map((item) => (
-            <SuggestionCard key={item.uid} item={item} />
-          ))}
-        </ul>
-      )}
+      <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
+        {isLoading ? (
+          <PageLoading />
+        ) : items.length === 0 ? (
+          <div className="py-12 text-center text-muted">
+            {statusTab === "pending"
+              ? "目前沒有待處理的 Skill 建議。系統會在你形成穩定使用習慣後自動推薦。"
+              : "此狀態下尚無 Skill 建議紀錄。"}
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {items.map((item) => (
+              <SuggestionCard key={item.uid} item={item} />
+            ))}
+          </ul>
+        )}
+      </div>
 
       {isFetching && !isLoading && (
-        <div className="mt-4 text-center text-xs text-muted">更新中…</div>
+        <div className="mt-4 text-center text-sm text-muted">更新中…</div>
       )}
     </div>
   );
@@ -258,24 +256,22 @@ function SuggestionCard({ item }: SuggestionCardProps): React.ReactNode {
   };
 
   return (
-    <li className="rounded-xl border border-border bg-card-bg p-4">
+    <li className="px-4 py-4 transition-colors hover:bg-muted-bg/40">
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-semibold text-foreground">
-            {item.name}
-          </h3>
+          <h3 className="text-lg font-semibold text-foreground">{item.name}</h3>
           {item.description && (
             <p className="mt-1 text-sm text-muted">{item.description}</p>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-2">
           <span
-            className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${scopeStyles[item.scope]}`}
+            className={`rounded-xl px-2 py-0.5 text-sm font-medium ${scopeStyles[item.scope]}`}
           >
             {scopeLabels[item.scope]}
           </span>
           <span
-            className={`rounded-xl px-2 py-0.5 text-xs font-medium ${confidenceClass}`}
+            className={`rounded-xl px-2 py-0.5 text-sm font-medium ${confidenceClass}`}
             title="模型對此建議的信心分數"
           >
             {confidencePct}%
@@ -283,7 +279,7 @@ function SuggestionCard({ item }: SuggestionCardProps): React.ReactNode {
         </div>
       </div>
 
-      <div className="mb-2 flex items-center gap-3 text-xs text-muted">
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
         <span>建立時間：{formatDateTime(item.created_at)}</span>
         {item.source_memory_uids.length > 0 && (
           <button
@@ -408,6 +404,8 @@ function AgentPickerModal({
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
             disabled={disabled}
+            aria-label="選擇要掛載的 Agent"
+            title="選擇要掛載的 Agent"
             className="min-h-11 w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-base text-foreground focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value="">請選擇 Agent</option>

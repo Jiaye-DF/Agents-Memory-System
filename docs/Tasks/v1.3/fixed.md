@@ -145,3 +145,33 @@ const update: AgentTemplateUpdateRequest = {
 **影響檔案**
 
 - [frontend/src/app/(main)/skill-suggestions/page.tsx](../../../frontend/src/app/(main)/skill-suggestions/page.tsx)
+
+---
+
+## 5. /skill-suggestions 字體 / chip 風格仍與管理頁不一致（§4 未完）〔2026-04-26 00:09:00〕
+
+**問題**
+
+§4 修了外層 wrapper 與 H1 大小，但細看仍與 [skills](../../../frontend/src/app/(main)/skills/page.tsx) / [agents](../../../frontend/src/app/(main)/agents/page.tsx) / [scripts](../../../frontend/src/app/(main)/scripts/page.tsx) 三個「我的資源」管理頁不對齊：
+
+- 狀態頁籤用 `border-b-2` 底線 tab + `text-sm` — 其他頁用 segmented button + `text-base`
+- scope chip 用自寫 `rounded-full border` style（藍底淡色 active）— 其他頁統一用 [`<FilterChip>`](../../../frontend/src/components/ui/FilterChip.tsx) 元件（`bg-primary text-white` active）
+- 卡片每張獨立 `border` — 其他頁用單一外層 `rounded-xl bg-card-bg shadow-sm` + `divide-y divide-border` 內部分隔
+- 卡片內 H3 為 `text-base`、scope/confidence 徽章 `text-[11px]` / `text-xs` — 其他頁 row H3 為 `text-lg`、徽章 `text-sm`
+- 卡片無 `hover:bg-muted-bg/40` — 其他頁有 hover 反饋
+
+**根因**
+
+v1.3.6 sub-agent 實作此頁時自行寫 button class 而非沿用既有 `<FilterChip>` 元件；卡片設計也未對齊「我的資源」三頁的 row + divide-y pattern。
+
+**修正**
+
+- 狀態頁籤改 segmented button（`bg-primary text-white shadow-sm` active / `bg-muted-bg text-muted` inactive；`text-base font-medium`）對齊 [`<FilterNav>`](../../../frontend/src/components/social/FilterNav.tsx) 風格
+- scope chip 改用既有 `<FilterChip>` 元件，移除自寫 button
+- 列表外層改單一 `rounded-xl bg-card-bg shadow-sm overflow-hidden`，內部 `divide-y divide-border`，卡片 row 加 `hover:bg-muted-bg/40` 對齊 SkillRow / AgentRow
+- 卡片 H3 改 `text-lg font-semibold`，scope / confidence 徽章 `text-sm font-medium`
+- a11y 修：移除 `role="tablist"` wrapper（與 `aria-pressed` 衝突 — tablist children 應為 `role="tab"` 而非 toggle button）；`aria-pressed` 值改字面字串 `"true"/"false"`（lint 對 boolean expression 嚴格）；`<select>` 補 `aria-label` + `title`
+
+**影響檔案**
+
+- [frontend/src/app/(main)/skill-suggestions/page.tsx](../../../frontend/src/app/(main)/skill-suggestions/page.tsx)
