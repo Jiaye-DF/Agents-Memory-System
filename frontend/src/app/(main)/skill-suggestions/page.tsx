@@ -65,17 +65,17 @@ export default function SkillSuggestionsPage(): React.ReactNode {
   const items = data?.items ?? [];
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 md:p-6">
-      <header>
-        <h1 className="text-2xl font-bold text-foreground">Skill 建議</h1>
+    <div>
+      <div className="mb-4">
+        <h1 className="text-3xl font-bold text-foreground">Skill 建議</h1>
         <p className="mt-1 text-sm text-muted">
           系統會在你跨 session / project / 跨主題形成穩定使用習慣後自動產出 Skill 建議；
           人工審核通過才會建立 Skill。
         </p>
-      </header>
+      </div>
 
       {/* 狀態頁籤 */}
-      <div className="flex flex-wrap gap-1 border-b border-border">
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-border">
         {STATUS_TABS.map((tab) => {
           const active = tab.key === statusTab;
           const c = counts[tab.key];
@@ -97,7 +97,8 @@ export default function SkillSuggestionsPage(): React.ReactNode {
       </div>
 
       {/* scope chip */}
-      <div className="flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="shrink-0 text-sm text-muted">範疇：</span>
         {SCOPE_CHIPS.map((chip) => {
           const active = chip.key === scopeChip;
           return (
@@ -121,7 +122,7 @@ export default function SkillSuggestionsPage(): React.ReactNode {
       {isLoading ? (
         <PageLoading />
       ) : items.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card-bg py-12 text-center text-sm text-muted">
+        <div className="rounded-xl bg-card-bg py-12 text-center text-sm text-muted shadow-sm">
           {statusTab === "pending"
             ? "目前沒有待處理的 Skill 建議。系統會在你形成穩定使用習慣後自動推薦。"
             : "此狀態下尚無 Skill 建議紀錄。"}
@@ -135,7 +136,7 @@ export default function SkillSuggestionsPage(): React.ReactNode {
       )}
 
       {isFetching && !isLoading && (
-        <div className="text-center text-xs text-muted">更新中…</div>
+        <div className="mt-4 text-center text-xs text-muted">更新中…</div>
       )}
     </div>
   );

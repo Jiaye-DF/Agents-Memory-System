@@ -11,7 +11,7 @@
 
 前端啟動 / 切換 session 頁面時 console 出現：
 
-```
+```text
 called `injectEndpoints` to override already-existing endpointName listSkillSuggestions without specifying `overrideExisting: true`
 ```
 
@@ -115,3 +115,33 @@ const update: AgentTemplateUpdateRequest = {
 **影響檔案**
 
 - [frontend/src/app/(main)/admin/agent-templates/page.tsx](../../../frontend/src/app/(main)/admin/agent-templates/page.tsx)
+
+---
+
+## 4. /skill-suggestions 頁 layout 與其他管理頁不一致〔2026-04-26 00:04:00〕
+
+**問題**
+
+開啟 `/skill-suggestions` 頁面，內容被夾在頁面中央窄欄（max-w-4xl），左右兩側留大片空白；H1 字級偏小、區塊間距與 `/skills` `/agents` 等管理頁不一致；scope chip 列無「範疇：」前綴標籤，使用者看不出 chip 是切什麼維度。
+
+**根因**
+
+外層 wrapper 寫成 `<div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 md:p-6">`：
+
+- `mx-auto max-w-4xl` 限制寬度 + 置中，與其他頁未做此限制不符
+- `p-4 md:p-6` 與 [layout.tsx](../../../frontend/src/app/(main)/layout.tsx) 的 `<main className="flex-1 overflow-y-auto p-4 lg:p-6">` 重複套 padding
+- H1 用 `text-2xl`，[skills](../../../frontend/src/app/(main)/skills/page.tsx) / [agents](../../../frontend/src/app/(main)/agents/page.tsx) 等用 `text-3xl`
+- 依賴外層 flex `gap-4` 控制區塊間距，與其他頁明確 `mb-4` 寫法不一致
+- scope chip 缺前綴標籤，違反 [Design-Base/11-ui-ux.md 排序 chip 慣例](../../Design-Base/11-ui-ux.md)（chip 列前綴應有 `<span className="shrink-0 text-sm text-muted">`）
+
+**修正**
+
+- 外層 wrapper 改為純 `<div>`（讓 `<main>` 的 padding 接管）
+- H1 改 `text-3xl`，外層用 `<div className="mb-4">` 包 header（移除語意 `<header>` 對齊 skills 寫法）
+- 各區塊獨立加 `mb-4` 取代外層 flex gap
+- scope chip 列前面加「範疇：」`<span>` 前綴
+- 空狀態卡片改用 `shadow-sm`（取代 `border border-border`）對齊其他頁卡片風格
+
+**影響檔案**
+
+- [frontend/src/app/(main)/skill-suggestions/page.tsx](../../../frontend/src/app/(main)/skill-suggestions/page.tsx)

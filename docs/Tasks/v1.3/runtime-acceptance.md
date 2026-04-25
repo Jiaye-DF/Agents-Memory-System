@@ -16,13 +16,15 @@
 
 ## 1. 快速健康檢查（5 分鐘）
 
+> AI 已掃描通過 (2026-04-26)
+
 確認 `/dev-up` 後所有服務正常。
 
-- [ ] `docker compose -f docker-compose.dev.yml ps` 五個 container 全 `Up` / `Healthy`（flyway 應為 `Exited (0)`）
-- [ ] `curl -sSf -o /dev/null -w "%{http_code}\n" http://localhost:8000/api/docs` → 200
-- [ ] `curl -sSf -o /dev/null -w "%{http_code}\n" http://localhost:3000` → 200
-- [ ] `psql ... -c "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1;"` → 48
-- [ ] `/api/docs` 顯示以下新 endpoint group：
+- [x] `docker compose -f docker-compose.dev.yml ps` 五個 container 全 `Up` / `Healthy`（flyway 應為 `Exited (0)`）
+- [x] `curl -sSf -o /dev/null -w "%{http_code}\n" http://localhost:8000/api/docs` → 200
+- [x] `curl -sSf -o /dev/null -w "%{http_code}\n" http://localhost:3000` → 200
+- [x] `psql ... -c "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1;"` → 48
+- [x] `/api/docs` 顯示以下新 endpoint group：
   - `GET /api/v1/admin/metrics/cost`（v1.3.0）
   - `GET /api/v1/admin/debug/memory/sessions/{uid}`（v1.3.1）
   - `GET /api/v1/chat/sessions/{uid}/events`（v1.3.2）
@@ -37,6 +39,8 @@
 
 ## 2. DB Schema 與 Migration（v1.3.0 ~ v1.3.6）
 
+> AI 已掃描通過 (2026-04-26) — 11 支 migration 全套用、表結構與 FK 規範正確
+
 確認 V38–V48 共 11 支 migration 都套用、表結構與 FK 正確。
 
 ```bash
@@ -44,17 +48,17 @@ docker compose -f docker-compose.dev.yml exec postgres \
   psql -U agents_admin -d agents_memory
 ```
 
-- [ ] V38 `\d llm_call_log` — 欄位 / 索引 / COMMENT 齊全
-- [ ] V39 `\d session_agent` — partial unique index `uq_session_agent_primary` 存在；同 session 寫兩筆 `primary` → DB 擋
-- [ ] V40 `\d chat_message` — `responding_agent_uid UUID NULL` 存在；既有 assistant 訊息已自動回填
-- [ ] V41 `\d chat_session` — `agent_uid` 為 nullable，COMMENT 含 `[DEPRECATED v1.3.3]`
-- [ ] V42 `SELECT key FROM agent_template WHERE key IN ('general','long-analysis','summary');` → 3 列；max_tokens 為 2048 / 8192 / 2048
-- [ ] V43 `SELECT key FROM system_setting WHERE key LIKE 'classifier.%';` → 5 列（enabled / model / cheap_model / skip_response_template / thresholds）
-- [ ] V44 `\d project_memory` — **沒有**指向 `chat_session` 的 FK；HNSW index 建立成功
-- [ ] V45 `\d user_memory` — **沒有**指向 `chat_session` / `chat_project` 的 FK；HNSW index 建立成功
-- [ ] V46 `SELECT key FROM system_setting WHERE key LIKE 'rag.%' OR key LIKE 'memory.%';` → 三層 RAG + aggregation 設定全列
-- [ ] V47 `\d agentic_skill_suggestion` — `scope` CHECK 約束 / partial unique 由 signature 防重複 / status 四值 CHECK
-- [ ] V48 `SELECT key FROM system_setting WHERE key LIKE 'agentic.%';` → 三 scope 閾值 + recommender 開關全列
+- [x] V38 `\d llm_call_log` — 欄位 / 索引 / COMMENT 齊全
+- [x] V39 `\d session_agent` — partial unique index `uq_session_agent_primary` 存在；同 session 寫兩筆 `primary` → DB 擋
+- [x] V40 `\d chat_message` — `responding_agent_uid UUID NULL` 存在；既有 assistant 訊息已自動回填
+- [x] V41 `\d chat_session` — `agent_uid` 為 nullable，COMMENT 含 `[DEPRECATED v1.3.3]`
+- [x] V42 `SELECT key FROM agent_template WHERE key IN ('general','long-analysis','summary');` → 3 列；max_tokens 為 2048 / 8192 / 2048
+- [x] V43 `SELECT key FROM system_setting WHERE key LIKE 'classifier.%';` → 5 列（enabled / model / cheap_model / skip_response_template / thresholds）
+- [x] V44 `\d project_memory` — **沒有**指向 `chat_session` 的 FK；HNSW index 建立成功
+- [x] V45 `\d user_memory` — **沒有**指向 `chat_session` / `chat_project` 的 FK；HNSW index 建立成功
+- [x] V46 `SELECT key FROM system_setting WHERE key LIKE 'rag.%' OR key LIKE 'memory.%';` → 三層 RAG + aggregation 設定全列
+- [x] V47 `\d agentic_skill_suggestion` — `scope` CHECK 約束 / partial unique 由 signature 防重複 / status 四值 CHECK
+- [x] V48 `SELECT key FROM system_setting WHERE key LIKE 'agentic.%';` → 三 scope 閾值 + recommender 開關全列
 
 ---
 
