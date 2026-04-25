@@ -1,15 +1,5 @@
-import re
-
+from app.core.text_utils import EMOJI_PATTERN as _EMOJI_PATTERN
 from app.models.chat_message import ChatMessage
-
-_EMOJI_PATTERN = re.compile(
-    "["
-    "\U0001F300-\U0001FAFF"
-    "\U00002600-\U000027BF"
-    "\U0001F000-\U0001F2FF"
-    "]+",
-    flags=re.UNICODE,
-)
 
 
 def should_skip(message: ChatMessage, rules: dict | None) -> bool:

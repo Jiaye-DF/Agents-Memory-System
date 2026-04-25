@@ -95,7 +95,7 @@ DEFAULT_SKIP_RULES = {
 
 ### 0-1 V43：seed classifier system settings
 
-- [ ] `migrations/sql/V43__seed_classifier_settings.sql`
+- [x] `migrations/sql/V43__seed_classifier_settings.sql`
   - `INSERT INTO system_setting (key, value, description) VALUES`：
     - `('classifier.enabled', 'true', '路由分類器開關（false 時全部走 expensive）')`
     - `('classifier.model', '"rule-based"', '分類器模型 ID；本版固定 rule-based，未來改 model 路徑時調整')`
@@ -122,16 +122,16 @@ DEFAULT_SKIP_RULES = {
 
 ### 1-1 新增 `app/services/classifier_service.py`
 
-- [ ] 模組頂層常數：
+- [x] 模組頂層常數：
   - `RouteDecision = Literal["skip", "cheap", "expensive"]`
   - 預設 fallback 規則（與 V43 seed 同步，作為 `system_setting` 抓不到時的硬 fallback）
-- [ ] `async def classify(content: str, *, attachments: list[dict] | None, history_turns: int, db: AsyncSession) -> dict`
+- [x] `async def classify(content: str, *, attachments: list[dict] | None, history_turns: int, db: AsyncSession) -> dict`
   - 回傳：`{"route": RouteDecision, "reason": str, "matched_rule": str}`
   - `reason` 給 metrics / debug log 用（e.g. `"greeting_whitelist:hi"`、`"length<min_length"`）
   - **multimodal 強制路由**：`attachments` 含 `kind=='image'` → 直接回 `{"route": "expensive", "reason": "multimodal_force", "matched_rule": "image_attachment"}`，不進規則判斷
   - 讀 `classifier.enabled`：false → 直接回 expensive（`reason="classifier_disabled"`）
   - 讀 `classifier.thresholds` JSON
-- [ ] 規則順序（短路判斷，命中即回）：
+- [x] 規則順序（短路判斷，命中即回）：
   1. **multimodal**：見上（已在進入規則前處理）
   2. **skip 條件**：
      - `len(content.strip()) < min_length` → skip
@@ -140,20 +140,21 @@ DEFAULT_SKIP_RULES = {
   3. **cheap 條件**（保守）：
      - `len(content) <= cheap_max_length` **且** `history_turns <= cheap_max_history_turns` **且** 不含問號以外的多句結構（簡單啟發式：`. ? !` 標點少於 2 個）→ cheap
   4. **預設**：expensive
-- [ ] **不**直接 import `memory_prefilter` 內部函式 — 把共用的 emoji pattern 抽到 `app/core/text_utils.py` 或在 classifier_service 內重宣告（避免兩模組互相耦合）
+  —（已改為：skip 子條件順序由「min_length → emoji → greeting」改為「greeting → emoji → min_length」，使「hi」/「好」等短於 `min_length=3` 的 whitelist 條目仍能命中 `matched_rule='greeting_whitelist:<word>'`，對齊 §6 驗收要求）
+- [x] **不**直接 import `memory_prefilter` 內部函式 — 把共用的 emoji pattern 抽到 `app/core/text_utils.py` 或在 classifier_service 內重宣告（避免兩模組互相耦合）
   > **WHY**：memory_prefilter 服務 memory_worker（背景批次抽取），classifier_service 服務 chat 入口（同步請求），生命週期 / 設定來源不同，不互相依賴
-- [ ] `def estimate_baseline_for_skip(content: str, expensive_model: str) -> Decimal`
+- [x] `def estimate_baseline_for_skip(content: str, expensive_model: str) -> Decimal`
   - `input_tokens = max(len(content) // 4, 1)`
   - `output_tokens = 200`（估算）
   - 套 `expensive_model` 的 input/output 單價（讀 v1.3.0 `model_prices.yaml` / `compute_cost`）回 `actual_cost_usd` 的同型別 `Decimal`
-- [ ] 單元測試 `tests/services/test_classifier_service.py`：
+- [x] 單元測試 `tests/services/test_classifier_service.py`：
   - 各規則命中 / 未命中組合（greeting / 純 emoji / 短訊息 / 長問題 / 含圖片 / classifier disabled）
   - `estimate_baseline_for_skip` 對空字串 / 純 emoji 不會除以零
   - 整個 classify() 在 db 抓不到 system_setting 時 fallback 行為正確
 
 ### 1-2 規則引擎演進路徑（task 內明示）
 
-- [ ] 模組頂部加註解說明（繁中）：
+- [x] 模組頂部加註解說明（繁中）：
   ```
   # 演進路徑（規則 → model）：
   # 1. 規則引擎（v1.3.4 本版）— 零成本、可解釋
@@ -161,7 +162,7 @@ DEFAULT_SKIP_RULES = {
   # 3. 量大穩定後：雲端極小 model（haiku 級判斷）
   # classifier.model 欄位即為未來切換點，當前固定 "rule-based"。
   ```
-- [ ] 在 `system_setting` 描述中亦明示此演進路徑（V43 seed `classifier.model` 的 description）
+- [x] 在 `system_setting` 描述中亦明示此演進路徑（V43 seed `classifier.model` 的 description）
 
 ---
 
