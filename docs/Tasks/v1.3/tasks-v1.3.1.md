@@ -105,7 +105,7 @@
 
 ### 2-1 Trace 寫入封裝
 
-- [ ] 新增 `backend/app/services/memory_trace_service.py`：
+- [x] 新增 `backend/app/services/memory_trace_service.py`：
   - `TRACE_KEY = "memory:trace:{session_uid}"`
   - `TRACE_MAX_LEN = 200`
   - `TRACE_TTL_SECONDS = 7 * 86400`
@@ -115,26 +115,26 @@
     - `EXPIRE` TTL 7 天（每次 XADD 後重設）
     - Redis 連線失敗 → log warning 後吞例外，**不影響 worker 主流程**
   - `read(session_uid, limit=200)`：`XRANGE - +` 後解析回 list[dict]
-- [ ] `memory_worker.py` 各 log point 同步呼叫 `memory_trace_service.record(...)`（與 §1-2~1-7 同欄位、同 step）
+- [x] `memory_worker.py` 各 log point 同步呼叫 `memory_trace_service.record(...)`（與 §1-2~1-7 同欄位、同 step）
 
 ### 2-2 Admin Trace Endpoint
 
-- [ ] 於既有 admin router（[backend/app/api/v1/admin/router.py](../../../backend/app/api/v1/admin/router.py)）新增 endpoint：
+- [x] 於既有 admin router（[backend/app/api/v1/admin/router.py](../../../backend/app/api/v1/admin/router.py)）新增 endpoint：
   - 路徑：`GET /api/v1/admin/debug/memory/sessions/{session_uid}`
   - 依賴：`require_role("admin")`
   - Query：`limit: int = Query(200, ge=1, le=500)`
   - Service：呼叫 `memory_trace_service.read(session_uid, limit)`
-- [ ] 回傳 schema（新增於 `app/schemas/admin/schemas.py` 或新檔 `app/schemas/admin/memory_debug.py`）：
+- [x] 回傳 schema（新增於 `app/schemas/admin/schemas.py` 或新檔 `app/schemas/admin/memory_debug.py`）：
   - `MemoryTraceItem`：`{ ts: str(ISO UTC+8), step: str, outcome: str, duration_ms: int|null, message_uids: list[str]|null, extra: dict|null }`
   - `MemoryTraceData`：`{ session_uid: str, count: int, items: list[MemoryTraceItem] }`
   - 回包走 `ApiResponse[MemoryTraceData]`
-- [ ] Trace 取出後 `ts` 統一以 `to_taipei_iso` 轉為 `Asia/Taipei`（依 CLAUDE.md 時區規範）
-- [ ] Swagger `/api/docs` 顯示該端點及 Schema、`summary` 寫「查詢 session 的記憶 pipeline trace」
+- [x] Trace 取出後 `ts` 統一以 `to_taipei_iso` 轉為 `Asia/Taipei`（依 CLAUDE.md 時區規範）
+- [x] Swagger `/api/docs` 顯示該端點及 Schema、`summary` 寫「查詢 session 的記憶 pipeline trace」
 
 ### 2-3 Service 層
 
-- [ ] `app/services/admin_service.py`（或同檔內補函式）新增 `get_memory_trace(session_uid, limit, db)`，包裝 `memory_trace_service.read` 並補 schema 轉型
-- [ ] 找不到 trace 時不報 404，回 `MemoryTraceData(session_uid, count=0, items=[])`，避免 admin 端 UI 處理 404
+- [x] `app/services/admin_service.py`（或同檔內補函式）新增 `get_memory_trace(session_uid, limit, db)`，包裝 `memory_trace_service.read` 並補 schema 轉型 —（已改為 `get_memory_trace(session_uid, limit)`，trace 純走 Redis 不需 db session，未保留 db 參數）
+- [x] 找不到 trace 時不報 404，回 `MemoryTraceData(session_uid, count=0, items=[])`，避免 admin 端 UI 處理 404
 
 ---
 

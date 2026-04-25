@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime import to_taipei_iso
@@ -6,6 +8,7 @@ from app.core.pagination import paginate
 from app.models.user import User
 from app.repositories import user_repository
 from app.schemas.admin.schemas import UserUpdateRequest
+from app.services import memory_trace_service
 
 
 def _user_to_dict(user: User) -> dict:
@@ -79,4 +82,37 @@ async def list_roles(db: AsyncSession) -> dict:
             }
             for r in roles
         ]
+    }
+
+
+# ---------- v1.3.1：記憶 pipeline trace（admin debug） ----------
+
+
+def _ts_ms_to_taipei_iso(ts_ms: int | None) -> str | None:
+    """把 unix ms 轉為 Asia/Taipei ISO 字串（依 CLAUDE.md 時區規範）。"""
+    if not ts_ms:
+        return None
+    dt = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
+    return to_taipei_iso(dt)
+
+
+async def get_memory_trace(session_uid: str, limit: int) -> dict:
+    """讀取 session 的記憶 pipeline trace；找不到回 count=0 / items=[]。"""
+    raw_items = await memory_trace_service.read(session_uid, limit=limit)
+    items: list[dict] = []
+    for it in raw_items:
+        items.append(
+            {
+                "ts": _ts_ms_to_taipei_iso(it.get("ts")),
+                "step": it.get("step") or "",
+                "outcome": it.get("outcome") or "",
+                "duration_ms": it.get("duration_ms"),
+                "message_uids": list(it.get("message_uids") or []),
+                "extra": dict(it.get("extra") or {}),
+            }
+        )
+    return {
+        "session_uid": session_uid,
+        "count": len(items),
+        "items": items,
     }

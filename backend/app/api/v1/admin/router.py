@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, require_role
 from app.core.response import success
+from app.schemas.admin.memory_debug import MemoryTraceData
 from app.schemas.admin.metrics_schemas import (
     CostMetricsResponse,
     GroupByKey,
@@ -422,4 +423,30 @@ async def get_cost_metrics(
     `breakdown` 為空陣列（不 raise）。
     """
     result = await admin_metrics_service.get_cost_metrics(range, group_by, db)
+    return success(data=result)
+
+
+# ============================================================
+# v1.3.1 記憶 pipeline trace（admin only）
+# ============================================================
+
+
+@router.get(
+    "/debug/memory/sessions/{session_uid}",
+    response_model=ApiResponse[MemoryTraceData],
+    summary="查詢 session 的記憶 pipeline trace",
+    description=(
+        "讀取 Redis stream `memory:trace:{session_uid}` 的全程 trace，"
+        "依時間升序回傳；找不到時回 200 + items=[]。\n"
+        "stream 由 memory_worker 各階段 XADD（MAXLEN ~ 200, TTL 7 天）。\n"
+        "詳見 docs/Tasks/v1.3/tasks-v1.3.1.md §Phase 2。"
+    ),
+)
+async def get_memory_session_trace(
+    session_uid: str,
+    _current_user: TokenPayload = require_role("admin"),
+    limit: int = Query(200, ge=1, le=500, description="最多回傳筆數"),
+) -> JSONResponse:
+    """取單一 session 的記憶 pipeline trace（admin 限定）。"""
+    result = await admin_service.get_memory_trace(session_uid, limit)
     return success(data=result)
