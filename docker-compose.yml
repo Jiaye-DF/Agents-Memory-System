@@ -20,7 +20,12 @@ services:
       - redis-data:/data
 
   flyway:
-    image: flyway/flyway:10
+    # 不用 image + bind mount：Coolify runtime 不可靠，改成 build-time 把 V*.sql 烤進 image
+    build:
+      context: ./migrations
+      dockerfile: Dockerfile
+    # 一次性容器：跑完 migrate 就 exit 0，禁止 Coolify 把它當常駐服務重啟成迴圈
+    restart: "no"
     depends_on:
       postgres:
         condition: service_started
@@ -29,8 +34,6 @@ services:
       FLYWAY_USER: ${POSTGRES_USER}
       FLYWAY_PASSWORD: ${POSTGRES_PASSWORD}
       FLYWAY_CONNECT_RETRIES: "30"
-    volumes:
-      - ./migrations/sql:/flyway/sql
     command: migrate
 
   backend:
