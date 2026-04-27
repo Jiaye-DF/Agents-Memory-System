@@ -2,7 +2,7 @@ export interface ApiResponse<T = unknown> {
   success: boolean;
   data: T | null;
   detail: string | null;
-  response_code: string;
+  response_code: number;
 }
 
 export interface PaginatedData<T = unknown> {

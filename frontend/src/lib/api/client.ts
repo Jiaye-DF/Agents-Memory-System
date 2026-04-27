@@ -114,7 +114,7 @@ async function request<T>(
         success: false,
         data: null,
         detail: "認證已過期，請重新登入",
-        response_code: "UNAUTHORIZED",
+        response_code: 401,
       };
     }
   }

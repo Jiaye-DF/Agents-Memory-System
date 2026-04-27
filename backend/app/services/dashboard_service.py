@@ -78,7 +78,7 @@ async def _top_agents(
         select(Agent)
         .where(
             Agent.is_deleted == False,  # noqa: E712
-            Agent.owner_uid == uuid.UUID(user_uid),
+            Agent.owner_user_uid == uuid.UUID(user_uid),
         )
         .order_by(
             _apply_direction(_AGENT_ORDER_COLS[order_by], order),
@@ -101,7 +101,7 @@ async def _top_skills(
         select(Skill)
         .where(
             Skill.is_deleted == False,  # noqa: E712
-            Skill.owner_uid == uuid.UUID(user_uid),
+            Skill.owner_user_uid == uuid.UUID(user_uid),
         )
         .order_by(
             _apply_direction(_SKILL_ORDER_COLS[order_by], order),
@@ -147,7 +147,7 @@ def _agent_to_item(agent: Agent, is_favorited: bool) -> dict:
         "download_count": agent.download_count,
         "is_favorited": is_favorited,
         "owner": {
-            "user_uid": str(agent.owner_uid),
+            "user_uid": str(agent.owner_user_uid),
             "display_name": owner_username,
         },
         "created_at": to_taipei_iso(agent.created_at) or "",
@@ -166,7 +166,7 @@ def _skill_to_item(skill: Skill, is_favorited: bool) -> dict:
         "download_count": skill.download_count,
         "is_favorited": is_favorited,
         "owner": {
-            "user_uid": str(skill.owner_uid),
+            "user_uid": str(skill.owner_user_uid),
             "display_name": owner_username,
         },
         "created_at": to_taipei_iso(skill.created_at) or "",

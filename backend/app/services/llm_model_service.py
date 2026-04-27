@@ -11,11 +11,13 @@ from app.schemas.models.schemas import (
 )
 from app.services import openrouter_service
 
-def _derive_provider(model_id: str) -> str:
-    """供應商欄位以 model_id 第一段為準（與前端篩選對齊）。
+DEFAULT_GATEWAY_PROVIDER = "OpenRouter"
 
-    所有模型皆透過 OpenRouter gateway 進站，但顯示給管理者時應為實際 vendor
-    （anthropic / openai / google ...），舊資料硬寫的 "OpenRouter" 在此覆寫。
+
+def _derive_vendor(model_id: str) -> str:
+    """從 model_id 第一段衍生廠商（anthropic / openai / google ...）。
+
+    僅在新建模型寫入 DB 時使用；讀取時直接讀 llm_model.vendor 欄位。
     """
     head = (model_id or "").split("/", 1)[0].strip()
     return head or "openrouter"
@@ -24,7 +26,8 @@ def _derive_provider(model_id: str) -> str:
 def _to_dict(model: LlmModel) -> dict:
     return {
         "llm_model_uid": str(model.llm_model_uid),
-        "provider": _derive_provider(model.model_id),
+        "provider": model.provider,
+        "vendor": model.vendor,
         "model_id": model.model_id,
         "display_name": model.display_name,
         "is_active": model.is_active,
@@ -62,7 +65,8 @@ async def create_model(data: LlmModelCreateRequest, db: AsyncSession) -> dict:
 
     model = await llm_model_repository.create(
         {
-            "provider": _derive_provider(data.model_id),
+            "provider": DEFAULT_GATEWAY_PROVIDER,
+            "vendor": _derive_vendor(data.model_id),
             "model_id": data.model_id,
             "display_name": data.display_name,
             "is_default": is_default,

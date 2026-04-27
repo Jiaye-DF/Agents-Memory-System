@@ -144,16 +144,16 @@ function RecommendCard({
   let confidenceClass = "bg-muted-bg text-muted";
   if (item.confidence >= 0.8) {
     confidenceClass =
-      "bg-[color:var(--color-success-bg,#dcfce7)] text-[color:var(--color-success,#15803d)]";
+      "bg-[color:var(--color-success-bg)] text-[color:var(--color-success)]";
   } else if (item.confidence >= 0.6) {
     confidenceClass =
-      "bg-[color:var(--color-warning-bg,#fef9c3)] text-[color:var(--color-warning,#a16207)]";
+      "bg-[color:var(--color-warning-bg)] text-[color:var(--color-warning)]";
   }
   // scope 徽章配色：藍/紫/金（與 v1.3.5 跨層記憶 UI 對齊）
   const scopeStyles: Record<typeof item.scope, string> = {
     session: "bg-blue-50 text-blue-700 border-blue-200",
     project:
-      "bg-[color:var(--color-purple-bg,#f3e8ff)] text-[color:var(--color-purple,#7e22ce)] border-[color:var(--color-purple-border,#d8b4fe)]",
+      "bg-[color:var(--color-purple-bg)] text-[color:var(--color-purple)] border-[color:var(--color-purple-border)]",
     user: "bg-amber-50 text-amber-700 border-amber-200",
   };
   const scopeLabels: Record<typeof item.scope, string> = {

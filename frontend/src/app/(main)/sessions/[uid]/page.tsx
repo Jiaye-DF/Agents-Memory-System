@@ -1464,9 +1464,9 @@ function SkillSuggestionCard({
   // 切換規則：0.8+ 綠（success）、0.6-0.8 黃（warning）、< 0.6 灰（muted）
   let badgeClass = "bg-muted-bg text-muted";
   if (item.confidence >= 0.8) {
-    badgeClass = "bg-[color:var(--color-success-bg,#dcfce7)] text-[color:var(--color-success,#15803d)]";
+    badgeClass = "bg-[color:var(--color-success-bg)] text-[color:var(--color-success)]";
   } else if (item.confidence >= 0.6) {
-    badgeClass = "bg-[color:var(--color-warning-bg,#fef9c3)] text-[color:var(--color-warning,#a16207)]";
+    badgeClass = "bg-[color:var(--color-warning-bg)] text-[color:var(--color-warning)]";
   }
 
   const isHandled = item.status !== "pending";

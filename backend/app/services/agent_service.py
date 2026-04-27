@@ -23,7 +23,7 @@ def _agent_to_dict(
 ) -> dict:
     return {
         "agent_uid": str(agent.agent_uid),
-        "owner_uid": str(agent.owner_uid),
+        "owner_user_uid": str(agent.owner_user_uid),
         "owner_username": agent.owner.username if agent.owner else None,
         "name": agent.name,
         "description": agent.description,
@@ -85,7 +85,7 @@ async def create_agent(
 
     agent = await agent_repository.create(
         {
-            "owner_uid": user_uid,
+            "owner_user_uid": user_uid,
             "name": data.name,
             "description": data.description,
             "language": data.language,

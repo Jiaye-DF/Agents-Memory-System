@@ -20,6 +20,7 @@ from pathlib import Path
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.access import ensure_modifiable, ensure_owner, ensure_readable
 from app.core.config import settings
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
@@ -65,56 +66,6 @@ def _script_to_dict(script: Script, is_favorited: bool = False) -> dict:
         "created_at": to_taipei_iso(script.created_at),
         "updated_at": to_taipei_iso(script.updated_at),
     }
-
-
-def _is_owner(script: Script, user_uid: str) -> bool:
-    return str(script.owner_user_uid) == user_uid
-
-
-def _ensure_readable(
-    script: Script | None, user_uid: str, role: str
-) -> Script:
-    """讀取權限：admin 全通；否則需為擁有者或 visibility='public'。
-
-    與 `core/access.py::ensure_readable` 同語意，但讀取 Script 自身的
-    `owner_user_uid` 欄位（其他資源用 `owner_uid`）。失敗統一回 404 以避免
-    資源列舉。
-    """
-    if script is None:
-        raise AppError(
-            detail=NOT_FOUND_DETAIL, response_code=404, status_code=404
-        )
-    if role == "admin":
-        return script
-    if _is_owner(script, user_uid) or script.visibility == "public":
-        return script
-    raise AppError(
-        detail=NOT_FOUND_DETAIL, response_code=404, status_code=404
-    )
-
-
-def _ensure_modifiable(
-    script: Script | None, user_uid: str, role: str
-) -> Script:
-    """修改權限：admin 可改；否則僅擁有者可改。資源不存在回 404，非擁有者回 403。"""
-    if script is None:
-        raise AppError(
-            detail=NOT_FOUND_DETAIL, response_code=404, status_code=404
-        )
-    if role == "admin" or _is_owner(script, user_uid):
-        return script
-    raise AppError(detail="權限不足", response_code=403, status_code=403)
-
-
-def _ensure_owner(script: Script | None, user_uid: str) -> Script:
-    """擁有者專用動作（刪除、切可見性等）：admin 亦不特權。"""
-    if script is None:
-        raise AppError(
-            detail=NOT_FOUND_DETAIL, response_code=404, status_code=404
-        )
-    if not _is_owner(script, user_uid):
-        raise AppError(detail="權限不足", response_code=403, status_code=403)
-    return script
 
 
 def _validate_relative_path(rel_path: str) -> str:
@@ -479,7 +430,8 @@ async def get_script(
     script_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> dict:
     script = await script_repository.get_by_uid(script_uid, db)
-    script = _ensure_readable(script, user_uid, role)
+    ensure_readable(script, user_uid, role, NOT_FOUND_DETAIL)
+    assert script is not None
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "script", [script_uid], db
     )
@@ -494,7 +446,8 @@ async def update_script(
     db: AsyncSession,
 ) -> dict:
     script = await script_repository.get_by_uid(script_uid, db)
-    script = _ensure_modifiable(script, user_uid, role)
+    ensure_modifiable(script, user_uid, role, NOT_FOUND_DETAIL)
+    assert script is not None
 
     update_data: dict = {}
     if data.name is not None:
@@ -534,7 +487,8 @@ async def soft_delete_script(
     script_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> None:
     script = await script_repository.get_by_uid(script_uid, db)
-    script = _ensure_owner(script, user_uid)
+    ensure_owner(script, user_uid, NOT_FOUND_DETAIL, "權限不足")
+    assert script is not None
     await script_repository.soft_delete(script, db)
 
 
@@ -542,7 +496,8 @@ async def download_script(
     script_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> tuple[str, str]:
     script = await script_repository.get_by_uid(script_uid, db)
-    script = _ensure_readable(script, user_uid, role)
+    ensure_readable(script, user_uid, role, NOT_FOUND_DETAIL)
+    assert script is not None
 
     file_path = script.file_path
     if not Path(file_path).exists():

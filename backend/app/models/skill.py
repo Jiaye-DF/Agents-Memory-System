@@ -13,7 +13,7 @@ class Skill(Base):
     skill_uid: Mapped[uuid.UUID] = mapped_column(
         Uuid, default=uuid.uuid4, nullable=False
     )
-    owner_uid: Mapped[uuid.UUID] = mapped_column(
+    owner_user_uid: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("user.user_uid"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)

@@ -24,7 +24,7 @@ import logging
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.openrouter.memory_aggregation_prompts import (
     USER_MEMORY_AGGREGATE_SYSTEM_PROMPT,
@@ -60,9 +60,9 @@ def _log_event(
     outcome: str = "ok",
     duration_ms: int | None = None,
     level: str = "info",
-    **extra: Any,
+    **extra: object,
 ) -> None:
-    payload: dict[str, Any] = {
+    payload: dict[str, object] = {
         "step": step,
         "user_uid": user_uid,
         "outcome": outcome,
@@ -185,7 +185,7 @@ async def _handle(user_uid: str) -> None:
         )
 
 
-async def _aggregate_user(user_uid: str, db: Any) -> None:
+async def _aggregate_user(user_uid: str, db: AsyncSession) -> None:
     started = time.time()
 
     min_session_count = await system_setting_service.get_int(
@@ -314,7 +314,7 @@ async def _aggregate_one_group(
     group_memories: list[ChatMemory],
     pct: float,
     model: str,
-    db: Any,
+    db: AsyncSession,
 ) -> None:
     """單一達標主題群的長期偏好聚合。"""
     lines: list[str] = []
