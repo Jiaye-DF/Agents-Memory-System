@@ -82,3 +82,36 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> JSONResponse:
         response_code=503,
         status_code=503,
     )
+
+
+@router.get("/health/ready")
+async def readiness_check(db: AsyncSession = Depends(get_db)) -> JSONResponse:
+    """K8s / Load Balancer 用的輕量 readiness 探活。
+
+    僅檢 DB + Redis 連線，不做 queue / DLQ 計數；任一不通即回 503。
+    與 `/health` 的差異：本端點**不**回傳業務狀態，僅給 LB / orchestrator 判讀。
+    """
+    db_ok = False
+    redis_ok = False
+
+    try:
+        await db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        logger.exception("readiness：資料庫探活失敗")
+
+    try:
+        redis = get_redis()
+        await redis.ping()
+        redis_ok = True
+    except Exception:
+        logger.exception("readiness：Redis 探活失敗")
+
+    if db_ok and redis_ok:
+        return success(data={"status": "ready"})
+
+    return failure(
+        detail="服務尚未就緒",
+        response_code=503,
+        status_code=503,
+    )

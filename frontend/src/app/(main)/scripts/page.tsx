@@ -4,6 +4,7 @@ import React, { useState, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { FilterChip } from "@/components/ui/FilterChip";
 import { PageLoading } from "@/components/ui/Loading";
 import { FilterNav } from "@/components/social/FilterNav";
 import { SocialMetrics } from "@/components/social/SocialMetrics";
@@ -189,32 +190,6 @@ const SnapshotRow = React.memo(function SnapshotRow({
         </Button>
       </div>
     </div>
-  );
-});
-
-interface FilterChipProps {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}
-
-const FilterChip = React.memo(function FilterChip({
-  active,
-  onClick,
-  children,
-}: FilterChipProps): React.ReactNode {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
-        active
-          ? "bg-primary text-white"
-          : "bg-muted-bg text-muted hover:bg-border"
-      }`}
-    >
-      {children}
-    </button>
   );
 });
 

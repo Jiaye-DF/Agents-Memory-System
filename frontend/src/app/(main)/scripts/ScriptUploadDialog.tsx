@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { ModalDialog } from "@/components/ui/ModalDialog";
 import { Button } from "@/components/ui/Button";
+import { FilterChip } from "@/components/ui/FilterChip";
 import { Input } from "@/components/ui/Input";
 import { useDialog } from "@/hooks/useDialog";
 import { useCreateScriptMutation } from "@/store/scriptsApi";
@@ -245,28 +246,18 @@ export function ScriptUploadDialog({
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted">上傳模式：</span>
-          <button
-            type="button"
+          <FilterChip
+            active={mode === "files"}
             onClick={() => handleModeSwitch("files")}
-            className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
-              mode === "files"
-                ? "bg-primary text-white"
-                : "bg-muted-bg text-muted hover:bg-border"
-            }`}
           >
             選檔案
-          </button>
-          <button
-            type="button"
+          </FilterChip>
+          <FilterChip
+            active={mode === "folder"}
             onClick={() => handleModeSwitch("folder")}
-            className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
-              mode === "folder"
-                ? "bg-primary text-white"
-                : "bg-muted-bg text-muted hover:bg-border"
-            }`}
           >
             選資料夾
-          </button>
+          </FilterChip>
         </div>
 
         <input
@@ -394,28 +385,18 @@ export function ScriptUploadDialog({
           <span className="shrink-0 text-base font-medium text-foreground">
             可見性：
           </span>
-          <button
-            type="button"
+          <FilterChip
+            active={visibility === "private"}
             onClick={() => setVisibility("private")}
-            className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
-              visibility === "private"
-                ? "bg-primary text-white"
-                : "bg-muted-bg text-muted hover:bg-border"
-            }`}
           >
             私人
-          </button>
-          <button
-            type="button"
+          </FilterChip>
+          <FilterChip
+            active={visibility === "public"}
             onClick={() => setVisibility("public")}
-            className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
-              visibility === "public"
-                ? "bg-primary text-white"
-                : "bg-muted-bg text-muted hover:bg-border"
-            }`}
           >
             公開
-          </button>
+          </FilterChip>
         </div>
 
         <div className="mt-2 flex justify-end gap-3">

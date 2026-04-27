@@ -1,4 +1,7 @@
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_LOCALHOST_HOSTS = ("localhost", "127.0.0.1", "0.0.0.0")
 
 
 class Settings(BaseSettings):
@@ -25,6 +28,31 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def _validate_secret_key(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError(
+                "SECRET_KEY 長度不可低於 32 字元（建議 64 字元亂數）"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def _validate_cors_for_production(self) -> "Settings":
+        if self.APP_ENV != "production":
+            return self
+        for origin in self.CORS_ORIGINS:
+            if origin == "*":
+                raise ValueError(
+                    "APP_ENV=production 下 CORS_ORIGINS 禁止使用 '*'"
+                )
+            host = origin.split("//", 1)[-1].split(":", 1)[0].lower()
+            if host in _LOCALHOST_HOSTS:
+                raise ValueError(
+                    f"APP_ENV=production 下 CORS_ORIGINS 禁止包含本機 origin：{origin}"
+                )
+        return self
 
     SKILLS_UPLOAD_DIR: str = "data/skills"
     SKILLS_MAX_FILE_SIZE: int = 50 * 1024 * 1024

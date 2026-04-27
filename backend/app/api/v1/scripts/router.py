@@ -133,7 +133,7 @@ async def get_script(
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     result = await script_service.get_script(
-        script_uid, current_user.user_uid, db
+        script_uid, current_user.user_uid, current_user.role, db
     )
     return success(data=result)
 
@@ -146,7 +146,7 @@ async def update_script(
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     result = await script_service.update_script(
-        script_uid, current_user.user_uid, data, db
+        script_uid, current_user.user_uid, current_user.role, data, db
     )
     return success(data=result)
 
@@ -158,7 +158,7 @@ async def delete_script(
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     await script_service.soft_delete_script(
-        script_uid, current_user.user_uid, db
+        script_uid, current_user.user_uid, current_user.role, db
     )
     return success(data={"message": "Script 已刪除"})
 
@@ -171,7 +171,7 @@ async def download_script(
 ) -> FileResponse:
     """下載 Script zip；**豁免**統一回應格式（與 Skill download 一致）。"""
     file_path, filename = await script_service.download_script(
-        script_uid, current_user.user_uid, db
+        script_uid, current_user.user_uid, current_user.role, db
     )
     return FileResponse(
         path=file_path,

@@ -49,6 +49,32 @@ BLOCKED_MIME_TYPES = {
 FILE_PREVIEW_MAX_BYTES = 512 * 1024
 NOT_FOUND_DETAIL = "找不到指定的 Skill"
 
+# zip bomb 防線：解壓後總大小不得超過 max_size 的 N 倍
+ZIP_BOMB_RATIO = 10
+
+
+def _check_zip_bomb(zip_path: Path, max_total_bytes: int) -> None:
+    """預估解壓後大小 > max_total_bytes * ZIP_BOMB_RATIO 時拒絕。
+
+    與 `script_service._check_zip_bomb` 同邏輯（保持兩處對稱以利日後抽出共用）。
+    """
+    limit = max_total_bytes * ZIP_BOMB_RATIO
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            total = sum(info.file_size for info in zf.infolist())
+    except zipfile.BadZipFile:
+        raise AppError(
+            detail="檔案格式損毀，無法讀取",
+            response_code=500,
+            status_code=500,
+        )
+    if total > limit:
+        raise AppError(
+            detail="壓縮後內容異常（疑似 zip bomb），請檢查內容",
+            response_code=400,
+            status_code=400,
+        )
+
 
 def _skill_to_dict(skill: Skill, is_favorited: bool = False) -> dict:
     return {
@@ -187,6 +213,9 @@ async def upload_skill(
             response_code=500,
             status_code=500,
         )
+
+    # zip bomb 偵測：使用者可能直接上傳 .zip 檔，需擋住極高壓縮比
+    _check_zip_bomb(zip_path, max_size)
 
     skill = await skill_repository.create(
         {
@@ -635,6 +664,9 @@ async def reupload_skill(
             status_code=500,
         )
 
+    # zip bomb 偵測：reupload 同樣可能塞入惡意 zip
+    _check_zip_bomb(zip_path, max_size)
+
     await skill_repository.update_obj(
         skill,
         {
@@ -712,6 +744,13 @@ async def update_file_content(
     if not normalized:
         raise AppError(
             detail="檔案路徑不可為空", response_code=400, status_code=400
+        )
+    # 防 zip-slip：路徑段不可含 `..` 或空段（雖目前未解壓到磁碟，但避免未來下載解壓時逸出）
+    if any(p in ("..", "") for p in normalized.split("/")):
+        raise AppError(
+            detail=f"不允許的路徑：{path}",
+            response_code=400,
+            status_code=400,
         )
 
     if not _is_editable_filename(normalized):

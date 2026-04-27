@@ -67,17 +67,53 @@ def _script_to_dict(script: Script, is_favorited: bool = False) -> dict:
     }
 
 
-def _ensure_owner(script: Script | None, user_uid: str) -> Script:
-    """v1.2 Script 僅擁有者可讀 / 可改 / 可刪。"""
+def _is_owner(script: Script, user_uid: str) -> bool:
+    return str(script.owner_user_uid) == user_uid
+
+
+def _ensure_readable(
+    script: Script | None, user_uid: str, role: str
+) -> Script:
+    """讀取權限：admin 全通；否則需為擁有者或 visibility='public'。
+
+    與 `core/access.py::ensure_readable` 同語意，但讀取 Script 自身的
+    `owner_user_uid` 欄位（其他資源用 `owner_uid`）。失敗統一回 404 以避免
+    資源列舉。
+    """
     if script is None:
         raise AppError(
             detail=NOT_FOUND_DETAIL, response_code=404, status_code=404
         )
-    if str(script.owner_user_uid) != user_uid:
-        # 不存在 / 無權 皆回 404，避免資源列舉
+    if role == "admin":
+        return script
+    if _is_owner(script, user_uid) or script.visibility == "public":
+        return script
+    raise AppError(
+        detail=NOT_FOUND_DETAIL, response_code=404, status_code=404
+    )
+
+
+def _ensure_modifiable(
+    script: Script | None, user_uid: str, role: str
+) -> Script:
+    """修改權限：admin 可改；否則僅擁有者可改。資源不存在回 404，非擁有者回 403。"""
+    if script is None:
         raise AppError(
             detail=NOT_FOUND_DETAIL, response_code=404, status_code=404
         )
+    if role == "admin" or _is_owner(script, user_uid):
+        return script
+    raise AppError(detail="權限不足", response_code=403, status_code=403)
+
+
+def _ensure_owner(script: Script | None, user_uid: str) -> Script:
+    """擁有者專用動作（刪除、切可見性等）：admin 亦不特權。"""
+    if script is None:
+        raise AppError(
+            detail=NOT_FOUND_DETAIL, response_code=404, status_code=404
+        )
+    if not _is_owner(script, user_uid):
+        raise AppError(detail="權限不足", response_code=403, status_code=403)
     return script
 
 
@@ -440,10 +476,10 @@ async def list_public_scripts(
 
 
 async def get_script(
-    script_uid: str, user_uid: str, db: AsyncSession
+    script_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> dict:
     script = await script_repository.get_by_uid(script_uid, db)
-    script = _ensure_owner(script, user_uid)
+    script = _ensure_readable(script, user_uid, role)
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "script", [script_uid], db
     )
@@ -453,17 +489,21 @@ async def get_script(
 async def update_script(
     script_uid: str,
     user_uid: str,
+    role: str,
     data: ScriptUpdateRequest,
     db: AsyncSession,
 ) -> dict:
     script = await script_repository.get_by_uid(script_uid, db)
-    script = _ensure_owner(script, user_uid)
+    script = _ensure_modifiable(script, user_uid, role)
 
     update_data: dict = {}
     if data.name is not None:
-        # 同 owner 名稱重複檢查（排除自己）
+        # 同 owner 名稱重複檢查（排除自己）；admin 代改時須以實際擁有者查重
         if await script_repository.exists_name_for_owner(
-            user_uid, data.name, db, exclude_script_uid=script_uid
+            str(script.owner_user_uid),
+            data.name,
+            db,
+            exclude_script_uid=script_uid,
         ):
             raise AppError(
                 detail=f"已存在同名 Script：{data.name}",
@@ -491,7 +531,7 @@ async def update_script(
 
 
 async def soft_delete_script(
-    script_uid: str, user_uid: str, db: AsyncSession
+    script_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> None:
     script = await script_repository.get_by_uid(script_uid, db)
     script = _ensure_owner(script, user_uid)
@@ -499,10 +539,10 @@ async def soft_delete_script(
 
 
 async def download_script(
-    script_uid: str, user_uid: str, db: AsyncSession
+    script_uid: str, user_uid: str, role: str, db: AsyncSession
 ) -> tuple[str, str]:
     script = await script_repository.get_by_uid(script_uid, db)
-    script = _ensure_owner(script, user_uid)
+    script = _ensure_readable(script, user_uid, role)
 
     file_path = script.file_path
     if not Path(file_path).exists():

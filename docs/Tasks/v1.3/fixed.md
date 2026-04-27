@@ -221,3 +221,113 @@ v1.3.6 sub-agent 實作此頁時自行寫 button class 而非沿用既有 `<Filt
 - [frontend/src/types/index.ts](../../../frontend/src/types/index.ts)
 - [frontend/src/store/modelsApi.ts](../../../frontend/src/store/modelsApi.ts)
 - [frontend/src/app/(main)/admin/models/page.tsx](../../../frontend/src/app/(main)/admin/models/page.tsx)
+
+---
+
+## 7. Script 公開資源讀 / 下載被擁有者鎖死，且 admin 無法跨擁有者代管〔2026-04-27 10:38:01〕
+
+**問題**
+
+`/scripts/public` 端點與 Dashboard 公開 Scripts 頁籤已對所有登入使用者列出 `visibility='public'` 的 Script，並顯示「下載」按鈕；但 `GET /scripts/{uid}` 與 `GET /scripts/{uid}/download` 服務層用 `_ensure_owner` 強制擁有者，**非擁有者點擊下載 / 點開公開 Script 詳情一律 404**。Snapshot row、收藏列表內的公開 Script 同樣無法下載。
+
+同時 `update_script` / `soft_delete_script` 也僅擁有者可操作 — `admin` 連讀都不行，與 [40-permission.md § 資源存取控制](../../Design-Base/40-permission.md#資源存取控制) 「`admin` 可存取所有使用者的資源」原則不一致；Agent / Skill 已分別用 `ensure_readable` / `ensure_modifiable` / `ensure_owner` 三段式分權，Script 漏跟。
+
+**根因**
+
+v1.2.5 [§1-3](../v1.2/tasks-v1.2.5.md) 加 `/scripts/public` 與 `visibility` 切換時，列表端點走 `stmt_public()` 開放查詢，但**詳情 / 下載**端點沒同步開放；且 Script 服務層為 v1.2 自寫 `_ensure_owner` helper，未沿用 [`core/access.py`](../../../backend/app/core/access.py) 的三段式 helper（`ensure_readable` / `ensure_modifiable` / `ensure_owner`），加上 `Script.owner_user_uid` 欄位名與 Agent / Skill 的 `owner_uid` 不一致，無法直接套用 `core/access.py`（其 Protocol 期望 `owner_uid`）。歷次掃描未察。
+
+另一個隱藏副作用：`update_script` 中的 `exists_name_for_owner(user_uid, ...)` 用「請求者 uid」做名稱查重 — admin 代改別人 Script 時會誤以 admin 自己的 Script 集合查重，可能放行已重複的名稱。
+
+**修正**
+
+1. [backend/app/services/script_service.py](../../../backend/app/services/script_service.py)：
+    - 拆分 `_ensure_owner` 為三段式 helper，與 [`core/access.py`](../../../backend/app/core/access.py) 同語意但讀 `owner_user_uid` 欄位：
+        - `_ensure_readable(script, user_uid, role)`：admin 全通，否則需擁有者或 `visibility='public'`
+        - `_ensure_modifiable(script, user_uid, role)`：admin 可改，否則僅擁有者
+        - `_ensure_owner(script, user_uid)`：刪除 / 切可見性等擁有者專用，admin 亦不特權
+    - `get_script` / `download_script` → 改 `_ensure_readable`
+    - `update_script` → 改 `_ensure_modifiable`；name 查重改用 `script.owner_user_uid`（不是請求者 uid）
+    - `soft_delete_script` → 改 `_ensure_owner`，**仍走軟刪（`is_deleted=True`）**，admin 亦不能代刪
+2. [backend/app/api/v1/scripts/router.py](../../../backend/app/api/v1/scripts/router.py)：四個端點補傳 `current_user.role`
+3. [docs/Design-Base/40-permission.md](../../Design-Base/40-permission.md)：
+    - `member + admin 共用端點` 表格內三個資源（agent / skill / script）的描述改為明示「讀 / 下載 / 改 / 刪 / 切可見性」各自的權限切片
+    - `資源存取控制` 段補「可見性開放」與「軟刪除規則」兩條原則，並加四象限對照表
+
+**影響檔案**
+
+- [backend/app/services/script_service.py](../../../backend/app/services/script_service.py)
+- [backend/app/api/v1/scripts/router.py](../../../backend/app/api/v1/scripts/router.py)
+- [docs/Design-Base/40-permission.md](../../Design-Base/40-permission.md)
+
+**驗證方式**
+
+1. admin 登入 → `GET /api/v1/scripts/{他人 script_uid}` 應回 200（admin 可讀）
+2. 一般使用者 A 登入 → `GET /api/v1/scripts/{B 的 visibility=public script_uid}/download` 應回 200 zip（公開可下載）
+3. 一般使用者 A 登入 → `GET /api/v1/scripts/{B 的 visibility=private script_uid}` 應回 404
+4. admin 登入 → `DELETE /api/v1/scripts/{他人 script_uid}` 應回 403（admin 不代刪）
+5. admin 登入 → `PATCH /api/v1/scripts/{他人 script_uid}` 修改 name 應成功，且 name 查重以實際擁有者為準
+
+---
+
+## 8. 上線前安全 / 可觀測性基線補強（一次性批次）〔2026-04-27 11:13:04〕
+
+**問題**
+
+[scan-project 報告 Issue-Scan-Project-260427100515.md](../scan-project/Issue-Scan-Project-260427100515.md) 指出多項上線阻擋 / 高優先風險：Skill 上傳缺 zip bomb 防線、`SECRET_KEY` 無強度驗證、`CORS_ORIGINS` 上線值未強制、無 rate-limit、無結構化 log / request id、無 readiness 探活、三頁與 `ScriptUploadDialog` 重複實作 `FilterChip`、`update_file_content` path 未過濾 `..`。屬於 v1.0~v1.3 系列累積、跨版本長期存在的基礎設施 / 安全缺口，使用者要求一次性補齊。
+
+**根因**
+
+開發過程聚焦業務功能（Agent / Skill / Script CRUD、收藏、Agentic skill suggestion 等），基礎設施層（middleware、log、rate-limit、上傳安全閘）一直延後。`script_service._check_zip_bomb` 已在 v1.2.3 寫好，但 Skill 服務沒同步抄；`SECRET_KEY` / `CORS_ORIGINS` 在 dev 環境誤填不會被擋；rate-limit 從 v1.0 起一直沒掛。
+
+**修正**
+
+1. **安全閘**
+    - [skill_service.py](../../../backend/app/services/skill_service.py)：新增 `_check_zip_bomb()`（與 `script_service._check_zip_bomb` 同邏輯，N=10 倍解壓上限），`upload_skill` / `reupload_skill` 落盤後立即執行
+    - [skill_service.py::update_file_content](../../../backend/app/services/skill_service.py)：規範化後檢查 path 段不可含 `..` 或空段（防 zip-slip 未來面，目前未解壓所以無實漏）
+2. **Settings 強度檢查**
+    - [config.py](../../../backend/app/core/config.py)：`SECRET_KEY` 加 `@field_validator`（< 32 字元拒啟動）；新增 `@model_validator(mode="after")` 在 `APP_ENV=production` 下檢查 `CORS_ORIGINS` 不含 `*` / localhost / 127.0.0.1 / 0.0.0.0
+3. **Rate-limit**
+    - 新增 [core/rate_limit.py](../../../backend/app/core/rate_limit.py)：Redis fixed-window middleware；規則註冊 `auth/login` (10/min)、`auth/register` (5/5min)、`auth/reset-password` (5/5min)、`POST /skills` (20/5min)、`POST /scripts` (20/5min)
+    - Redis 不可用時 fail-open（記 warning，不阻斷請求 — 安全 / 可用權衡，與 `download_service` 等多處原則一致）
+    - 限流命中回 `429` + `Retry-After` header + `ApiResponse` 格式 `detail`
+4. **可觀測性**
+    - 新增 [core/logging_config.py](../../../backend/app/core/logging_config.py)：JSON formatter（`request_id` / `user_uid` 自 contextvars 取用）+ `setup_logging()` + `RequestContextMiddleware`（讀 X-Request-ID 或自產 uuid4，access log 含 method / path / status / duration_ms）
+    - [main.py](../../../backend/app/main.py)：import 階段呼叫 `setup_logging("INFO")`，覆寫 root handler；CORS 後加 `RateLimitMiddleware` 與 `RequestContextMiddleware`
+    - [api/deps.py::get_current_user](../../../backend/app/api/deps.py)：成功驗證後 `set_user_uid(user_uid)`，供後續 log 取用
+    - [api/v1/health.py](../../../backend/app/api/v1/health.py)：新增 `GET /api/v1/health/ready`，輕量 DB + Redis 探活（不含 queue / DLQ 計數）
+5. **前端共用元件統一**
+    - [agents/page.tsx](../../../frontend/src/app/(main)/agents/page.tsx)、[skills/page.tsx](../../../frontend/src/app/(main)/skills/page.tsx)、[scripts/page.tsx](../../../frontend/src/app/(main)/scripts/page.tsx)：刪除 local `FilterChip`，改 import [`@/components/ui/FilterChip`](../../../frontend/src/components/ui/FilterChip.tsx)
+    - [scripts/ScriptUploadDialog.tsx](../../../frontend/src/app/(main)/scripts/ScriptUploadDialog.tsx)：上傳模式（選檔案 / 選資料夾）與可見性切換（私人 / 公開）改用 `<FilterChip>`，移除自寫 button class
+
+**影響檔案**
+
+- [backend/app/services/skill_service.py](../../../backend/app/services/skill_service.py)
+- [backend/app/core/config.py](../../../backend/app/core/config.py)
+- [backend/app/core/rate_limit.py](../../../backend/app/core/rate_limit.py)（新檔）
+- [backend/app/core/logging_config.py](../../../backend/app/core/logging_config.py)（新檔）
+- [backend/app/main.py](../../../backend/app/main.py)
+- [backend/app/api/deps.py](../../../backend/app/api/deps.py)
+- [backend/app/api/v1/health.py](../../../backend/app/api/v1/health.py)
+- [frontend/src/app/(main)/agents/page.tsx](../../../frontend/src/app/(main)/agents/page.tsx)
+- [frontend/src/app/(main)/skills/page.tsx](../../../frontend/src/app/(main)/skills/page.tsx)
+- [frontend/src/app/(main)/scripts/page.tsx](../../../frontend/src/app/(main)/scripts/page.tsx)
+- [frontend/src/app/(main)/scripts/ScriptUploadDialog.tsx](../../../frontend/src/app/(main)/scripts/ScriptUploadDialog.tsx)
+
+**驗證方式**
+
+1. `curl -i http://localhost:8000/api/v1/health/ready` 應回 200 + `X-Request-ID` header + JSON body `{"status":"ready"}`
+2. backend log 應為 JSON line，含 `ts` / `level` / `logger` / `msg` / `request_id`（已在啟動 log 確認）
+3. 連續 11 次 `POST /api/v1/auth/login` 同 IP 應於第 11 次回 429 + `Retry-After`
+4. Skill 上傳一個壓縮比 > 10 倍的惡意 zip（`dd if=/dev/zero bs=1M count=100 | gzip → 上傳 zip`）應 400「壓縮後內容異常」
+5. 將 `.env` 的 `SECRET_KEY` 改成 < 32 字元，重啟 backend 應 ValidationError 拒啟動
+6. 將 `.env` 的 `APP_ENV=production` + `CORS_ORIGINS=["http://localhost:3000"]`，重啟應 ValidationError
+7. `update_file_content` 帶 `path=../etc/passwd` 應 400「不允許的路徑」
+8. 三個列表頁切換 visibility / 排序 chip 應與 `/skill-suggestions` chip 視覺完全一致
+
+**殘留 / 後續**
+
+- Skill 服務的同步檔案 IO（`Path.write_bytes()`）改 `aiofiles` — 留 v1.4
+- 上傳端點 `Content-Length` 入口層強制 — 建議 reverse-proxy / Uvicorn 層處理，本任務不動程式
+- 三 service `_ensure_owner` 重複 → `core/access.py` 共用整合 — 留 v1.4 純 refactor
+- v1.1.7 Redis Skill suggestion 暫存退場 — 時間驅動（2026-05-02 後）
+- Phase 7 v1.3.6 runtime smoke — 需使用者於 docker compose 起動環境執行

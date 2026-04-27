@@ -9,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import v1_router
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
+from app.core.logging_config import RequestContextMiddleware, setup_logging
+from app.core.rate_limit import RateLimitMiddleware
 from app.core.redis import close_redis, init_redis
 from app.workers import (
     memory_worker,
@@ -17,6 +19,7 @@ from app.workers import (
     user_memory_worker,
 )
 
+setup_logging(level="INFO")
 logger = logging.getLogger(__name__)
 
 
@@ -69,6 +72,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Middleware 執行順序：Starlette 後加先進；先 RateLimit 再 RequestContext，
+# 確保 access log 與 429 回應都帶 request_id（外層）
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RequestContextMiddleware)
 
 register_exception_handlers(app)
 

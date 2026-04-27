@@ -112,9 +112,9 @@ COMMENT ON COLUMN "user".role_uid IS '所屬角色 UID（關聯 user_role）';
 | ------------------------------------------------------- | -------------------------------------------------------------------------- |
 | `POST   /api/v1/auth/logout`                            | 登出                                                                       |
 | `POST   /api/v1/auth/refresh`                           | 換發 Token                                                                 |
-| `/api/v1/agents/*`                                      | Agent 管理（僅限自身資源）                                                 |
-| `/api/v1/skills/*`                                      | Skills 管理（僅限自身資源）                                                |
-| `/api/v1/scripts/*`                                     | Script 管理（僅限自身資源；含 `GET /scripts/public` 公開瀏覽）             |
+| `/api/v1/agents/*`                                      | Agent 管理（讀 / 下載：擁有者 + admin + visibility=public；改：擁有者 + admin；刪 / 切可見性：僅擁有者）|
+| `/api/v1/skills/*`                                      | Skills 管理（讀 / 下載：擁有者 + admin + visibility=public；改：擁有者 + admin；刪 / 切可見性：僅擁有者）|
+| `/api/v1/scripts/*`                                     | Script 管理（讀 / 下載：擁有者 + admin + visibility=public；改：擁有者 + admin；刪：僅擁有者；含 `GET /scripts/public` 公開瀏覽）|
 | `/api/v1/chat/*`                                        | 對話 / 記憶管理（projects / sessions / messages / memories；僅限自身資源） |
 | `POST   /api/v1/{agents,skills,scripts}/{uid}/favorite` | 收藏（idempotent；軟刪後再呼叫即復活）                                     |
 | `DELETE /api/v1/{agents,skills,scripts}/{uid}/favorite` | 取消收藏（軟刪 `user_favorite`）                                           |
@@ -189,6 +189,15 @@ async def some_resource(current_user: TokenPayload = Depends(require_role("admin
 - `member` 僅可操作自身擁有的資源，查詢時**必須**以 Token 中的 `user_uid` 過濾
 - **禁止** `member` 透過修改路徑參數存取他人資源（Repository 層須驗證資源所有權）
 - `admin` 可存取所有使用者的資源
+- 可見性開放：`agent` / `skill` / `script` 三種資源若 `visibility = 'public'`，**所有登入使用者**可讀（GET 詳情 / 下載 / 列入收藏），但**改 / 刪 / 切可見性**仍受下表規範
+- **刪除一律走軟刪除**（`is_deleted = TRUE`），且**僅擁有者本人**可刪 — `admin` 亦不代刪。`agent` / `skill` 的「切可見性」同樣僅擁有者可操作
+
+| 動作 | 擁有者 | admin | 公開資源（visibility=public）非擁有者 | 私人資源非擁有者 |
+| --- | --- | --- | --- | --- |
+| GET 詳情 / 下載 | ✅ | ✅ | ✅ | ❌（404） |
+| PATCH / PUT 修改 | ✅ | ✅ | ❌（403） | ❌（404） |
+| DELETE 軟刪 | ✅ | ❌（403） | ❌（403） | ❌（404） |
+| 切可見性 | ✅ | ❌（403） | ❌（403） | ❌（404） |
 
 ```python
 # Repository 層範例：member 僅取自身資源

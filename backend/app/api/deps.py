@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
 from app.core.exceptions import AppError
+from app.core.logging_config import set_user_uid
 from app.core.security import verify_token
 from app.schemas.auth.schemas import TokenPayload
 
@@ -35,6 +36,7 @@ async def get_current_user(
     if user_uid is None or role is None:
         raise AppError(detail="認證失敗", response_code=401, status_code=401)
 
+    set_user_uid(user_uid)
     return TokenPayload(user_uid=user_uid, role=role)
 
 
