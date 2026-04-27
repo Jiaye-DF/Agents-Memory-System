@@ -10,11 +10,6 @@ services:
       - "5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
 
   redis:
     image: redis:7-alpine
@@ -23,21 +18,17 @@ services:
       - "6379"
     volumes:
       - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
 
   flyway:
-    image: flyway/flyway:latest
+    image: flyway/flyway:10
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
     environment:
       FLYWAY_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
       FLYWAY_USER: ${POSTGRES_USER}
       FLYWAY_PASSWORD: ${POSTGRES_PASSWORD}
+      FLYWAY_CONNECT_RETRIES: "30"
     volumes:
       - ./migrations/sql:/flyway/sql
     command: migrate
@@ -49,9 +40,9 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
       flyway:
         condition: service_completed_successfully
     environment:
@@ -114,7 +105,7 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
     environment:
       SERVICE_URL_ADMINER_8080:
       ADMINER_DEFAULT_SERVER: postgres
