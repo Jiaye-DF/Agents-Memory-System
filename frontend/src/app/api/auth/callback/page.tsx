@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setAccessToken } from "@/lib/api/client";
 import { Spinner } from "@/components/ui/Loading";
@@ -20,7 +20,26 @@ import { Spinner } from "@/components/ui/Loading";
  */
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
+function CallbackFallback(): React.ReactNode {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-4">
+      <Spinner size="lg" />
+      <p className="text-base text-muted">正在完成 SSO 登入...</p>
+    </div>
+  );
+}
+
+// useSearchParams() 必須包在 Suspense 內，否則 prerender 階段會 bail out
+// （Next.js 16 build 規則：missing-suspense-with-csr-bailout）
 export default function SsoCallbackPage(): React.ReactNode {
+  return (
+    <Suspense fallback={<CallbackFallback />}>
+      <SsoCallbackInner />
+    </Suspense>
+  );
+}
+
+function SsoCallbackInner(): React.ReactNode {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
