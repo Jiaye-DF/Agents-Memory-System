@@ -5,9 +5,17 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
 import { Pagination } from "@/components/ui/Pagination";
+import { PendingApprovalCard } from "@/components/ui/PendingApprovalCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import { useConfirmMutation } from "@/hooks/useConfirmMutation";
+import { usePendingApprovalDialog } from "@/hooks/usePendingApprovalDialog";
+
+/**
+ * df 公司版本 feature flag：對話領域整段隱藏。
+ * `false` 時整頁渲染 PendingApprovalCard；下方原始邏輯保留供日後解鎖。
+ */
+const CHAT_DOMAIN_ENABLED: boolean = false;
 import {
   useListOrphanChatSessionsQuery,
   useDeleteSessionMutation,
@@ -72,7 +80,16 @@ const SessionRow = React.memo(function SessionRow({
 });
 
 export default function OrphanSessionsPage(): React.ReactNode {
+  if (!CHAT_DOMAIN_ENABLED) {
+    return (
+      <PendingApprovalCard
+        title="最近對話"
+        description="不屬於任何專案的獨立對話；可在詳情頁把對話移入專案。"
+      />
+    );
+  }
   const { isLoading: authLoading } = useAuth();
+  const showPendingApproval = usePendingApprovalDialog();
   const {
     limit,
     cursor,
@@ -127,9 +144,7 @@ export default function OrphanSessionsPage(): React.ReactNode {
             不屬於任何專案的獨立對話；可在詳情頁把對話移入專案。
           </p>
         </div>
-        <Link href="/sessions/new">
-          <Button>新對話</Button>
-        </Link>
+        <Button onClick={showPendingApproval}>新對話</Button>
       </div>
 
       <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">

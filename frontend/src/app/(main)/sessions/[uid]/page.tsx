@@ -12,6 +12,7 @@ import { useDispatch } from "react-redux";
 import { Button } from "@/components/ui/Button";
 import { PageLoading, Spinner } from "@/components/ui/Loading";
 import { ModalDialog } from "@/components/ui/ModalDialog";
+import { PendingApprovalCard } from "@/components/ui/PendingApprovalCard";
 import {
   MentionSelector,
   type MentionSelectorHandle,
@@ -375,7 +376,16 @@ function buildAssistantFooter(message: ChatMessage): React.ReactNode {
   );
 }
 
+/**
+ * df 公司版本 feature flag：對話領域整段隱藏。
+ * `false` 時整頁渲染 PendingApprovalCard；下方對話 / 訊息 / Skill 推薦邏輯保留供日後解鎖。
+ */
+const CHAT_DOMAIN_ENABLED: boolean = false;
+
 export default function SessionChatPage(): React.ReactNode {
+  if (!CHAT_DOMAIN_ENABLED) {
+    return <PendingApprovalCard title="對話" />;
+  }
   const params = useParams();
   const router = useRouter();
   const sessionUid = params.uid as string;

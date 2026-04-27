@@ -50,6 +50,32 @@ const SCOPE_CHIPS: { key: ScopeFilter; label: string }[] = [
 ];
 
 export default function SkillSuggestionsPage(): React.ReactNode {
+  // df 公司版本：Skill 建議功能未開通，整頁改顯示「尚待審核」說明卡。
+  // 原 Suggestion 列表 / 接受 / 拒絕等流程程式碼保留於本檔以利日後解鎖。
+  return (
+    <div>
+      <div className="mb-4">
+        <h1 className="text-3xl font-bold text-foreground">Skill 建議</h1>
+        <p className="mt-1 text-sm text-muted">
+          系統會在你跨 session / project / 跨主題形成穩定使用習慣後自動產出
+          Skill 建議； 人工審核通過才會建立 Skill。
+        </p>
+      </div>
+      <div className="rounded-xl bg-card-bg p-12 text-center shadow-sm">
+        <h2 className="mb-2 text-lg font-semibold text-foreground">
+          功能尚待審核
+        </h2>
+        <p className="text-base text-muted">
+          此功能尚待審核，暫無 API Token 餘額。
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// df 公司版本：以下為原始 Suggestion 列表 / 接受 / 拒絕流程，保留供日後解鎖。
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _SkillSuggestionsPage_KEPT(): React.ReactNode {
   const [statusTab, setStatusTab] = useState<StatusFilter>("pending");
   const [scopeChip, setScopeChip] = useState<ScopeFilter>("all");
 

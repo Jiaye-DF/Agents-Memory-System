@@ -7,10 +7,18 @@ import { Input } from "@/components/ui/Input";
 import { PageLoading } from "@/components/ui/Loading";
 import { ModalDialog } from "@/components/ui/ModalDialog";
 import { Pagination } from "@/components/ui/Pagination";
+import { PendingApprovalCard } from "@/components/ui/PendingApprovalCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
 import { useConfirmMutation } from "@/hooks/useConfirmMutation";
+import { usePendingApprovalDialog } from "@/hooks/usePendingApprovalDialog";
+
+/**
+ * df 公司版本 feature flag：對話領域整段隱藏。
+ * `false` 時整頁渲染 PendingApprovalCard；下方 CreateProjectModal / 列表 / 分頁邏輯保留供日後解鎖。
+ */
+const CHAT_DOMAIN_ENABLED: boolean = false;
 import {
   useListProjectsQuery,
   useCreateProjectMutation,
@@ -160,7 +168,13 @@ function CreateProjectModal({
 }
 
 export default function ProjectsPage(): React.ReactNode {
+  if (!CHAT_DOMAIN_ENABLED) {
+    return <PendingApprovalCard title="專案管理" />;
+  }
   const { isLoading: authLoading } = useAuth();
+  // df 公司版本：新增專案功能未開通；點選按鈕只跳 pending dialog，
+  // 不開啟下方 CreateProjectModal（modal 程式碼保留以利日後解鎖）。
+  const showPendingApproval = usePendingApprovalDialog();
   const {
     limit,
     cursor,
@@ -200,9 +214,10 @@ export default function ProjectsPage(): React.ReactNode {
     [confirmDeleteProject],
   );
 
-  const handleOpenCreate = useCallback((): void => {
-    setShowCreate(true);
-  }, []);
+  // df 公司版本：原 handleOpenCreate（setShowCreate(true)）改為 pending dialog；
+  // 保留 setShowCreate 以兼容下方 modal 渲染（永遠不會觸發）。
+  void setShowCreate;
+  const handleOpenCreate = showPendingApproval;
 
   const handleCloseCreate = useCallback((): void => {
     setShowCreate(false);

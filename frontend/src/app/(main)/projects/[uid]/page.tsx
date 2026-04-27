@@ -9,10 +9,18 @@ import { Input } from "@/components/ui/Input";
 import { PageLoading } from "@/components/ui/Loading";
 import { ModalDialog } from "@/components/ui/ModalDialog";
 import { Pagination } from "@/components/ui/Pagination";
+import { PendingApprovalCard } from "@/components/ui/PendingApprovalCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import { useDialog } from "@/hooks/useDialog";
 import { useConfirmMutation } from "@/hooks/useConfirmMutation";
+import { usePendingApprovalDialog } from "@/hooks/usePendingApprovalDialog";
+
+/**
+ * df 公司版本 feature flag：對話領域整段隱藏。
+ * `false` 時整頁渲染 PendingApprovalCard；下方 CreateSessionModal / sessions 列表保留供日後解鎖。
+ */
+const CHAT_DOMAIN_ENABLED: boolean = false;
 import {
   useGetProjectQuery,
   useListSessionsQuery,
@@ -183,10 +191,15 @@ function CreateSessionModal({
 }
 
 export default function ProjectDetailPage(): React.ReactNode {
+  if (!CHAT_DOMAIN_ENABLED) {
+    return <PendingApprovalCard title="專案詳情" />;
+  }
   const params = useParams();
   const router = useRouter();
   const projectUid = params.uid as string;
   const { isLoading: authLoading } = useAuth();
+  // df 公司版本：新增對話未開通；點選按鈕跳 pending dialog，CreateSessionModal 保留不動。
+  const showPendingApproval = usePendingApprovalDialog();
 
   const {
     limit,
@@ -237,9 +250,10 @@ export default function ProjectDetailPage(): React.ReactNode {
     [confirmDeleteSession],
   );
 
-  const handleOpenCreate = useCallback((): void => {
-    setShowCreate(true);
-  }, []);
+  // df 公司版本：原開啟 CreateSessionModal 流程改為 pending dialog；
+  // setShowCreate / handleCloseCreate / handleCreated 保留以兼容下方 modal 渲染（永不觸發）。
+  void setShowCreate;
+  const handleOpenCreate = showPendingApproval;
 
   const handleCloseCreate = useCallback((): void => {
     setShowCreate(false);

@@ -6,12 +6,27 @@ import { AgentSelect } from "@/components/ui/AgentSelect";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PageLoading } from "@/components/ui/Loading";
+import { PendingApprovalCard } from "@/components/ui/PendingApprovalCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useDialog } from "@/hooks/useDialog";
 import { useCreateSessionMutation } from "@/store/chatApi";
 import { useListAgentsQuery } from "@/store/agentsApi";
 
+/**
+ * df 公司版本 feature flag：對話領域整段隱藏。
+ * `false` 時整頁渲染 PendingApprovalCard；下方建立對話表單保留供日後解鎖。
+ */
+const CHAT_DOMAIN_ENABLED: boolean = false;
+
 export default function NewOrphanSessionPage(): React.ReactNode {
+  if (!CHAT_DOMAIN_ENABLED) {
+    return (
+      <PendingApprovalCard
+        title="新對話"
+        description="建立一個不屬於任何專案的獨立對話。"
+      />
+    );
+  }
   const router = useRouter();
   const { isLoading: authLoading, userUid } = useAuth();
   const { showDialog } = useDialog();

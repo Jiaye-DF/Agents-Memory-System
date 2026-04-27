@@ -4,8 +4,15 @@ import React, { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { SidebarState } from "@/hooks/useSidebar";
+import { usePendingApprovalDialog } from "@/hooks/usePendingApprovalDialog";
 import { useListSkillSuggestionsQuery } from "@/store/agenticApi";
 import { ChatSection } from "./ChatSection";
+
+/**
+ * df 公司版本 feature flag：對話領域（新對話 / 最近對話 / 最近專案 / 收合 + 鈕）整段隱藏。
+ * 設為 `false` 時下方原始 ChatSection 渲染與收合 + 按鈕皆不執行；程式碼保留以利日後解鎖。
+ */
+const CHAT_DOMAIN_ENABLED: boolean = false;
 
 interface SidebarItem {
   label: string;
@@ -14,6 +21,8 @@ interface SidebarItem {
   adminOnly?: boolean;
   /** v1.3.6：可選的右側計數徽章 key（由 Sidebar 元件解析後渲染） */
   badgeKey?: "skill-suggestions";
+  /** df 公司版本：點擊時改顯示「功能尚待審核」dialog，不導航 */
+  pendingApproval?: boolean;
 }
 
 interface SidebarGroup {
@@ -87,6 +96,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
         label: "Skill 建議",
         href: "/skill-suggestions",
         badgeKey: "skill-suggestions",
+        pendingApproval: true,
         icon: (
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path d="M10 3L12.5 7L17 7.5L13.5 11L14.5 16L10 13.5L5.5 16L6.5 11L3 7.5L7.5 7L10 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
@@ -177,6 +187,7 @@ export const Sidebar = React.memo(function Sidebar({
   role,
 }: SidebarProps): React.ReactNode {
   const pathname = usePathname();
+  const showPendingApproval = usePendingApprovalDialog();
 
   const handleOverlayClick = useCallback((): void => {
     onClose();
@@ -208,27 +219,30 @@ export const Sidebar = React.memo(function Sidebar({
       }`}
     >
       <div className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-        {showChatSection ? (
-          <>
-            <ChatSection onNavigate={handleChatSectionNavigate} />
-            <div className="my-3 border-t border-border" />
-          </>
-        ) : (
-          <Link
-            href="/sessions/new"
-            className="flex min-h-11 items-center justify-center rounded-xl bg-primary py-2 text-white transition-colors hover:cursor-pointer hover:opacity-90"
-            title="新對話"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path
-                d="M10 4V16M4 10H16"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </Link>
-        )}
+        {/* df 公司版本：CHAT_DOMAIN_ENABLED=false 時整段不渲染；程式碼保留以利解鎖 */}
+        {CHAT_DOMAIN_ENABLED &&
+          (showChatSection ? (
+            <>
+              <ChatSection onNavigate={handleChatSectionNavigate} />
+              <div className="my-3 border-t border-border" />
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={showPendingApproval}
+              className="flex min-h-11 items-center justify-center rounded-xl bg-primary py-2 text-white transition-colors hover:cursor-pointer hover:opacity-90"
+              title="新對話"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path
+                  d="M10 4V16M4 10H16"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          ))}
 
         {visibleGroups.map((group, groupIndex) => (
           <div key={group.key} className="flex flex-col gap-1">
@@ -243,18 +257,15 @@ export const Sidebar = React.memo(function Sidebar({
             {group.items.map((item) => {
               const isActive = pathname.startsWith(item.href);
               const showLabel = state === "expanded" || isOverlay;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={isOverlay ? onClose : undefined}
-                  className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-base font-medium transition-colors hover:cursor-pointer hover:bg-sidebar-hover ${
-                    isActive
-                      ? "bg-sidebar-active text-primary"
-                      : "text-foreground"
-                  } ${state === "collapsed" && !isOverlay ? "justify-center" : ""}`}
-                  title={state === "collapsed" && !isOverlay ? item.label : undefined}
-                >
+              const className = `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-base font-medium transition-colors hover:cursor-pointer hover:bg-sidebar-hover ${
+                isActive
+                  ? "bg-sidebar-active text-primary"
+                  : "text-foreground"
+              } ${state === "collapsed" && !isOverlay ? "justify-center" : ""}`;
+              const title =
+                state === "collapsed" && !isOverlay ? item.label : undefined;
+              const inner = (
+                <>
                   <span className="shrink-0">{item.icon}</span>
                   {showLabel && (
                     <span className="truncate flex-1">{item.label}</span>
@@ -262,6 +273,35 @@ export const Sidebar = React.memo(function Sidebar({
                   {showLabel && item.badgeKey === "skill-suggestions" && (
                     <SkillSuggestionsPendingBadge />
                   )}
+                </>
+              );
+
+              if (item.pendingApproval) {
+                return (
+                  <button
+                    key={item.href}
+                    type="button"
+                    onClick={() => {
+                      showPendingApproval();
+                      if (isOverlay) onClose();
+                    }}
+                    className={`${className} w-full text-left`}
+                    title={title}
+                  >
+                    {inner}
+                  </button>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={isOverlay ? onClose : undefined}
+                  className={className}
+                  title={title}
+                >
+                  {inner}
                 </Link>
               );
             })}

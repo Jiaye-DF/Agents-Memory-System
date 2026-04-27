@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import v1_router
+from app.core.blocked_features import BlockedFeatureMiddleware
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging_config import RequestContextMiddleware, setup_logging
@@ -72,8 +73,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Middleware 執行順序：Starlette 後加先進；先 RateLimit 再 RequestContext，
-# 確保 access log 與 429 回應都帶 request_id（外層）
+# Middleware 執行順序：Starlette 後加先進。先放 BlockedFeature（df 公司版本短路），
+# 再 RateLimit、再 RequestContext，確保 access log 與 429 / 501 回應都帶 request_id（外層）。
+app.add_middleware(BlockedFeatureMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestContextMiddleware)
 
