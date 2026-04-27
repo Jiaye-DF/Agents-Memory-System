@@ -18,6 +18,8 @@ from app.schemas.auth.schemas import LoginRequest, RegisterRequest, ResetPasswor
 logger = logging.getLogger(__name__)
 
 BLACKLIST_PREFIX = "token:blacklist:"
+# SSO back-channel logout：撤銷某 user 在指定 timestamp 之前簽出的所有 token
+SSO_LOGOUT_USER_PREFIX = "token:logout_user:"
 
 
 async def register(data: RegisterRequest, db: AsyncSession) -> dict:
@@ -123,6 +125,15 @@ async def refresh(refresh_token: str, db: AsyncSession) -> tuple[str, str]:
     user_uid = payload.get("user_uid")
     if user_uid is None:
         raise AppError(detail="無效的 Token", response_code=401, status_code=401)
+
+    # SSO back-channel：若 token iat 早於該 user 的撤銷時間 → 立即失效
+    logout_at = await redis.get(f"{SSO_LOGOUT_USER_PREFIX}{user_uid}")
+    if logout_at is not None:
+        iat = payload.get("iat")
+        if iat is not None and int(iat) <= int(logout_at):
+            raise AppError(
+                detail="Session 已被中央登出", response_code=401, status_code=401
+            )
 
     user = await user_repository.get_by_uid(user_uid, db)
     if user is None or not user.is_active:

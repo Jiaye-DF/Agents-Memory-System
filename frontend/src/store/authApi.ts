@@ -73,6 +73,14 @@ export const authApi = baseApi.injectEndpoints({
         body,
       }),
     }),
+
+    // DF-SSO authorize URL（避免 NEXT_PUBLIC_* 在 build 時固化；改成 runtime 從 backend 取）
+    ssoAuthorizeUrl: builder.query<{ message: string }, void>({
+      query: () => ({
+        method: "get",
+        path: "/auth/sso/authorize-url",
+      }),
+    }),
   }),
 });
 
@@ -82,4 +90,5 @@ export const {
   useLogoutMutation,
   useRefreshMutation,
   useResetPasswordMutation,
+  useSsoAuthorizeUrlQuery,
 } = authApi;

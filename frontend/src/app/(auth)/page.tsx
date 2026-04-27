@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Logo } from "@/components/layout/Logo";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { useDialog } from "@/hooks/useDialog";
-import { useLoginMutation } from "@/store/authApi";
+import {
+  useLoginMutation,
+  useSsoAuthorizeUrlQuery,
+} from "@/store/authApi";
 import { validateAccount, validatePassword } from "@/utils/validation";
 
 interface FormErrors {
@@ -15,10 +18,32 @@ interface FormErrors {
   password: string | null;
 }
 
+const SSO_ERROR_MESSAGES: Record<string, string> = {
+  no_code: "SSO 回呼缺少授權碼，請重新登入",
+  exchange_failed: "SSO 授權碼已失效或無效，請重新登入",
+  exchange_error: "SSO 連線異常，請稍後再試",
+  sso_unreachable: "無法連線到 SSO 伺服器，請稍後再試",
+  sso_not_configured: "本系統尚未啟用 SSO，請聯繫管理員",
+};
+
 export default function LoginPage(): React.ReactNode {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { showDialog } = useDialog();
   const [login, { isLoading }] = useLoginMutation();
+  // 取 SSO authorize URL（後端決定，沒設 SSO_URL 會回 503）
+  const { data: ssoData, isError: ssoConfigError } = useSsoAuthorizeUrlQuery();
+  const ssoAuthorizeUrl = ssoData?.message ?? null;
+
+  const ssoError = searchParams.get("error");
+  const loggedOut = searchParams.get("logged_out");
+  const ssoErrorMessage = useMemo<string | null>(() => {
+    if (!ssoError) return null;
+    return SSO_ERROR_MESSAGES[ssoError] ?? `登入失敗：${ssoError}`;
+  }, [ssoError]);
+
+  // 契約 #3：無 session 一律「顯示按鈕」，不可自動 window.location = SSO/authorize。
+  // 此頁不在 mount 時做任何 redirect。已登入由 AuthLayout 統一導 /dashboard。
 
   const [account, setAccount] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -92,6 +117,39 @@ export default function LoginPage(): React.ReactNode {
         <h1 className="text-3xl font-bold text-foreground">Agents Platform</h1>
         <p className="text-base text-muted">請登入以繼續</p>
       </div>
+
+      {/* SSO 提示訊息 */}
+      {ssoErrorMessage && (
+        <div className="mb-4 rounded-md border border-error/40 bg-error/10 px-3 py-2 text-sm text-error">
+          {ssoErrorMessage}
+        </div>
+      )}
+      {loggedOut === "1" && !ssoErrorMessage && (
+        <div className="mb-4 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-foreground">
+          您已登出
+        </div>
+      )}
+
+      {/* SSO 登入按鈕（契約 #3：只顯示按鈕，由使用者點擊才導去 SSO） */}
+      {ssoAuthorizeUrl && (
+        <div className="mb-6 flex flex-col gap-3">
+          <Button
+            type="button"
+            onClick={() => {
+              window.location.href = ssoAuthorizeUrl;
+            }}
+            className="w-full"
+          >
+            透過 DF-SSO 登入
+          </Button>
+          <div className="flex items-center gap-3 text-xs text-muted">
+            <span className="h-px flex-1 bg-border" />
+            <span>或使用本機帳號</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
           label="帳號"
@@ -130,6 +188,12 @@ export default function LoginPage(): React.ReactNode {
           忘記密碼
         </Link>
       </div>
+      {/* 沒設 SSO 時的提示（dev 環境用） */}
+      {ssoConfigError && (
+        <p className="mt-3 text-center text-xs text-muted">
+          SSO 尚未啟用（後端未設定 SSO_URL）
+        </p>
+      )}
     </div>
   );
 }
