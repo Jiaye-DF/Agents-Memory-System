@@ -11,7 +11,7 @@ interface FilterNavProps {
 
 const DEFAULT_LABELS: Record<FilterScope, string> = {
   mine: "我的",
-  favorites: "我的收藏",
+  favorites: "收藏",
 };
 
 const ORDER: FilterScope[] = ["mine", "favorites"];

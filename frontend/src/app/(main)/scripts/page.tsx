@@ -29,7 +29,11 @@ import type {
   MyFavoriteItem,
   ResourceSnapshot,
 } from "@/types";
-import { parseSearch, matchByTextAndAuthor } from "@/utils/search";
+import {
+  parseSearch,
+  matchByTextAndAuthor,
+  toggleAuthorChip,
+} from "@/utils/search";
 import { formatDateTime } from "@/utils/datetime";
 import { ScriptUploadDialog } from "./ScriptUploadDialog";
 import {
@@ -200,6 +204,7 @@ export default function ScriptsListPage(): React.ReactNode {
 
   const [scope, setScope] = useState<FilterScope>("mine");
   const [query, setQuery] = useState<string>("");
+  const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [uploadOpen, setUploadOpen] = useState<boolean>(false);
 
@@ -235,7 +240,8 @@ export default function ScriptsListPage(): React.ReactNode {
         s.name,
         s.description ?? "",
         s.owner_username,
-        parsed
+        parsed,
+        selectedAuthors
       )
     );
     const sorted = [...matched].sort((a, b) => {
@@ -243,7 +249,19 @@ export default function ScriptsListPage(): React.ReactNode {
       return sortOrder === "newest" ? -diff : diff;
     });
     return sorted;
-  }, [scopedScripts, parsed, sortOrder]);
+  }, [scopedScripts, parsed, selectedAuthors, sortOrder]);
+
+  const authorOptions = useMemo((): string[] => {
+    const set = new Set<string>();
+    for (const s of scopedScripts) {
+      if (s.owner_username) set.add(s.owner_username);
+    }
+    return Array.from(set).sort();
+  }, [scopedScripts]);
+
+  const handleToggleAuthor = useCallback((author: string): void => {
+    setSelectedAuthors((prev) => toggleAuthorChip(prev, author));
+  }, []);
 
   const favoriteItems = useMemo(
     (): MyFavoriteItem[] => favoritesData?.items ?? [],
@@ -377,6 +395,27 @@ export default function ScriptsListPage(): React.ReactNode {
               由舊到新
             </FilterChip>
           </div>
+
+          {authorOptions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="shrink-0 text-sm text-muted">作者：</span>
+              {authorOptions.map((author) => {
+                const lower = author.toLowerCase();
+                const isSelected =
+                  parsed.authors.includes(lower) ||
+                  selectedAuthors.some((a) => a.toLowerCase() === lower);
+                return (
+                  <FilterChip
+                    key={author}
+                    active={isSelected}
+                    onClick={() => handleToggleAuthor(author)}
+                  >
+                    @{author}
+                  </FilterChip>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
