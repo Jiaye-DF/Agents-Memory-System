@@ -21,7 +21,9 @@ import {
   useGetSkillUsageQuery,
   useReuploadSkillMutation,
   useUpdateSkillFileMutation,
+  useUpdateSkillMutation,
 } from "@/store/skillsApi";
+import { EditResourceDialog } from "@/components/social/EditResourceDialog";
 import { baseApi } from "@/store/api";
 import type { AppDispatch } from "@/store/store";
 import {
@@ -715,6 +717,7 @@ export default function SkillDetailPage(): React.ReactNode {
     null,
   );
   const [showReupload, setShowReupload] = useState<boolean>(false);
+  const [showEdit, setShowEdit] = useState<boolean>(false);
 
   const {
     data: skill,
@@ -735,6 +738,7 @@ export default function SkillDetailPage(): React.ReactNode {
     useReuploadSkillMutation();
   const [updateSkillFile, { isLoading: savingFile }] =
     useUpdateSkillFileMutation();
+  const [updateSkill] = useUpdateSkillMutation();
 
   const isOwner = useMemo((): boolean => {
     return !!skill && !!userUid && skill.owner_uid === userUid;
@@ -755,6 +759,37 @@ export default function SkillDetailPage(): React.ReactNode {
   const handleRequestReupload = useCallback((): void => {
     setPendingAction({ type: "reupload" });
   }, []);
+
+  const handleOpenEdit = useCallback((): void => {
+    setShowEdit(true);
+  }, []);
+
+  const handleCloseEdit = useCallback((): void => {
+    setShowEdit(false);
+  }, []);
+
+  const handleSubmitEdit = useCallback(
+    async (next: { name: string; description: string }): Promise<void> => {
+      if (!skill) return;
+      try {
+        await updateSkill({
+          skillUid: skill.skill_uid,
+          body: { name: next.name, description: next.description },
+        }).unwrap();
+        showDialog({
+          type: "info",
+          title: "更新成功",
+          message: "Skill 已更新。",
+        });
+      } catch (err: unknown) {
+        const message =
+          typeof err === "string" ? err : "更新失敗，請稍後再試";
+        showDialog({ type: "error", title: "更新失敗", message });
+        throw err;
+      }
+    },
+    [skill, updateSkill, showDialog]
+  );
 
   const handleCancelUsage = useCallback((): void => {
     setPendingAction(null);
@@ -897,9 +932,14 @@ export default function SkillDetailPage(): React.ReactNode {
             返回列表
           </Button>
           {isOwner && (
-            <Button variant="secondary" onClick={handleRequestReupload}>
-              重新上傳
-            </Button>
+            <>
+              <Button variant="secondary" onClick={handleOpenEdit}>
+                編輯
+              </Button>
+              <Button variant="secondary" onClick={handleRequestReupload}>
+                重新上傳
+              </Button>
+            </>
           )}
           <Button onClick={handleDownload}>下載</Button>
         </div>
@@ -1043,6 +1083,17 @@ export default function SkillDetailPage(): React.ReactNode {
           submitting={reuploading}
           onSubmit={handleSubmitReupload}
           onClose={handleCloseReupload}
+        />
+      )}
+
+      {showEdit && (
+        <EditResourceDialog
+          title="編輯 Skill"
+          initialName={skill.name}
+          initialDescription={skill.description}
+          descriptionRequired
+          onClose={handleCloseEdit}
+          onSubmit={handleSubmitEdit}
         />
       )}
     </div>

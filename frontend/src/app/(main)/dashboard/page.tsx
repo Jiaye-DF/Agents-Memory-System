@@ -181,7 +181,7 @@ const ScriptRow = React.memo(function ScriptRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <Link
-            href="/scripts"
+            href={`/scripts/${script.script_uid}`}
             className="min-w-0 truncate text-lg font-semibold text-foreground hover:cursor-pointer hover:text-primary hover:underline"
           >
             {script.name}
