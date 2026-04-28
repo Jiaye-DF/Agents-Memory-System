@@ -12,6 +12,11 @@ import { FilterChip } from "@/components/ui/FilterChip";
 import { RankingPanel } from "@/components/dashboard/RankingPanel";
 import { SocialMetrics } from "@/components/social/SocialMetrics";
 import { FavoriteButton } from "@/components/social/FavoriteButton";
+import {
+  parseSearch,
+  matchByTextAndAuthor,
+  toggleAuthorChip,
+} from "@/utils/search";
 import type { Agent, Skill, Script } from "@/types";
 
 type TabKey = "agents" | "skills" | "scripts" | "favorites";
@@ -52,40 +57,6 @@ const SORT_GROUPS: SortGroup[] = [
     ascLabel: "由少到多",
   },
 ];
-
-interface ParsedSearch {
-  text: string;
-  authors: string[];
-}
-
-function parseSearch(query: string): ParsedSearch {
-  const tokens = query.trim().split(/\s+/).filter(Boolean);
-  const authors: string[] = [];
-  const words: string[] = [];
-  for (const token of tokens) {
-    if (token.startsWith("@") && token.length > 1) {
-      authors.push(token.slice(1).toLowerCase());
-    } else {
-      words.push(token);
-    }
-  }
-  return { text: words.join(" ").toLowerCase(), authors };
-}
-
-function matchItem(
-  name: string,
-  description: string | null,
-  author: string | null,
-  parsed: ParsedSearch
-): boolean {
-  if (parsed.authors.length > 0) {
-    const authorLower = (author ?? "").toLowerCase();
-    if (!parsed.authors.includes(authorLower)) return false;
-  }
-  if (!parsed.text) return true;
-  const haystack = `${name} ${description ?? ""}`.toLowerCase();
-  return haystack.includes(parsed.text);
-}
 
 interface TabButtonProps {
   active: boolean;
@@ -245,6 +216,8 @@ const ScriptRow = React.memo(function ScriptRow({
 export default function DashboardPage(): React.ReactNode {
   const [activeTab, setActiveTab] = useState<TabKey>("agents");
   const [query, setQuery] = useState<string>("");
+  // chip 選的作者用獨立 state（避免含空白的 username 塞進 query 後被 \s+ 切壞）
+  const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
   // §2-5：三頁籤共用 sort state；切換類型保留選擇；重新進頁面預設回「最新」
   const [sort, setSort] = useState<SortState>({
     orderBy: "created_at",
@@ -305,26 +278,31 @@ export default function DashboardPage(): React.ReactNode {
 
   const parsed = useMemo(() => parseSearch(query), [query]);
 
+  const selectedAuthorsLower = useMemo(
+    (): string[] => selectedAuthors.map((a) => a.toLowerCase()),
+    [selectedAuthors]
+  );
+
   const filteredAgents = useMemo(
     (): Agent[] =>
       publicAgents.filter((a) =>
-        matchItem(a.name, a.description, a.owner_username, parsed)
+        matchByTextAndAuthor(a.name, a.description, a.owner_username, parsed, selectedAuthorsLower)
       ),
-    [publicAgents, parsed]
+    [publicAgents, parsed, selectedAuthorsLower]
   );
   const filteredSkills = useMemo(
     (): Skill[] =>
       publicSkills.filter((s) =>
-        matchItem(s.name, s.description, s.owner_username, parsed)
+        matchByTextAndAuthor(s.name, s.description, s.owner_username, parsed, selectedAuthorsLower)
       ),
-    [publicSkills, parsed]
+    [publicSkills, parsed, selectedAuthorsLower]
   );
   const filteredScripts = useMemo(
     (): Script[] =>
       publicScripts.filter((s) =>
-        matchItem(s.name, s.description, s.owner_username, parsed)
+        matchByTextAndAuthor(s.name, s.description, s.owner_username, parsed, selectedAuthorsLower)
       ),
-    [publicScripts, parsed]
+    [publicScripts, parsed, selectedAuthorsLower]
   );
 
   const currentAuthors = useMemo((): string[] => {
@@ -346,20 +324,9 @@ export default function DashboardPage(): React.ReactNode {
     []
   );
 
-  const toggleAuthorChip = useCallback(
-    (author: string): void => {
-      const tokens = query.trim().split(/\s+/).filter(Boolean);
-      const target = `@${author}`.toLowerCase();
-      const idx = tokens.findIndex((t) => t.toLowerCase() === target);
-      if (idx >= 0) {
-        tokens.splice(idx, 1);
-      } else {
-        tokens.push(`@${author}`);
-      }
-      setQuery(tokens.join(" "));
-    },
-    [query]
-  );
+  const handleToggleAuthor = useCallback((author: string): void => {
+    setSelectedAuthors((prev) => toggleAuthorChip(prev, author));
+  }, []);
 
   const handleTabChange = useCallback((tab: TabKey): void => {
     setActiveTab(tab);
@@ -430,7 +397,7 @@ export default function DashboardPage(): React.ReactNode {
           active={isFavoritesTab}
           onClick={() => handleTabChange("favorites")}
         >
-          你最常用的
+          最常使用
         </TabButton>
         {!isFavoritesTab && (
           <Link
@@ -457,12 +424,15 @@ export default function DashboardPage(): React.ReactNode {
         <div className="flex flex-wrap items-center gap-2">
           <span className="shrink-0 text-sm text-muted">作者：</span>
           {currentAuthors.map((author) => {
-            const isSelected = parsed.authors.includes(author.toLowerCase());
+            const lower = author.toLowerCase();
+            const isSelected =
+              parsed.authors.includes(lower) ||
+              selectedAuthorsLower.includes(lower);
             return (
               <button
                 key={author}
                 type="button"
-                onClick={() => toggleAuthorChip(author)}
+                onClick={() => handleToggleAuthor(author)}
                 className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
                   isSelected
                     ? "bg-primary text-white"
@@ -476,7 +446,7 @@ export default function DashboardPage(): React.ReactNode {
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-x-6">
         {SORT_GROUPS.map((group) => (
           <div
             key={group.orderBy}

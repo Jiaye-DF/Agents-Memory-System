@@ -33,7 +33,7 @@ import type {
 import {
   parseSearch,
   matchByTextAndAuthor,
-  toggleAuthorInQuery,
+  toggleAuthorChip,
 } from "@/utils/search";
 import { formatDateTime } from "@/utils/datetime";
 
@@ -207,6 +207,7 @@ export default function AgentsPage(): React.ReactNode {
 
   const [scope, setScope] = useState<FilterScope>("mine");
   const [query, setQuery] = useState<string>("");
+  const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
   const [visibilityFilter, setVisibilityFilter] =
     useState<VisibilityFilter>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
@@ -249,7 +250,7 @@ export default function AgentsPage(): React.ReactNode {
   const agents = useMemo((): Agent[] => data?.items ?? [], [data]);
 
   const scopedAgents = useMemo(
-    (): Agent[] => agents.filter((a) => a.owner_user_uid === userUid),
+    (): Agent[] => agents.filter((a) => a.owner_uid === userUid),
     [agents, userUid]
   );
 
@@ -264,7 +265,8 @@ export default function AgentsPage(): React.ReactNode {
         a.name,
         a.description,
         a.owner_username,
-        parsed
+        parsed,
+        selectedAuthors
       );
     });
     const sorted = [...matched].sort((a, b) => {
@@ -272,7 +274,7 @@ export default function AgentsPage(): React.ReactNode {
       return sortOrder === "newest" ? -diff : diff;
     });
     return sorted;
-  }, [scopedAgents, visibilityFilter, parsed, sortOrder]);
+  }, [scopedAgents, visibilityFilter, parsed, selectedAuthors, sortOrder]);
 
   const favoriteItems = useMemo(
     (): MyFavoriteItem[] => favoritesData?.items ?? [],
@@ -295,7 +297,7 @@ export default function AgentsPage(): React.ReactNode {
   );
 
   const handleToggleAuthor = useCallback((author: string): void => {
-    setQuery((prev) => toggleAuthorInQuery(prev, author));
+    setSelectedAuthors((prev) => toggleAuthorChip(prev, author));
   }, []);
 
   const deleteOptions = useMemo(
@@ -425,9 +427,10 @@ export default function AgentsPage(): React.ReactNode {
             <div className="flex flex-wrap items-center gap-2">
               <span className="shrink-0 text-sm text-muted">作者：</span>
               {authorOptions.map((author) => {
-                const isSelected = parsed.authors.includes(
-                  author.toLowerCase()
-                );
+                const lower = author.toLowerCase();
+                const isSelected =
+                  parsed.authors.includes(lower) ||
+                  selectedAuthors.some((a) => a.toLowerCase() === lower);
                 return (
                   <FilterChip
                     key={author}
@@ -487,7 +490,7 @@ export default function AgentsPage(): React.ReactNode {
               <AgentRow
                 key={agent.agent_uid}
                 agent={agent}
-                isOwner={agent.owner_user_uid === userUid}
+                isOwner={agent.owner_uid === userUid}
                 languageLabel={resolveLanguage(agent.language)}
                 onDelete={handleDelete}
                 onToggleVisibility={handleToggleVisibility}

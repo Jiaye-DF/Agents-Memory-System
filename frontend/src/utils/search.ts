@@ -17,29 +17,38 @@ export function parseSearch(query: string): ParsedSearch {
   return { text: words.join(" ").toLowerCase(), authors };
 }
 
+// selectedAuthors 是 chip 點選的作者（chip 不寫回 query 字串, 避免含空格 username 被 \s+ 切壞）
+// 與 parsed.authors（手打 @author）取聯集
 export function matchByTextAndAuthor(
   name: string,
   description: string | null,
   author: string | null,
-  parsed: ParsedSearch
+  parsed: ParsedSearch,
+  selectedAuthors: string[] = []
 ): boolean {
-  if (parsed.authors.length > 0) {
+  const authorFilters = [
+    ...parsed.authors,
+    ...selectedAuthors.map((a) => a.toLowerCase()),
+  ];
+  if (authorFilters.length > 0) {
     const authorLower = (author ?? "").toLowerCase();
-    if (!parsed.authors.includes(authorLower)) return false;
+    if (!authorFilters.includes(authorLower)) return false;
   }
   if (!parsed.text) return true;
   const haystack = `${name} ${description ?? ""}`.toLowerCase();
   return haystack.includes(parsed.text);
 }
 
-export function toggleAuthorInQuery(query: string, author: string): string {
-  const tokens = query.trim().split(/\s+/).filter(Boolean);
-  const target = `@${author}`.toLowerCase();
-  const idx = tokens.findIndex((t) => t.toLowerCase() === target);
+export function toggleAuthorChip(
+  selected: string[],
+  author: string
+): string[] {
+  const lower = author.toLowerCase();
+  const idx = selected.findIndex((a) => a.toLowerCase() === lower);
   if (idx >= 0) {
-    tokens.splice(idx, 1);
-  } else {
-    tokens.push(`@${author}`);
+    const next = [...selected];
+    next.splice(idx, 1);
+    return next;
   }
-  return tokens.join(" ");
+  return [...selected, author];
 }
