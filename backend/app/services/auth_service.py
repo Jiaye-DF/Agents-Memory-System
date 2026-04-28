@@ -139,9 +139,21 @@ async def refresh(refresh_token: str, db: AsyncSession) -> tuple[str, str]:
     if user is None or not user.is_active:
         raise AppError(detail="無效的 Token", response_code=401, status_code=401)
 
+    # SSO 使用者：每次 refresh 即時向中央驗證, 避免 Azure AD 停用後本地 7 天內仍能存取
+    # 延遲 import 避開 sso_auth_service ↔ auth_service 潛在循環
+    auth_method = payload.get("auth_method", "local")
+    if auth_method == "sso":
+        from app.services import sso_auth_service
+
+        await sso_auth_service.verify_sso_session(user_uid)
+
     role_name = user.role.name
-    new_access_token = create_access_token(str(user.user_uid), role_name, user.username)
-    new_refresh_token = create_refresh_token(str(user.user_uid), role_name, user.username)
+    new_access_token = create_access_token(
+        str(user.user_uid), role_name, user.username, auth_method=auth_method
+    )
+    new_refresh_token = create_refresh_token(
+        str(user.user_uid), role_name, user.username, auth_method=auth_method
+    )
 
     exp = payload.get("exp")
     if exp is not None:

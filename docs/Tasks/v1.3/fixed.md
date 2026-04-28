@@ -477,3 +477,74 @@ original_filename = top_folder or (
 - [frontend/src/app/(main)/scripts/[uid]/page.tsx](../../../frontend/src/app/(main)/scripts/[uid]/page.tsx)（新增詳情頁）
 - [frontend/src/app/(main)/scripts/page.tsx](../../../frontend/src/app/(main)/scripts/page.tsx)（row name 包 Link）
 - [frontend/src/app/(main)/dashboard/page.tsx](../../../frontend/src/app/(main)/dashboard/page.tsx)（ScriptRow Link 修正）
+
+---
+
+## 13. SSO 使用者 refresh 不感知中央狀態 — Azure AD 停用後本地 7 天內仍可存取〔2026-04-28 15:41:16〕
+
+**問題**
+
+SSO 登入後本系統簽出本地 access_token（15min）+ refresh_token（7d）。`/api/v1/auth/refresh` 只驗本地 JWT 簽章 / Redis blacklist / `user.is_active`, **完全不問中央 SSO 該使用者是否仍有效**。
+
+**風險場景**
+
+員工離職, IT 在 Azure AD 立刻停用 → 中央簽不出新 token, 但該員工已持有本地 refresh_token, 在以下兩條路任一未觸發前都能繼續用本系統:
+
+1. 本地 `user.is_active` 被同步成 false（沒有自動同步機制, 僅靠人工 / 中央 back-channel）
+2. 中央 back-channel logout 廣播命中本系統（依賴中央推送可靠性）
+
+最壞情況: 7 天內持續存取。
+
+**根因**
+
+- `auth_service.refresh` 沒有區分 token 是 SSO 簽出還是本地帳密簽出
+- JWT payload 也沒有 `auth_method` claim 可供識別
+- 本地 refresh_token TTL 與中央 SSO JWT TTL（24h）脫鉤
+- `sso_client.fetch_user(/api/auth/me)` 雖然存在且能即時驗中央狀態, 但只在登入路徑用過, refresh 路徑沒呼叫
+
+**修正（A + B + C 三層防禦）**
+
+**A. JWT 加 `auth_method` claim**:
+
+- `core/security.py` 的 `create_access_token` / `create_refresh_token` 多收 `auth_method` 參數（默認 `"local"`）, 寫入 payload
+- `sso_auth_service.exchange_and_login` 簽 token 時帶 `auth_method="sso"`
+
+**B. SSO 使用者 refresh_token TTL 縮短到 24h**:
+
+- `core/security.py` 加常數 `SSO_REFRESH_TOKEN_EXPIRE_HOURS = 24`, `create_refresh_token` 內依 `auth_method` 切 TTL
+- 對齊中央 SSO JWT 24h 生命週期, 把暴露窗口從 7 天壓到 24h（即使 C 路徑外部呼叫掛掉, 24h 後也強制重登）
+
+**C. SSO refresh 即時驗證中央**:
+
+- `sso_auth_service` 新增 `verify_sso_session(user_uid)`:
+  - 從 Redis 取 `sso:user_token:{user_uid}` → 不存在 → 401
+  - 呼叫 `sso_client.fetch_user(sso_token)` → 失敗 → 401
+  - 成功 → renew Redis TTL（user 活躍時 SSO token 不被 evict）
+- `auth_service.refresh` 讀 `payload["auth_method"]`, 若為 `"sso"` 在簽新 token 前先呼叫 `verify_sso_session`
+- 新簽的 token 也帶 `auth_method=auth_method`, 確保下次 refresh 仍走 SSO 驗證鏈
+
+**取捨記錄**
+
+- **fail-close 全有**: 中央不可達 / 5xx / network error 一律拒絕 refresh, 不允許「驗不到就放行」。SSO outage 期間使用者可能被鎖, 但安全優先。日後若 SLA 不允許可加 config flag 切 fail-open。
+- **每次 refresh 多一次外部 call**: 15min 一次, 100 active users ≈ 1 次/9sec, 在中央 rate limit 內。未來若需 throttle 可加 Redis 快取「verified_at」時間戳, 60 秒內 skip。
+- **Backward compat**: 既有未含 `auth_method` 的 token 視為 `"local"`, 暫不會跑 SSO 驗證。最壞情況: 升版前已登入的 SSO 使用者最多再用本地 refresh 7 天, 之後 token 過期被迫重登, 才開始享受新驗證。可接受的過渡。
+
+**影響檔案**
+
+- [backend/app/core/security.py](../../../backend/app/core/security.py)（A + B：加 `auth_method` 參數 + SSO 24h TTL 分支）
+- [backend/app/services/sso_auth_service.py](../../../backend/app/services/sso_auth_service.py)（A + C：登入帶 `auth_method="sso"` + 新增 `verify_sso_session`）
+- [backend/app/services/auth_service.py](../../../backend/app/services/auth_service.py)（C：refresh 內判斷 + 呼叫 `verify_sso_session`, 新 token 帶 `auth_method`）
+
+**驗證方式**
+
+1. SSO 登入 → 解 JWT 驗 `auth_method=="sso"`, exp = iat + 24h（不是 7 天）
+2. 帳密登入 → 解 JWT 驗 `auth_method=="local"`, exp = iat + 7d
+3. SSO 已登入 → 觸發 access_token 過期 → backend log 應有 `SSO refresh` 相關（成功路徑無 log, 失敗路徑會有 INFO）
+4. 模擬 Azure AD 停用: 在中央把該 user disable → 本地 refresh → 應 401 + `SSO 驗證失敗，請重新登入`
+5. 模擬 Redis SSO_TOKEN 過期: `redis-cli del sso:user_token:{uid}` → 本地 refresh → 應 401 + `SSO 驗證已過期，請重新登入`
+6. 模擬中央不可達: SSO_URL 改 invalid → 本地 refresh → 應 401（fail-close 驗證）
+
+**殘留 / 後續**
+
+- 中央 outage 會鎖死所有 SSO 使用者 refresh, 沒有「最後一次成功驗證 N 分鐘內 grace」機制, 視營運經驗再加。
+- 沒有 sliding cache（同 user 多 device 同時 refresh 會打多次 `/me`）, 未來高峰再加 Redis 快取去重。

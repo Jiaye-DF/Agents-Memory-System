@@ -78,10 +78,14 @@ async def exchange_and_login(
             status_code=403,
         )
 
-    # 4. 簽 local token
+    # 4. 簽 local token；標記 auth_method=sso，refresh 時據此回頭驗中央
     role_name = user.role.name
-    access_token = create_access_token(str(user.user_uid), role_name, user.username)
-    refresh_token = create_refresh_token(str(user.user_uid), role_name, user.username)
+    access_token = create_access_token(
+        str(user.user_uid), role_name, user.username, auth_method="sso"
+    )
+    refresh_token = create_refresh_token(
+        str(user.user_uid), role_name, user.username, auth_method="sso"
+    )
 
     # 5. Redis：SSO JWT 與 user_uid 綁定
     redis = get_redis()
@@ -135,6 +139,35 @@ async def _upsert_sso_user(email: str, name: str, db: AsyncSession) -> User:
     user = await user_repository.get_by_uid(str(user.user_uid), db)
     assert user is not None
     return user
+
+
+async def verify_sso_session(user_uid: str) -> None:
+    """SSO 使用者 refresh 時即時向中央驗證 user 仍有效。
+
+    fail-close 策略：
+    - SSO token 不在 Redis（24h TTL 過期 / 已被 logout 清掉）→ 拋 401 強制重登
+    - 中央 /me 回 401（Azure AD 停用 / SSO JWT 過期 / 被 admin 撤銷）→ 拋 401
+    - 其他錯（網路 / 5xx）→ 也拋 401, 不允許在無法驗證時放行（換取安全, 犧牲中央 outage 時的可用性）
+
+    成功路徑會 renew Redis TTL, 讓使用者活躍時 SSO token 不被 evict。
+    """
+    redis = get_redis()
+    sso_token = await redis.get(SSO_TOKEN_KEY.format(user_uid=user_uid))
+    if sso_token is None:
+        raise AppError(
+            detail="SSO 驗證已過期，請重新登入", response_code=401, status_code=401
+        )
+
+    try:
+        await sso_client.fetch_user(sso_token)
+    except sso_client.SsoClientError as exc:
+        logger.info("SSO refresh 中央驗證失敗 user_uid=%s: %s", user_uid, exc)
+        raise AppError(
+            detail="SSO 驗證失敗，請重新登入", response_code=401, status_code=401
+        ) from exc
+
+    # /me 成功 → renew TTL，避免 user 還在用但 Redis 提前 evict
+    await redis.expire(SSO_TOKEN_KEY.format(user_uid=user_uid), SSO_TOKEN_TTL)
 
 
 async def logout(user_uid: str, refresh_token: str | None) -> str:
