@@ -12,8 +12,8 @@ export function usePendingApprovalDialog(): () => void {
   return useCallback((): void => {
     showDialog({
       type: "info",
-      title: "功能尚待審核",
-      message: "此功能尚待審核，暫無 API Token 餘額。",
+      title: "功能審核中",
+      message: "功能正在管理審核中，敬請期待未來更新。",
     });
   }, [showDialog]);
 }

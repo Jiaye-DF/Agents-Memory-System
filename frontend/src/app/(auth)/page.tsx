@@ -130,26 +130,6 @@ export default function LoginPage(): React.ReactNode {
         </div>
       )}
 
-      {/* SSO 登入按鈕（契約 #3：只顯示按鈕，由使用者點擊才導去 SSO） */}
-      {ssoAuthorizeUrl && (
-        <div className="mb-6 flex flex-col gap-3">
-          <Button
-            type="button"
-            onClick={() => {
-              window.location.href = ssoAuthorizeUrl;
-            }}
-            className="w-full"
-          >
-            透過 DF-SSO 登入
-          </Button>
-          <div className="flex items-center gap-3 text-xs text-muted">
-            <span className="h-px flex-1 bg-border" />
-            <span>或使用本機帳號</span>
-            <span className="h-px flex-1 bg-border" />
-          </div>
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
           label="帳號"
@@ -174,6 +154,28 @@ export default function LoginPage(): React.ReactNode {
           登入
         </Button>
       </form>
+
+      {/* SSO 登入按鈕（契約 #3：只顯示按鈕，由使用者點擊才導去 SSO） */}
+      {ssoAuthorizeUrl && (
+        <div className="mt-6 flex flex-col gap-3">
+          <div className="flex items-center gap-3 text-xs text-muted">
+            <span className="h-px flex-1 bg-border" />
+            <span>或</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              window.location.href = ssoAuthorizeUrl;
+            }}
+            className="w-full"
+          >
+            透過 DF-SSO 登入
+          </Button>
+        </div>
+      )}
+
       <div className="mt-4 flex items-center justify-between text-base">
         <Link
           href="/register"

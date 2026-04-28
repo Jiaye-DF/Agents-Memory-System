@@ -21,7 +21,7 @@ interface SidebarItem {
   adminOnly?: boolean;
   /** v1.3.6：可選的右側計數徽章 key（由 Sidebar 元件解析後渲染） */
   badgeKey?: "skill-suggestions";
-  /** df 公司版本：點擊時改顯示「功能尚待審核」dialog，不導航 */
+  /** df 公司版本：點擊時改顯示「功能審核中」dialog，不導航 */
   pendingApproval?: boolean;
 }
 

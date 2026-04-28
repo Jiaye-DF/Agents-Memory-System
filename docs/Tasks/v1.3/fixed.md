@@ -368,3 +368,32 @@ Coolify 每次部署 In Progress 時間過長，使用者反映「為甚麼 Cool
 **殘留 / 後續**
 
 - backend 啟動時若馬上連 postgres / redis 失敗會 crash，靠 `restart: unless-stopped` 重啟。首次部署 log 可能出現 1~2 次紅字屬正常；若實際觀察首啟頻繁失敗，再評估補 backend 自身的 connection retry 或恢復 postgres healthcheck
+
+## 10. Dashboard 作者 chip 篩選 — 含空白 username 被 query 的 `\s+` 切壞〔2026-04-28 10:48:27〕
+
+**問題**
+
+Dashboard 公開資源頁的「作者」chip 點選後，若 username 含空白（例：`Jane Doe`），下方列表完全篩不出該作者的資源；同時搜尋框會被塞進殘缺的 `@jane`、`doe` 兩個 token，視覺上也被污染。
+
+**根因**
+
+[frontend/src/app/(main)/dashboard/page.tsx](../../../frontend/src/app/(main)/dashboard/page.tsx) 原本 `toggleAuthorChip` 把 `@${author}` 直接塞進 `query` state，而 `parseSearch` 又用 `query.trim().split(/\s+/)` 切 token。Username 一旦含空白，token 就會被一刀兩斷：
+
+- `@Jane Doe` → `["@jane", "doe"]`
+- `parsed.authors` 變成 `["jane"]`，`doe` 變成 free-text 過濾條件
+- 結果：作者比對找不到 `jane doe`、文字過濾又把資源全部濾掉
+
+把 chip 選擇硬塞進「文字搜尋字串」這條共用通道，本質就是用 string 表達結構化選擇，含空白即破。
+
+**修正**
+
+[frontend/src/app/(main)/dashboard/page.tsx](../../../frontend/src/app/(main)/dashboard/page.tsx)：
+
+- 新增獨立 `selectedAuthors: string[]` state 承載 chip 選擇，不再寫回 `query`
+- `matchItem` 多收一個 `selectedAuthors` 參數，與 `parsed.authors` 聯集後比對（任一命中即算符合）
+- `toggleAuthorChip` 改為對 `selectedAuthors` 做 toggle，依賴項目從 `[query]` 變為 `[]`
+- chip 的 `isSelected` 同時看 `parsed.authors` 與 `selectedAuthorsLower`，保留「query 內 `@作者`」與「chip 點選」兩種輸入方式並存
+
+**影響檔案**
+
+- [frontend/src/app/(main)/dashboard/page.tsx](../../../frontend/src/app/(main)/dashboard/page.tsx)

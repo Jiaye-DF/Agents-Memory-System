@@ -76,11 +76,14 @@ function matchItem(
   name: string,
   description: string | null,
   author: string | null,
-  parsed: ParsedSearch
+  parsed: ParsedSearch,
+  selectedAuthors: string[]
 ): boolean {
-  if (parsed.authors.length > 0) {
+  // 來自 chip 的選擇與 query 內 @作者 都要符合（聯集 → 任一命中即可）
+  const authorFilters = [...parsed.authors, ...selectedAuthors];
+  if (authorFilters.length > 0) {
     const authorLower = (author ?? "").toLowerCase();
-    if (!parsed.authors.includes(authorLower)) return false;
+    if (!authorFilters.includes(authorLower)) return false;
   }
   if (!parsed.text) return true;
   const haystack = `${name} ${description ?? ""}`.toLowerCase();
@@ -245,6 +248,8 @@ const ScriptRow = React.memo(function ScriptRow({
 export default function DashboardPage(): React.ReactNode {
   const [activeTab, setActiveTab] = useState<TabKey>("agents");
   const [query, setQuery] = useState<string>("");
+  // chip 選的作者用獨立 state（避免含空白的 username 塞進 query 後被 \s+ 切壞）
+  const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
   // §2-5：三頁籤共用 sort state；切換類型保留選擇；重新進頁面預設回「最新」
   const [sort, setSort] = useState<SortState>({
     orderBy: "created_at",
@@ -305,26 +310,31 @@ export default function DashboardPage(): React.ReactNode {
 
   const parsed = useMemo(() => parseSearch(query), [query]);
 
+  const selectedAuthorsLower = useMemo(
+    (): string[] => selectedAuthors.map((a) => a.toLowerCase()),
+    [selectedAuthors]
+  );
+
   const filteredAgents = useMemo(
     (): Agent[] =>
       publicAgents.filter((a) =>
-        matchItem(a.name, a.description, a.owner_username, parsed)
+        matchItem(a.name, a.description, a.owner_username, parsed, selectedAuthorsLower)
       ),
-    [publicAgents, parsed]
+    [publicAgents, parsed, selectedAuthorsLower]
   );
   const filteredSkills = useMemo(
     (): Skill[] =>
       publicSkills.filter((s) =>
-        matchItem(s.name, s.description, s.owner_username, parsed)
+        matchItem(s.name, s.description, s.owner_username, parsed, selectedAuthorsLower)
       ),
-    [publicSkills, parsed]
+    [publicSkills, parsed, selectedAuthorsLower]
   );
   const filteredScripts = useMemo(
     (): Script[] =>
       publicScripts.filter((s) =>
-        matchItem(s.name, s.description, s.owner_username, parsed)
+        matchItem(s.name, s.description, s.owner_username, parsed, selectedAuthorsLower)
       ),
-    [publicScripts, parsed]
+    [publicScripts, parsed, selectedAuthorsLower]
   );
 
   const currentAuthors = useMemo((): string[] => {
@@ -348,17 +358,18 @@ export default function DashboardPage(): React.ReactNode {
 
   const toggleAuthorChip = useCallback(
     (author: string): void => {
-      const tokens = query.trim().split(/\s+/).filter(Boolean);
-      const target = `@${author}`.toLowerCase();
-      const idx = tokens.findIndex((t) => t.toLowerCase() === target);
-      if (idx >= 0) {
-        tokens.splice(idx, 1);
-      } else {
-        tokens.push(`@${author}`);
-      }
-      setQuery(tokens.join(" "));
+      setSelectedAuthors((prev) => {
+        const lower = author.toLowerCase();
+        const idx = prev.findIndex((a) => a.toLowerCase() === lower);
+        if (idx >= 0) {
+          const next = [...prev];
+          next.splice(idx, 1);
+          return next;
+        }
+        return [...prev, author];
+      });
     },
-    [query]
+    []
   );
 
   const handleTabChange = useCallback((tab: TabKey): void => {
@@ -457,7 +468,10 @@ export default function DashboardPage(): React.ReactNode {
         <div className="flex flex-wrap items-center gap-2">
           <span className="shrink-0 text-sm text-muted">作者：</span>
           {currentAuthors.map((author) => {
-            const isSelected = parsed.authors.includes(author.toLowerCase());
+            const lower = author.toLowerCase();
+            const isSelected =
+              parsed.authors.includes(lower) ||
+              selectedAuthorsLower.includes(lower);
             return (
               <button
                 key={author}
@@ -476,7 +490,7 @@ export default function DashboardPage(): React.ReactNode {
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-x-6">
         {SORT_GROUPS.map((group) => (
           <div
             key={group.orderBy}
