@@ -737,7 +737,7 @@ export default function SkillDetailPage(): React.ReactNode {
     useUpdateSkillFileMutation();
 
   const isOwner = useMemo((): boolean => {
-    return !!skill && !!userUid && skill.owner_uid === userUid;
+    return !!skill && !!userUid && skill.owner_user_uid === userUid;
   }, [skill, userUid]);
 
   const handleSelect = useCallback((path: string): void => {

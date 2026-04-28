@@ -31,7 +31,7 @@ import { formatDateTime } from "@/utils/datetime";
 
 const MODEL_ID_REGEX = /^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9.-]*$/;
 
-function deriveVendor(modelId: string): string {
+function deriveCatalogVendor(modelId: string): string {
   const head = modelId.split("/")[0];
   return head ? head : "openrouter";
 }
@@ -176,7 +176,7 @@ const ModelCombobox = React.memo(function ModelCombobox({
             ) : (
               <ul className="py-1">
                 {filtered.slice(0, 200).map((info) => {
-                  const vendor = deriveVendor(info.id);
+                  const vendor = deriveCatalogVendor(info.id);
                   const isSelected = info.id === value;
                   return (
                     <li key={info.id}>
@@ -570,7 +570,7 @@ const ModelCard = React.memo(function ModelCard({
       </div>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
         <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-          {deriveVendor(model.model_id)}
+          {model.vendor}
         </span>
         <span className="truncate font-mono">{model.model_id}</span>
         <span>·</span>
@@ -630,15 +630,14 @@ export default function AdminModelsPage(): React.ReactNode {
   const vendors = useMemo((): string[] => {
     const set = new Set<string>();
     for (const m of items) {
-      const vendor = m.model_id.split("/")[0];
-      if (vendor) set.add(vendor);
+      if (m.vendor) set.add(m.vendor);
     }
     return Array.from(set).sort();
   }, [items]);
 
   const vendorPredicate = useCallback(
     (m: LlmModelAdmin): boolean =>
-      vendorFilter === "all" || m.model_id.startsWith(`${vendorFilter}/`),
+      vendorFilter === "all" || m.vendor === vendorFilter,
     [vendorFilter]
   );
   const statusPredicate = useCallback(
@@ -778,11 +777,11 @@ export default function AdminModelsPage(): React.ReactNode {
   const columns = useMemo(
     () => [
       {
-        key: "provider",
+        key: "vendor",
         header: "供應商",
         render: (model: LlmModelAdmin): React.ReactNode => (
           <span className="rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
-            {deriveVendor(model.model_id)}
+            {model.vendor}
           </span>
         ),
       },

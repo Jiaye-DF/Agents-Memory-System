@@ -36,11 +36,11 @@ async def get_by_uids(
     return list(result.scalars().unique().all())
 
 
-def stmt_visible_to_user(owner_uid: str) -> Select[tuple[Agent]]:
+def stmt_visible_to_user(user_uid: str) -> Select[tuple[Agent]]:
     return select(Agent).where(
         Agent.is_deleted == False,
         or_(
-            Agent.owner_uid == owner_uid,
+            Agent.owner_user_uid == user_uid,
             Agent.visibility == "public",
         ),
     )

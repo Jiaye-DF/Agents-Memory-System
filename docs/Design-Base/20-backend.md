@@ -359,5 +359,9 @@ async def get_agent_by_uid(agent_uid, db):
 
 - **禁止**省略參數型別或回傳型別
 - **禁止**使用 `Any`，若型別不確定使用 `object` 或具體的 `Union` / `Protocol`
+  - **異質容器** `dict[str, ...]` / `list[...]`（log payload、settings 字典、LLM usage 等）值型不齊時，使用 `dict[str, object]` / `list[object]`
+  - **泛型 `**kwargs`**（passthrough 至下層 client 的 metering wrapper、log helper 等）使用 `**kwargs: object`
+  - **DB session 透傳** 一律 import `from sqlalchemy.ext.asyncio import AsyncSession` 標註，**禁止**用 `Any` 偷懶
+  - **跨型別 ORM 物件**（如三層記憶 `ChatMemory | ProjectMemory | UserMemory`）使用具名 `Protocol` 定義所需的最小欄位集合
 - 回傳 `None` 的函式須明確標註 `-> None`
 - 使用 Python 3.12+ 內建泛型語法（`list[str]`、`dict[str, int]`），**禁止**使用 `typing.List`、`typing.Dict`

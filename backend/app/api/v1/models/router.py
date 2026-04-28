@@ -28,6 +28,7 @@ async def list_models(
         LlmModelResponse(
             llm_model_uid=str(m.llm_model_uid),
             provider=m.provider,
+            vendor=m.vendor,
             model_id=m.model_id,
             display_name=m.display_name,
             is_default=m.is_default,

@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 
@@ -26,7 +24,7 @@ class MemoryTraceItem(BaseModel):
     message_uids: list[str] | None = Field(
         None, description="該階段涉及的 chat_message_uid 列表"
     )
-    extra: dict[str, Any] | None = Field(
+    extra: dict[str, object] | None = Field(
         None, description="階段特有欄位（attempt / reason / count / error 等）"
     )
 

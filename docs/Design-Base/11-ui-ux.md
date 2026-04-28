@@ -76,10 +76,34 @@ interface ThemeSeries {
 
 ### 實作方式
 
-- 色彩一律走 `globals.css` 的 CSS Variables，元件內**禁止**寫死 hex 色碼
+- 色彩一律走 `globals.css` 的 CSS Variables，元件內**禁止**寫死 hex 色碼，**亦禁止**以 hex 作為 CSS Variable fallback（如 `bg-[color:var(--color-success-bg,#dcfce7)]`）— 若 fallback 會生效就代表變數未定義，應補進 `globals.css` 而非元件
 - 透過 `<html data-theme="<id>">` 切換（`light` = `:root`、`dark` = `.dark`、其餘 `[data-theme="<id>"]`）
 - 偏好存 localStorage（key：`agents-platform-theme`），重新載入時自動套用
 - **例外**：`app/global-error.tsx` 因 `globals.css` 未載入，允許 inline style + 中性色 hex（如 `#6b7280`）呈現純文字錯誤頁，不得含業務邏輯
+
+### CSS Variable 一覽（必備）
+
+每個主題（`:root` / `.dark` / `[data-theme="<id>"]`）**必須**完整定義以下變數，並於 `@theme inline` 區塊轉接給 Tailwind v4 的 `bg-[color:var(--xxx)]` 語法使用。新增主題時，少一個變數就讓元件 fallback hex 滲入，視同違反「禁止寫死 hex」。
+
+| 類別 | 變數 | 用途 |
+| --- | --- | --- |
+| 基礎 | `--color-background` / `--color-foreground` | 頁面底色 / 主要文字 |
+| 主色 | `--color-primary` / `--color-primary-hover` | 主要按鈕、連結、選中態 |
+| 強調 | `--color-accent` / `--color-accent-hover` | 次要 CTA、徽章 |
+| 容器 | `--color-card-bg` / `--color-border` | 卡片底色、分隔線 |
+| 弱化 | `--color-muted` / `--color-muted-bg` | 次要文字、空狀態底 |
+| 危險 | `--color-destructive` / `--color-destructive-hover` / `--color-error-bg` | 刪除按鈕、錯誤訊息底 |
+| 成功 | `--color-success` / `--color-success-hover` / `--color-success-bg` | 完成徽章、高 confidence 指示 |
+| 警告 | `--color-warning` / `--color-warning-bg` | 注意提示、中等 confidence 指示 |
+| 資訊 | `--color-info` / `--color-info-bg` | 一般訊息、Info Dialog |
+| 紫色 | `--color-purple` / `--color-purple-bg` / `--color-purple-border` | scope=project 徽章、跨層記憶 UI |
+| Header | `--color-header-bg` | 頂部導航條底色 |
+| Sidebar | `--color-sidebar-bg` / `--color-sidebar-hover` / `--color-sidebar-active` | 側邊欄三態 |
+| 遮罩 | `--color-overlay` | Dialog / Drawer 半透明遮罩 |
+| 輸入 | `--color-input-bg` / `--color-input-border` / `--color-input-focus` | 表單欄位 |
+| 陰影 | `--color-shadow` | `shadow-sm` 等使用 |
+
+> 「藍 / 金」狀態色（如 scope=session 用藍、scope=user 用金）目前以 Tailwind 內建 palette（`blue-50/700/200`、`amber-50/700/200`）呈現，跨主題視覺一致；若未來需主題化再升級為變數。
 
 ```css
 /* globals.css 範例（需與 ThemeItem.colors 對齊） */

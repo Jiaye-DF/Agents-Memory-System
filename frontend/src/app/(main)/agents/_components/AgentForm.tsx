@@ -905,7 +905,7 @@ export function AgentForm({
                   <option value="">未指定（使用系統預設）</option>
                   {models.map((m) => (
                     <option key={m.llm_model_uid} value={m.model_id}>
-                      {m.display_name}（{m.provider}）
+                      {m.display_name}（{m.vendor}）
                       {m.is_default ? "｜預設" : ""}
                     </option>
                   ))}

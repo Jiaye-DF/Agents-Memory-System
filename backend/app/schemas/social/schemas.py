@@ -20,7 +20,7 @@ class ResourceSnapshot(BaseModel):
     uid: str = Field(..., description="資源 uid（agent_uid / skill_uid / script_uid）")
     name: str = Field(..., description="資源名稱")
     description: str | None = Field(None, description="資源描述")
-    owner_uid: str = Field(..., description="資源擁有者 user_uid")
+    owner_user_uid: str = Field(..., description="資源擁有者 user_uid")
     owner_username: str | None = Field(None, description="資源擁有者使用者名稱")
     visibility: str | None = Field(
         None, description="資源可見性（public / private），v1.2 script 尚未導入時可為 null"

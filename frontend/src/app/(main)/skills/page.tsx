@@ -225,7 +225,7 @@ export default function SkillsListPage(): React.ReactNode {
   const skills = useMemo((): Skill[] => data?.items ?? [], [data]);
 
   const scopedSkills = useMemo(
-    (): Skill[] => skills.filter((s) => s.owner_uid === userUid),
+    (): Skill[] => skills.filter((s) => s.owner_user_uid === userUid),
     [skills, userUid]
   );
 
@@ -435,7 +435,7 @@ export default function SkillsListPage(): React.ReactNode {
               <SkillRow
                 key={skill.skill_uid}
                 skill={skill}
-                isOwner={skill.owner_uid === userUid}
+                isOwner={skill.owner_user_uid === userUid}
                 onDelete={handleDelete}
                 onToggleVisibility={handleToggleVisibility}
               />

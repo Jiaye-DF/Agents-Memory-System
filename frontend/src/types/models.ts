@@ -1,6 +1,7 @@
 export interface LlmModel {
   llm_model_uid: string;
   provider: string;
+  vendor: string;
   model_id: string;
   display_name: string;
   is_default: boolean;

@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Any
 
 from app.core.redis import get_redis
 
@@ -42,7 +41,7 @@ async def record(
     outcome: str = "ok",
     duration_ms: int | None = None,
     message_uids: list[str] | None = None,
-    extra: dict[str, Any] | None = None,
+    extra: dict[str, object] | None = None,
 ) -> None:
     """寫入一筆 trace。失敗僅 log warning，不影響主流程。"""
     if not session_uid or not step:
@@ -87,7 +86,7 @@ async def record(
 # ---------- 讀取 ----------
 
 
-async def read(session_uid: str, limit: int = 200) -> list[dict[str, Any]]:
+async def read(session_uid: str, limit: int = 200) -> list[dict[str, object]]:
     """讀取 session trace；找不到回空 list。
 
     回傳結構：每筆 dict 含
@@ -112,7 +111,7 @@ async def read(session_uid: str, limit: int = 200) -> list[dict[str, Any]]:
         )
         return []
 
-    items: list[dict[str, Any]] = []
+    items: list[dict[str, object]] = []
     for entry_id, fields in entries:
         if not isinstance(fields, dict):
             continue

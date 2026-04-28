@@ -625,7 +625,7 @@ async def _ensure_agent_visible(
     agent = await agent_repository.get_by_uid(agent_uid, db)
     if agent is None:
         raise AppError(detail=AGENT_NOT_FOUND, response_code=404, status_code=404)
-    if str(agent.owner_uid) != user_uid and agent.visibility != "public":
+    if str(agent.owner_user_uid) != user_uid and agent.visibility != "public":
         raise AppError(detail=AGENT_NOT_FOUND, response_code=404, status_code=404)
     return agent
 

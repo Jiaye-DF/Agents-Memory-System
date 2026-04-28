@@ -22,7 +22,7 @@ import json
 import logging
 import time
 from collections import defaultdict
-from typing import Any
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.openrouter.memory_aggregation_prompts import (
     PROJECT_MEMORY_AGGREGATE_SYSTEM_PROMPT,
@@ -58,10 +58,10 @@ def _log_event(
     outcome: str = "ok",
     duration_ms: int | None = None,
     level: str = "info",
-    **extra: Any,
+    **extra: object,
 ) -> None:
     """v1.3.1 結構化 log 風格（與 memory_worker 對齊）。"""
-    payload: dict[str, Any] = {
+    payload: dict[str, object] = {
         "step": step,
         "project_uid": project_uid,
         "outcome": outcome,
@@ -189,7 +189,7 @@ async def _handle(project_uid: str, owner_user_uid: str | None) -> None:
 async def _aggregate_project(
     project_uid: str,
     owner_user_uid: str | None,
-    db: Any,
+    db: AsyncSession,
 ) -> None:
     """單一 project 的二次聚合主流程。"""
     started = time.time()
@@ -308,7 +308,7 @@ async def _aggregate_one_group(
     topic_key: str,
     group_memories: list[ChatMemory],
     model: str,
-    db: Any,
+    db: AsyncSession,
 ) -> None:
     """單一主題群的聚合：extract_memory（中文 system prompt）→ embedding → insert。"""
     # 組輸入：每筆 chat_memory 用一行表達 topic / keywords / entities

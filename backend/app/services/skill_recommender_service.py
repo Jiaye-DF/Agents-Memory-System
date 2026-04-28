@@ -21,11 +21,11 @@ from __future__ import annotations
 import logging
 import math
 import uuid
-from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis import get_redis
+from app.models.agent import Agent
 from app.models.agentic_skill_suggestion import AgenticSkillSuggestion
 from app.repositories import (
     agent_repository,
@@ -437,7 +437,7 @@ async def trigger_for_user_message(
 
 async def ensure_agent_owned_by_user(
     agent_uid: str, user_uid: str, db: AsyncSession
-) -> Any:
+) -> Agent | None:
     """驗證 agent 屬於該 user；非擁有者一律回 None。"""
     try:
         uuid.UUID(agent_uid)
@@ -446,6 +446,6 @@ async def ensure_agent_owned_by_user(
     agent = await agent_repository.get_by_uid(agent_uid, db)
     if agent is None:
         return None
-    if str(agent.owner_uid) != user_uid:
+    if str(agent.owner_user_uid) != user_uid:
         return None
     return agent
