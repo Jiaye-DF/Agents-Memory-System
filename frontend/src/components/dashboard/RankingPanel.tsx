@@ -196,7 +196,7 @@ export const RankingPanel = React.memo(
     return (
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-foreground">你最常用的</h2>
+          <h2 className="text-lg font-semibold text-foreground">最常使用</h2>
           <RankingTypeTabs value={typeFilter} onChange={handleTypeChange} />
         </div>
 

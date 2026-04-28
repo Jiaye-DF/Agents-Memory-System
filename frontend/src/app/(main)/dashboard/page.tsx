@@ -12,6 +12,11 @@ import { FilterChip } from "@/components/ui/FilterChip";
 import { RankingPanel } from "@/components/dashboard/RankingPanel";
 import { SocialMetrics } from "@/components/social/SocialMetrics";
 import { FavoriteButton } from "@/components/social/FavoriteButton";
+import {
+  parseSearch,
+  matchByTextAndAuthor,
+  toggleAuthorChip,
+} from "@/utils/search";
 import type { Agent, Skill, Script } from "@/types";
 
 type TabKey = "agents" | "skills" | "scripts" | "favorites";
@@ -52,43 +57,6 @@ const SORT_GROUPS: SortGroup[] = [
     ascLabel: "由少到多",
   },
 ];
-
-interface ParsedSearch {
-  text: string;
-  authors: string[];
-}
-
-function parseSearch(query: string): ParsedSearch {
-  const tokens = query.trim().split(/\s+/).filter(Boolean);
-  const authors: string[] = [];
-  const words: string[] = [];
-  for (const token of tokens) {
-    if (token.startsWith("@") && token.length > 1) {
-      authors.push(token.slice(1).toLowerCase());
-    } else {
-      words.push(token);
-    }
-  }
-  return { text: words.join(" ").toLowerCase(), authors };
-}
-
-function matchItem(
-  name: string,
-  description: string | null,
-  author: string | null,
-  parsed: ParsedSearch,
-  selectedAuthors: string[]
-): boolean {
-  // 來自 chip 的選擇與 query 內 @作者 都要符合（聯集 → 任一命中即可）
-  const authorFilters = [...parsed.authors, ...selectedAuthors];
-  if (authorFilters.length > 0) {
-    const authorLower = (author ?? "").toLowerCase();
-    if (!authorFilters.includes(authorLower)) return false;
-  }
-  if (!parsed.text) return true;
-  const haystack = `${name} ${description ?? ""}`.toLowerCase();
-  return haystack.includes(parsed.text);
-}
 
 interface TabButtonProps {
   active: boolean;
@@ -318,21 +286,21 @@ export default function DashboardPage(): React.ReactNode {
   const filteredAgents = useMemo(
     (): Agent[] =>
       publicAgents.filter((a) =>
-        matchItem(a.name, a.description, a.owner_username, parsed, selectedAuthorsLower)
+        matchByTextAndAuthor(a.name, a.description, a.owner_username, parsed, selectedAuthorsLower)
       ),
     [publicAgents, parsed, selectedAuthorsLower]
   );
   const filteredSkills = useMemo(
     (): Skill[] =>
       publicSkills.filter((s) =>
-        matchItem(s.name, s.description, s.owner_username, parsed, selectedAuthorsLower)
+        matchByTextAndAuthor(s.name, s.description, s.owner_username, parsed, selectedAuthorsLower)
       ),
     [publicSkills, parsed, selectedAuthorsLower]
   );
   const filteredScripts = useMemo(
     (): Script[] =>
       publicScripts.filter((s) =>
-        matchItem(s.name, s.description, s.owner_username, parsed, selectedAuthorsLower)
+        matchByTextAndAuthor(s.name, s.description, s.owner_username, parsed, selectedAuthorsLower)
       ),
     [publicScripts, parsed, selectedAuthorsLower]
   );
@@ -356,21 +324,9 @@ export default function DashboardPage(): React.ReactNode {
     []
   );
 
-  const toggleAuthorChip = useCallback(
-    (author: string): void => {
-      setSelectedAuthors((prev) => {
-        const lower = author.toLowerCase();
-        const idx = prev.findIndex((a) => a.toLowerCase() === lower);
-        if (idx >= 0) {
-          const next = [...prev];
-          next.splice(idx, 1);
-          return next;
-        }
-        return [...prev, author];
-      });
-    },
-    []
-  );
+  const handleToggleAuthor = useCallback((author: string): void => {
+    setSelectedAuthors((prev) => toggleAuthorChip(prev, author));
+  }, []);
 
   const handleTabChange = useCallback((tab: TabKey): void => {
     setActiveTab(tab);
@@ -441,7 +397,7 @@ export default function DashboardPage(): React.ReactNode {
           active={isFavoritesTab}
           onClick={() => handleTabChange("favorites")}
         >
-          你最常用的
+          最常使用
         </TabButton>
         {!isFavoritesTab && (
           <Link
@@ -476,7 +432,7 @@ export default function DashboardPage(): React.ReactNode {
               <button
                 key={author}
                 type="button"
-                onClick={() => toggleAuthorChip(author)}
+                onClick={() => handleToggleAuthor(author)}
                 className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
                   isSelected
                     ? "bg-primary text-white"
