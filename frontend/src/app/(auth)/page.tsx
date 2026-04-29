@@ -69,6 +69,19 @@ export default function LoginPage(): React.ReactNode {
     window.location.href = ssoAuthorizeUrl;
   }, [ssoAuthorizeUrl, loggedOut, ssoError, localOnly]);
 
+  useEffect(() => {
+    // ?logged_out=1 是「過渡 flag」：用來阻止本次 mount 的 auto-redirect、顯示「您已登出」訊息。
+    // 短暫顯示後就把 query 從 URL 清掉, 這樣使用者下次 refresh 拿到的是乾淨 URL, 走正常的
+    // Portal 模式判斷（hint=sso → auto-redirect / 否則顯示雙選項）。useSearchParams 在
+    // App Router 下不會因 history.replaceState 重觸發, 所以本次 mount 的訊息維持顯示,
+    // 只有 URL 變乾淨。
+    if (loggedOut !== "1") return;
+    const timer = window.setTimeout(() => {
+      window.history.replaceState(null, "", window.location.pathname);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [loggedOut]);
+
   const [account, setAccount] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [errors, setErrors] = useState<FormErrors>({
