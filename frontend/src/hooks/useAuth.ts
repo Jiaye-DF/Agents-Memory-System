@@ -19,8 +19,15 @@ function decodeTokenPayload(token: string): TokenPayload | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
-    const payload = JSON.parse(atob(parts[1]));
-    return payload as TokenPayload;
+    // JWT 用 base64url（- _ 無 padding），atob 只認標準 base64 → 須轉換,
+    // 否則中文 / 含特定 byte 的 username 會 decode fail → 整個 auth flow 卡 refresh loop。
+    let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    while (base64.length % 4) base64 += "=";
+    // atob 回 binary string，UTF-8 多 byte 字元（中文）要用 TextDecoder 還原
+    const binary = atob(base64);
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    const utf8 = new TextDecoder("utf-8").decode(bytes);
+    return JSON.parse(utf8) as TokenPayload;
   } catch {
     return null;
   }
@@ -72,7 +79,8 @@ export function useAuth(): UseAuthReturn {
       setAccessToken(null);
     }
     setTokenPayload(null);
-    router.push("/");
+    // 帶 logged_out=1 阻止登入頁的 SSO auto-redirect 立刻把使用者拉回去
+    router.push("/?logged_out=1");
   }, [logoutMutation, router]);
 
   const username = useMemo((): string | null => {
