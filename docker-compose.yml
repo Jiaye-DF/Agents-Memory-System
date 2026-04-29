@@ -1,0 +1,126 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    expose:
+      - "5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    expose:
+      - "6379"
+    volumes:
+      - redis-data:/data
+
+  flyway:
+    # 不用 image + bind mount：Coolify runtime 不可靠，改成 build-time 把 V*.sql 烤進 image
+    build:
+      context: ./migrations
+      dockerfile: Dockerfile
+    # 一次性容器：跑完 migrate 就 exit 0，禁止 Coolify 把它當常駐服務重啟成迴圈
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_started
+    environment:
+      FLYWAY_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
+      FLYWAY_USER: ${POSTGRES_USER}
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD}
+      FLYWAY_CONNECT_RETRIES: "30"
+    command: migrate
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      flyway:
+        condition: service_completed_successfully
+    environment:
+      SERVICE_URL_BACKEND_8000:
+      APP_ENV: ${APP_ENV}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      REDIS_URL: "redis://redis:6379/0"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      SECRET_KEY: ${SECRET_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
+      SKILLS_UPLOAD_DIR: ${SKILLS_UPLOAD_DIR}
+      SKILLS_MAX_FILE_SIZE: ${SKILLS_MAX_FILE_SIZE}
+      ATTACHMENTS_UPLOAD_DIR: ${ATTACHMENTS_UPLOAD_DIR}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_HTTP_REFERER: ${OPENROUTER_HTTP_REFERER}
+      OPENROUTER_APP_TITLE: ${OPENROUTER_APP_TITLE}
+      LLM_BASELINE_EXPENSIVE_MODEL: ${LLM_BASELINE_EXPENSIVE_MODEL}
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN}
+      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      SSO_URL: ${SSO_URL}
+      SSO_APP_ID: ${SSO_APP_ID}
+      SSO_APP_SECRET: ${SSO_APP_SECRET}
+      APP_URL: ${APP_URL}
+    expose:
+      - "8000"
+    volumes:
+      - backend-data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      SERVICE_URL_FRONTEND_3000:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      # DF-SSO back-channel logout 路由 (`/api/auth/back-channel-logout`) 需要：
+      #   1. SSO_APP_SECRET：HMAC-SHA256 簽章驗證
+      #   2. BACKEND_INTERNAL_URL：轉發給 backend 撤銷 local refresh_token
+      SSO_APP_SECRET: ${SSO_APP_SECRET}
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000/api/v1}
+    expose:
+      - "3000"
+
+  adminer:
+    image: adminer:4.8.1-standalone
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_started
+    environment:
+      SERVICE_URL_ADMINER_8080:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DEFAULT_DB_DRIVER: pgsql
+      ADMINER_DESIGN: pepa-linha
+    expose:
+      - "8080"
+
+volumes:
+  postgres-data:
+    name: ${COMPOSE_PROJECT_NAME}-postgres-data
+  redis-data:
+    name: ${COMPOSE_PROJECT_NAME}-redis-data
+  backend-data:
+    name: ${COMPOSE_PROJECT_NAME}-backend-data

@@ -81,6 +81,10 @@ services:
       LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN:-}
       LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      SSO_URL: ${SSO_URL:-}
+      SSO_APP_ID: ${SSO_APP_ID:-}
+      SSO_APP_SECRET: ${SSO_APP_SECRET:-}
+      APP_URL: ${APP_URL:-}
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -95,6 +99,9 @@ services:
       - backend
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      # back-channel-logout 簽章驗證 + 轉發到 backend 撤銷 local session
+      SSO_APP_SECRET: ${SSO_APP_SECRET:-}
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000/api/v1}
       WATCHPACK_POLLING: "true"
     volumes:
       - ./frontend:/app

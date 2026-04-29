@@ -18,6 +18,8 @@ from app.schemas.auth.schemas import LoginRequest, RegisterRequest, ResetPasswor
 logger = logging.getLogger(__name__)
 
 BLACKLIST_PREFIX = "token:blacklist:"
+# SSO back-channel logout：撤銷某 user 在指定 timestamp 之前簽出的所有 token
+SSO_LOGOUT_USER_PREFIX = "token:logout_user:"
 
 
 async def register(data: RegisterRequest, db: AsyncSession) -> dict:
@@ -124,13 +126,34 @@ async def refresh(refresh_token: str, db: AsyncSession) -> tuple[str, str]:
     if user_uid is None:
         raise AppError(detail="無效的 Token", response_code=401, status_code=401)
 
+    # SSO back-channel：若 token iat 早於該 user 的撤銷時間 → 立即失效
+    logout_at = await redis.get(f"{SSO_LOGOUT_USER_PREFIX}{user_uid}")
+    if logout_at is not None:
+        iat = payload.get("iat")
+        if iat is not None and int(iat) <= int(logout_at):
+            raise AppError(
+                detail="Session 已被中央登出", response_code=401, status_code=401
+            )
+
     user = await user_repository.get_by_uid(user_uid, db)
     if user is None or not user.is_active:
         raise AppError(detail="無效的 Token", response_code=401, status_code=401)
 
+    # SSO 使用者：每次 refresh 即時向中央驗證, 避免 Azure AD 停用後本地 7 天內仍能存取
+    # 延遲 import 避開 sso_auth_service ↔ auth_service 潛在循環
+    auth_method = payload.get("auth_method", "local")
+    if auth_method == "sso":
+        from app.services import sso_auth_service
+
+        await sso_auth_service.verify_sso_session(user_uid)
+
     role_name = user.role.name
-    new_access_token = create_access_token(str(user.user_uid), role_name, user.username)
-    new_refresh_token = create_refresh_token(str(user.user_uid), role_name, user.username)
+    new_access_token = create_access_token(
+        str(user.user_uid), role_name, user.username, auth_method=auth_method
+    )
+    new_refresh_token = create_refresh_token(
+        str(user.user_uid), role_name, user.username, auth_method=auth_method
+    )
 
     exp = payload.get("exp")
     if exp is not None:

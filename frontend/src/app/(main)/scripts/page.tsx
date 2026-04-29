@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { useDispatch } from "react-redux";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -86,9 +87,14 @@ const ScriptRow = React.memo(function ScriptRow({
     <div className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="truncate text-lg font-semibold text-foreground">
-            {script.name}
-          </h3>
+          <Link
+            href={`/scripts/${script.script_uid}`}
+            className="min-w-0 hover:cursor-pointer"
+          >
+            <h3 className="truncate text-lg font-semibold text-foreground hover:text-primary">
+              {script.name}
+            </h3>
+          </Link>
           <span
             className={`shrink-0 rounded-xl px-2 py-0.5 text-sm font-medium ${
               script.visibility === "public"

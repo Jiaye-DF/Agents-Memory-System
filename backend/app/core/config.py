@@ -72,6 +72,14 @@ class Settings(BaseSettings):
 
     TELEGRAM_BOT_TOKEN: str = ""
 
+    # === DF-SSO（中央集中式 SSO，OAuth2 Authorization Code）===
+    # 正式站：https://df-sso-login.apps.zerozero.tw
+    SSO_URL: str = ""
+    SSO_APP_ID: str = ""
+    SSO_APP_SECRET: str = ""
+    # APP_URL = 本系統 frontend origin（必須在 SSO Dashboard 的 redirect_uris 白名單）
+    APP_URL: str = ""
+
     @property
     def DATABASE_URL(self) -> str:
         return (

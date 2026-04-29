@@ -27,10 +27,10 @@ export function PendingApprovalCard({
       </div>
       <div className="rounded-xl bg-card-bg p-12 text-center shadow-sm">
         <h2 className="mb-2 text-lg font-semibold text-foreground">
-          功能尚待審核
+          功能審核中
         </h2>
         <p className="text-base text-muted">
-          此功能尚待審核，暫無 API Token 餘額。
+          功能正在管理審核中，敬請期待未來更新。
         </p>
       </div>
     </div>

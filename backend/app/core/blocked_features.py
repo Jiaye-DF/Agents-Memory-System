@@ -21,7 +21,7 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-_NOT_IMPLEMENTED_DETAIL = "此功能尚待審核，暫無 API Token 餘額。"
+_NOT_IMPLEMENTED_DETAIL = "功能正在管理審核中，敬請期待未來更新。"
 
 # 完全比對或以「prefix + '/'」為起頭的 path 一律 block
 _BLOCKED_PATH_PREFIXES: tuple[str, ...] = (

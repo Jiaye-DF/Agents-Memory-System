@@ -1,0 +1,23 @@
+# build 產物 / cache（runner 從 builder COPY 即可）
+node_modules
+.next
+tsconfig.tsbuildinfo
+.eslintcache
+
+# 環境檔案 — 一律從 Coolify env vars 注入，禁止漏進 image
+.env*
+
+# git 與 IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# 文件 / log
+*.md
+*.log
+npm-debug.log*
+
+# Docker 自身
+Dockerfile
+.dockerignore

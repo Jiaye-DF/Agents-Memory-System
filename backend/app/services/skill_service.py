@@ -196,7 +196,10 @@ async def upload_skill(
     else:
         paths = [p for p, _ in entries]
         top_folder = _common_top_folder(paths)
-        original_filename = top_folder or name
+        # 優先序: 共同根目錄 → 單檔 basename → 多檔平鋪 fallback 才用使用者命名
+        original_filename = top_folder or (
+            os.path.basename(entries[0][0]) if len(entries) == 1 else name
+        )
         zip_content = _build_zip(entries)
 
     skill_dir = Path(settings.SKILLS_UPLOAD_DIR) / str(skill_uid)
@@ -631,7 +634,12 @@ async def reupload_skill(
     else:
         paths = [p for p, _ in entries]
         top_folder = _common_top_folder(paths)
-        original_filename = top_folder or skill.name
+        # 優先序: 共同根目錄 → 單檔 basename → 多檔平鋪 fallback 才用 skill.name
+        original_filename = top_folder or (
+            os.path.basename(entries[0][0])
+            if len(entries) == 1
+            else skill.name
+        )
         zip_content = _build_zip(entries)
 
     zip_path = Path(skill.file_path)

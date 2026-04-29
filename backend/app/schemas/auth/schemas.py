@@ -82,3 +82,13 @@ class ResetPasswordRequest(BaseModel):
 class TokenPayload(BaseModel):
     user_uid: str
     role: str
+
+
+class SsoExchangeRequest(BaseModel):
+    code: str
+
+
+class SsoBackChannelLogoutRequest(BaseModel):
+    user_id: str
+    timestamp: int
+    signature: str
