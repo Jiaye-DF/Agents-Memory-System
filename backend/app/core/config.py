@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     SSO_APP_SECRET: str = ""
     # APP_URL = 本系統 frontend origin（必須在 SSO Dashboard 的 redirect_uris 白名單）
     APP_URL: str = ""
+    # 跨子網域 cookie domain（如 ".zerozero.tw"）。設定後 sso_recent_logout / last_login_provider
+    # 等 hint cookie 會被 *.zerozero.tw 下所有 SSO 接入 App 共享，達成「一處登出 / 登入，他處同步」
+    # 的視覺效果。本機開發留空 → 退化為 host-only cookie。
+    SSO_COOKIE_DOMAIN: str = ""
 
     @property
     def DATABASE_URL(self) -> str:

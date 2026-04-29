@@ -85,6 +85,7 @@ services:
       SSO_APP_ID: ${SSO_APP_ID:-}
       SSO_APP_SECRET: ${SSO_APP_SECRET:-}
       APP_URL: ${APP_URL:-}
+      SSO_COOKIE_DOMAIN: ${SSO_COOKIE_DOMAIN:-}
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
