@@ -67,3 +67,57 @@ return JSON.parse(utf8) as TokenPayload;
 - `frontend/src/hooks/useAuth.ts`
 
 **驗證方式**：用中文 SSO display name 完成登入後直接進 dashboard，network tab 不再出現 `/auth/refresh` 重複呼叫；`username` 顯示在 Header 為原始中文。
+
+---
+
+## 3. 跨 App 共享：`SSO_COOKIE_DOMAIN` + 跨子網域 `last_login_provider` cookie 〔2026-04-29〕
+
+**問題**：
+
+- 從別的 SSO 接入 App（例：Coolify-API-Integration）登入後，切到本系統登入頁仍要顯示「兩個選項」、不會 auto-redirect → 預期的「Coolify 登入後本系統打開即進」Portal 體驗失效。
+- 任一 App 登出後，本系統的 `sso_recent_logout` hint cookie 沒被讀到 → 401 路徑不回 `X-Recently-Logged-Out`、silent re-auth 又把人拉回 dashboard，主動登出視覺被抵消。
+
+**根因**：兩個 hint 都活在 backend host 上，沒設 `Domain=.zerozero.tw`：
+
+| Hint | 用途 | 問題 |
+|---|---|---|
+| `last_login_provider` | 登入頁 Mode B Portal 分流（"sso" → auto-redirect, "local" → 顯示表單） | 寫在 `localStorage`（per-domain），其他 App 永遠讀不到 |
+| `sso_recent_logout` | 5 分鐘內任意 401 都回 `X-Recently-Logged-Out` 讓前端跳 `/?logged_out=1` | `Set-Cookie` 沒帶 `Domain`，cookie 鎖在自己 backend host，其他 App 看不到 |
+
+`*.zerozero.tw` 子網域 cookie 共享是這類「跨 App 視覺同步」最低成本的方案 — 不用 Redis、不用前端 broadcast，靠瀏覽器 cookie jar 就能傳遞。前提：`Set-Cookie` 必須明確帶 `Domain=.zerozero.tw`。
+
+**修正**：
+
+| 檔案 | 變更摘要 |
+|---|---|
+| `backend/app/core/config.py` | 新增 `SSO_COOKIE_DOMAIN: str = ""` 設定欄位 |
+| `backend/app/api/v1/auth/router.py` | 1. 新增 `COOKIE_DOMAIN` constant（讀 `settings.SSO_COOKIE_DOMAIN`，空字串 → `None` 退化 host-only）<br>2. `_set_recent_logout_cookie` / `_delete_recent_logout_cookie` 帶 `domain`<br>3. 新增 `LOGIN_PROVIDER_COOKIE_KEY = "last_login_provider"` 與 `_set_login_provider_cookie(response, provider)` / `_delete_login_provider_cookie(response)` helper（**非 httpOnly** 讓前端 JS 讀得到，30 天 TTL）<br>4. 本地 `/auth/login` → `_set_login_provider_cookie(response, "local")`<br>5. SSO `/auth/sso/exchange` → `_set_login_provider_cookie(response, "sso")`<br>6. `/auth/logout` 與 `/auth/sso/logout` → `_delete_login_provider_cookie(response)`<br>7. `refresh_token` 仍維持 host-only（憑證不能跨 App） |
+| `frontend/src/lib/api/login-provider.ts` | `getLastLoginProvider()` 改為**先讀跨 App cookie**（`document.cookie` 讀 `last_login_provider`），fallback 到 localStorage。`setLastLoginProvider` / `clearLastLoginProvider` 仍寫 / 清 localStorage（SPA 即時更新用），跨 App cookie 由 backend Set-Cookie 控制 |
+| `docker-compose.yml` / `docker-compose.dev.yml` | backend 新增 `SSO_COOKIE_DOMAIN: ${SSO_COOKIE_DOMAIN}` 注入 |
+| `.env.example` | 新增 `SSO_COOKIE_DOMAIN=`（dev 留空，prod 部署時設 `.zerozero.tw`） |
+
+**驗證流程**：
+
+1. 跨 App silent 登入：使用者在 Coolify 完成 SSO 登入 → backend `Set-Cookie: last_login_provider=sso; Domain=.zerozero.tw` → 打開本系統登入頁 → `getLastLoginProvider()` 從 cookie 讀到 `"sso"` → useEffect auto-redirect → 中央 silent SSO → callback → 自動進 dashboard，全程零互動。
+2. 跨 App 登出視覺一致性：使用者在任一 App 登出 → `Set-Cookie: sso_recent_logout=1; Max-Age=300; Domain=.zerozero.tw` 同時 `Set-Cookie: last_login_provider=; Max-Age=0; Domain=.zerozero.tw` → 5 分鐘內打開本系統 → `last_login_provider` 已被刪 → 不 auto-redirect；`/auth/refresh` 路徑撞 `sso_recent_logout=1` → 回 `X-Recently-Logged-Out: 1` → silent re-auth 攔截器跳 `/?logged_out=1` 顯示「您已登出」訊息。
+3. 本機開發：`SSO_COOKIE_DOMAIN=` 為空 → cookie 退化成 host-only，`localhost:3000` / `localhost:3001` 兩個 origin 不互通（預期，本機沒有共同 parent domain）。
+
+**影響檔案**：
+
+- `backend/app/core/config.py`
+- `backend/app/api/v1/auth/router.py`
+- `frontend/src/lib/api/login-provider.ts`
+- `docker-compose.yml`
+- `docker-compose.dev.yml`
+- `.env.example`
+
+**配套需求（DF-SSO 中央端）**：
+
+本修正只解決「**hint cookie 跨 App 共享**」這一層。Back-channel 推送通知是另一條獨立的伺服端通道，需在 DF-SSO Dashboard 把本系統與 Coolify-API-Integration 都加進 `sso_allowed_list`、設好各自的 `back_channel_logout_url`，否則中央根本不會推到對方、也不會撤銷對方的 Redis session。
+
+兩條路並行：
+
+- **Cookie hint**（本修正）→ 前端視覺一致性
+- **Back-channel HMAC push**（中央 Dashboard 設定）→ 後端 session 撤銷
+
+兩條缺一就會出現「視覺正確但 session 還活著」或「session 已死但視覺被 silent SSO 抵消」的不一致。
