@@ -3,7 +3,6 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { usePendingApprovalDialog } from "@/hooks/usePendingApprovalDialog";
 import {
   useListOrphanChatSessionsQuery,
   useListProjectsQuery,
@@ -21,7 +20,6 @@ export const ChatSection = React.memo(function ChatSection({
   onNavigate,
 }: ChatSectionProps): React.ReactNode {
   const pathname = usePathname();
-  const showPendingApproval = usePendingApprovalDialog();
 
   const { data: orphanData } = useListOrphanChatSessionsQuery({
     limit: RECENT_LIMIT,
@@ -48,9 +46,9 @@ export const ChatSection = React.memo(function ChatSection({
 
   return (
     <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        onClick={showPendingApproval}
+      <Link
+        href="/sessions/new"
+        onClick={onNavigate}
         className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-base font-medium leading-none text-white transition-colors hover:cursor-pointer hover:opacity-90"
       >
         <svg
@@ -69,7 +67,7 @@ export const ChatSection = React.memo(function ChatSection({
           />
         </svg>
         <span>新對話</span>
-      </button>
+      </Link>
 
       <section className="mt-3">
         <div className="flex items-center justify-between px-3">
