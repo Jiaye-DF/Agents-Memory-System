@@ -87,6 +87,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # SSO Single Logout 加強模式：前端要讀 X-Recently-Logged-Out 必須在跨域時 expose
+    expose_headers=["X-Recently-Logged-Out"],
 )
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestContextMiddleware)

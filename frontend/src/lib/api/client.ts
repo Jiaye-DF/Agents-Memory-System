@@ -35,6 +35,19 @@ async function refreshAccessToken(): Promise<string | null> {
       headers: { "Content-Type": "application/json" },
     });
 
+    // Single Logout 加強：refresh 回 401 + X-Recently-Logged-Out
+    // 直接 navigate /?logged_out=1, 並回傳永不 resolve 的 promise 阻止呼叫端走 silent re-auth。
+    if (
+      response.status === 401 &&
+      response.headers.get("x-recently-logged-out") === "1" &&
+      typeof window !== "undefined" &&
+      !window.location.search.includes("logged_out=1")
+    ) {
+      setAccessToken(null);
+      window.location.href = "/?logged_out=1";
+      return new Promise<string | null>(() => {});
+    }
+
     if (!response.ok) {
       setAccessToken(null);
       return null;
@@ -96,6 +109,22 @@ async function request<T>(
   }
 
   let response = await fetch(url, fetchOptions);
+
+  // Single Logout 加強模式（INTEGRATION.md）：剛被中央踢的使用者帶 X-Recently-Logged-Out
+  // header, 直接跳 /?logged_out=1 而不是走 silent re-auth, 讓「主動登出」視覺有效。
+  // 不論 accessToken 是否存在, 也不論是否要 refresh, 一律先看 header（涵蓋 useAuth 初次
+  // /refresh 的情境）。Header 由後端在 SSO_LOGOUT_USER_PREFIX 5 分鐘 window 內加。
+  if (
+    response.status === 401 &&
+    response.headers.get("x-recently-logged-out") === "1" &&
+    typeof window !== "undefined" &&
+    !window.location.search.includes("logged_out=1")
+  ) {
+    setAccessToken(null);
+    window.location.href = "/?logged_out=1";
+    // 阻止呼叫端在 navigation 期間又 retry
+    return new Promise<ApiResponse<T>>(() => {});
+  }
 
   if (response.status === 401 && accessToken) {
     if (!isRefreshing) {

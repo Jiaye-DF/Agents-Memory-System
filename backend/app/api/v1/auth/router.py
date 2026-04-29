@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, get_db
 from app.clients import sso_client
 from app.core.config import settings
+from app.core.exceptions import AppError
 from app.core.response import failure, success
 from app.schemas.auth.schemas import (
     LoginRequest,
@@ -92,9 +93,28 @@ async def refresh(
 ) -> JSONResponse:
     if refresh_token is None:
         return failure(detail="無效的 Token", response_code=401, status_code=401)
-    new_access_token, new_refresh_token = await auth_service.refresh(
-        refresh_token, db
-    )
+    try:
+        new_access_token, new_refresh_token = await auth_service.refresh(
+            refresh_token, db
+        )
+    except AppError as exc:
+        # /refresh 401 一律刪本地 refresh cookie：對齊 spec「中央 401 → 刪本地 token cookie」,
+        # 也避免 SSO Single Logout 的 X-Recently-Logged-Out header 在前端 navigate 後又被
+        # 同一張壞 cookie 觸發無限 loop。auth_service.refresh 的 AppError.headers 也透傳。
+        if exc.status_code != 401:
+            raise
+        response = JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "success": False,
+                "data": None,
+                "detail": exc.detail,
+                "response_code": exc.response_code,
+            },
+            headers=exc.headers,
+        )
+        _delete_refresh_cookie(response)
+        return response
     response = success(
         data={"access_token": new_access_token, "token_type": "bearer"}
     )
