@@ -25,6 +25,12 @@ COOKIE_PATH = "/api/v1/auth"
 COOKIE_MAX_AGE = settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400
 COOKIE_SECURE = settings.APP_ENV == "production"
 
+# SSO Single Logout 加強模式：hint cookie 補強漏洞 — 使用者刪 URL / 開新分頁時, 沒帶 token
+# 的 401 也能透過這顆 cookie 認出「剛被踢」。httpOnly 防 JS 偽造, 5 min TTL 自然過期。
+RECENT_LOGOUT_COOKIE_KEY = "sso_recent_logout"
+RECENT_LOGOUT_COOKIE_PATH = "/"  # 比 refresh cookie 寬, 各 path 都讀得到
+RECENT_LOGOUT_COOKIE_MAX_AGE = 300  # 5 min, 對齊後端 cache window
+
 
 def _set_refresh_cookie(response: JSONResponse, refresh_token: str) -> None:
     response.set_cookie(
@@ -48,6 +54,28 @@ def _delete_refresh_cookie(response: JSONResponse) -> None:
     )
 
 
+def _set_recent_logout_cookie(response: JSONResponse) -> None:
+    response.set_cookie(
+        key=RECENT_LOGOUT_COOKIE_KEY,
+        value="1",
+        httponly=True,
+        samesite="lax",
+        secure=COOKIE_SECURE,
+        path=RECENT_LOGOUT_COOKIE_PATH,
+        max_age=RECENT_LOGOUT_COOKIE_MAX_AGE,
+    )
+
+
+def _delete_recent_logout_cookie(response: JSONResponse) -> None:
+    response.delete_cookie(
+        key=RECENT_LOGOUT_COOKIE_KEY,
+        httponly=True,
+        samesite="lax",
+        secure=COOKIE_SECURE,
+        path=RECENT_LOGOUT_COOKIE_PATH,
+    )
+
+
 @router.post("/register", response_model=ApiResponse[MessageData])
 async def register(
     data: RegisterRequest,
@@ -67,6 +95,8 @@ async def login(
         data={"access_token": access_token, "token_type": "bearer"}
     )
     _set_refresh_cookie(response, refresh_token)
+    # 成功登入 → 清 SSO Single Logout hint cookie
+    _delete_recent_logout_cookie(response)
     return response
 
 
@@ -83,6 +113,8 @@ async def logout(
         await auth_service.logout(refresh_token)
     response = success(data={"message": "已登出"})
     _delete_refresh_cookie(response)
+    # 主動登出種 hint cookie：給「刪 url 重輸 / 開新分頁」一致的「已登出」視覺持續性
+    _set_recent_logout_cookie(response)
     return response
 
 
@@ -90,8 +122,22 @@ async def logout(
 async def refresh(
     db: AsyncSession = Depends(get_db),
     refresh_token: str | None = Cookie(None, alias=COOKIE_KEY),
+    sso_recent_logout: str | None = Cookie(None, alias=RECENT_LOGOUT_COOKIE_KEY),
 ) -> JSONResponse:
     if refresh_token is None:
+        # Single Logout 加強：refresh cookie 已被刪但 hint cookie 還在
+        # → 仍然回 X-Recently-Logged-Out，前端跳 /?logged_out=1 (對應使用者「刪 url 重輸 / 開新分頁」)
+        if sso_recent_logout == "1":
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "success": False,
+                    "data": None,
+                    "detail": "Session 已被中央登出",
+                    "response_code": 401,
+                },
+                headers={"X-Recently-Logged-Out": "1"},
+            )
         return failure(detail="無效的 Token", response_code=401, status_code=401)
     try:
         new_access_token, new_refresh_token = await auth_service.refresh(
@@ -114,11 +160,16 @@ async def refresh(
             headers=exc.headers,
         )
         _delete_refresh_cookie(response)
+        # 帶 X-Recently-Logged-Out → 同步種 hint cookie, 讓「刪 url / 開新分頁」也認得出
+        if exc.headers and exc.headers.get("X-Recently-Logged-Out") == "1":
+            _set_recent_logout_cookie(response)
         return response
     response = success(
         data={"access_token": new_access_token, "token_type": "bearer"}
     )
     _set_refresh_cookie(response, new_refresh_token)
+    # 成功重新登入 → 清 hint, 避免下次 /refresh 時還在「剛登出」狀態（spec 要求）
+    _delete_recent_logout_cookie(response)
     return response
 
 
@@ -153,6 +204,8 @@ async def sso_exchange(
         data={"access_token": access_token, "token_type": "bearer"}
     )
     _set_refresh_cookie(response, refresh_token)
+    # SSO 登入成功 → 清 hint cookie
+    _delete_recent_logout_cookie(response)
     return response
 
 
@@ -164,6 +217,8 @@ async def sso_logout(
     redirect = await sso_auth_service.logout(current_user.user_uid, refresh_token)
     response = success(data={"message": redirect})
     _delete_refresh_cookie(response)
+    # 同 /auth/logout：種 hint 給跨頁面登出視覺一致性
+    _set_recent_logout_cookie(response)
     return response
 
 
