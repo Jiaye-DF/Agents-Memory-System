@@ -28,7 +28,7 @@ import zipfile
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from fastapi import UploadFile
 from starlette.datastructures import Headers
@@ -99,7 +99,7 @@ class _MemoryLike(TypedDict, total=False):
     entities: list[str]
 
 
-def _to_memory_like(memory_obj: Any, scope: str) -> _MemoryLike:
+def _to_memory_like(memory_obj: object, scope: str) -> _MemoryLike:
     """三層記憶物件 → 共用 dict（為 signature / payload 準備）。"""
     if scope == SCOPE_SESSION:
         return {

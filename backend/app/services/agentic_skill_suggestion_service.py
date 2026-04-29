@@ -206,7 +206,7 @@ async def accept_suggestion(
                 detail=AGENT_NOT_OWNED, response_code=404, status_code=404
             ) from None
         target_agent = await agent_repository.get_by_uid(agent_uid, db)
-        if target_agent is None or str(target_agent.owner_uid) != user_uid:
+        if target_agent is None or str(target_agent.owner_user_uid) != user_uid:
             raise AppError(
                 detail=AGENT_NOT_OWNED, response_code=404, status_code=404
             )

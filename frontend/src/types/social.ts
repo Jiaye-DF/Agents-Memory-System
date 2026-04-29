@@ -11,7 +11,7 @@ export interface ResourceSnapshot {
   uid: string;
   name: string;
   description: string | null;
-  owner_uid: string;
+  owner_user_uid: string;
   owner_username: string | null;
   visibility: "public" | "private" | null;
   favorite_count: number;

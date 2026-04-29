@@ -4,7 +4,6 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +16,7 @@ from app.core.queue_keys import (
 )
 from app.core.redis import get_redis
 from app.models.chat_message import ChatMessage
+from app.models.chat_session import ChatSession
 from app.repositories import (
     chat_attachment_repository,
     chat_memory_repository,
@@ -58,14 +58,14 @@ def _log_event(
     outcome: str = "ok",
     duration_ms: int | None = None,
     level: str = "info",
-    **extra: Any,
+    **extra: object,
 ) -> None:
     """統一輸出結構化 log（沿用標準 logging，extra 帶 dict）。
 
     訊息採 lazy formatting，避免 logging f-string；結構化欄位放 extra 供
     後續 log shipping 解析。
     """
-    payload: dict[str, Any] = {
+    payload: dict[str, object] = {
         "step": step,
         "session_uid": session_uid,
         "outcome": outcome,
@@ -646,7 +646,7 @@ _DEFAULT_USER_IDLE_HOURS = 24
 
 async def _maybe_enqueue_aggregations(
     *,
-    session_obj: Any,
+    session_obj: ChatSession | None,
     owner_user_uid: str | None,
     db: AsyncSession,
 ) -> None:

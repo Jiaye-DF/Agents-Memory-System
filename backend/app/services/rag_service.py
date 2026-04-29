@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -97,7 +96,7 @@ async def retrieve(
 
 
 def rrf_fuse(
-    layers: dict[str, list[tuple[Any, float]]],
+    layers: dict[str, list[tuple[object, float]]],
     k: int = 60,
     final_top_k: int = 8,
 ) -> list[FusedMemoryItem]:
@@ -143,7 +142,7 @@ def rrf_fuse(
     return fused[:final_top_k]
 
 
-def _extract_memory_uid(mem: Any, scope: str) -> str | None:
+def _extract_memory_uid(mem: object, scope: str) -> str | None:
     """從不同 scope 的 ORM 物件抽 UID 字串。"""
     if scope == "session":
         uid = getattr(mem, "chat_memory_uid", None)
@@ -165,7 +164,7 @@ async def retrieve_three_layer(
     owner_user_uid: str,
     query_text: str,
     db: AsyncSession,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """三層 RAG 融合：embedding 一次 → 並行三層 search → RRF 融合。
 
     回傳 dict（避免 Pydantic 物件對舊呼叫點造成負擔）：
@@ -178,7 +177,7 @@ async def retrieve_three_layer(
 
     任一層失敗 → log warning + 該層回空（其他層仍融合）。
     """
-    empty: dict[str, Any] = {
+    empty: dict[str, object] = {
         "session": [],
         "project": [],
         "user": [],

@@ -4,12 +4,12 @@ from app.core.exceptions import AppError
 
 
 class _OwnedVisible(Protocol):
-    owner_uid: object
+    owner_user_uid: object
     visibility: str
 
 
 def _is_owner(entity: _OwnedVisible, user_uid: str) -> bool:
-    return str(entity.owner_uid) == user_uid
+    return str(entity.owner_user_uid) == user_uid
 
 
 def ensure_readable(

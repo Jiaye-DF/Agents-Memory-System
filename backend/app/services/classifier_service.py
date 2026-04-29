@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 RouteDecision = Literal["skip", "cheap", "expensive"]
 
 # 預設 fallback（與 V43 seed 同步）。當 system_setting 抓不到 / 解析失敗時使用。
-DEFAULT_THRESHOLDS: dict[str, Any] = {
+DEFAULT_THRESHOLDS: dict[str, object] = {
     "min_length": 3,
     "greeting_whitelist": [
         "hi",
@@ -179,7 +179,7 @@ async def classify(
     return _decision("expensive", "default_expensive", "default")
 
 
-async def get_classifier_config(db: AsyncSession) -> dict[str, Any]:
+async def get_classifier_config(db: AsyncSession) -> dict[str, object]:
     """聚合讀取 classifier.* 設定，內建 fallback。
 
     回傳 dict 鍵：

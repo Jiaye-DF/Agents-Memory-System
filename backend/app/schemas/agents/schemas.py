@@ -70,7 +70,7 @@ class AgentSkillSummary(BaseModel):
 
 class AgentResponse(BaseModel):
     agent_uid: str
-    owner_uid: str
+    owner_user_uid: str
     owner_username: str | None
     name: str
     description: str | None

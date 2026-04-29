@@ -17,6 +17,8 @@
 
 > **`{表}_uid` 唯一索引**：對外識別碼欄位（如 `agent.agent_uid`）的唯一索引一律使用完整命名 `uq_{表}_{表}_uid`（例 `uq_agent_agent_uid`、`uq_llm_model_llm_model_uid`）；**禁止**簡寫為 `uq_{表}_uid`。
 >
+> 即使表名本身已含 `uid` / `_id` 字尾或長度較長（如 `agentic_skill_suggestion` → `uq_agentic_skill_suggestion_agentic_skill_suggestion_uid`），仍**必須**完整重複表名，不開放例外，以維持 `grep "uq_{表}"` 直接定位的單一規則。歷史 migration 漏寫者，建立新 V 號 `ALTER INDEX RENAME TO` 修正（範例：[V49](../../migrations/sql/V49__rename_agentic_skill_suggestion_uid_index.sql)）。
+>
 > **`set_updated_at` Trigger**：各表的 `updated_at` 維護 Trigger 命名一律為 `trg_{表}_set_updated_at`（例 `trg_agent_set_updated_at`），不可省略 `set_` 中綴。
 
 ---

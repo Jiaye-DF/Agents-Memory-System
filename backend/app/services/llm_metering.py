@@ -21,7 +21,6 @@ import logging
 import time
 from collections.abc import AsyncIterator
 from decimal import Decimal
-from typing import Any
 
 from app.clients.openrouter import client as openrouter_client
 from app.core.database import AsyncSessionLocal
@@ -56,7 +55,7 @@ def _normalize_usage(raw: object) -> dict[str, int]:
 
     回傳 dict 必含四鍵：input_tokens / output_tokens / cache_creation_tokens / cache_read_tokens。
     """
-    usage: dict[str, Any] = raw if isinstance(raw, dict) else {}
+    usage: dict[str, object] = raw if isinstance(raw, dict) else {}
     input_tokens = usage.get("input_tokens") or usage.get("prompt_tokens") or 0
     output_tokens = (
         usage.get("output_tokens") or usage.get("completion_tokens") or 0
@@ -139,8 +138,8 @@ async def call_llm_metered(
     agent_uid: str | None = None,
     rag_hit_count: int | None = None,
     rag_max_score: float | None = None,
-    **call_kwargs: Any,
-) -> Any:
+    **call_kwargs: object,
+) -> object:
     """非 streaming 場景的 metered LLM 呼叫進入點。
 
     依 ``purpose`` 分派到對應 OpenRouter client 函式：
@@ -194,7 +193,7 @@ async def call_llm_metered(
 
 async def _dispatch_non_stream(
     purpose: str, call_kwargs: dict
-) -> tuple[Any, object]:
+) -> tuple[object, object]:
     """分派非 streaming 呼叫到 OpenRouter client；回 (結果, usage_raw)。
 
     各分支依 client 函式 signature 抽欄位；本函式為 metering 與 client 之間
@@ -246,7 +245,7 @@ async def call_llm_metered_stream(
     agent_uid: str | None = None,
     rag_hit_count: int | None = None,
     rag_max_score: float | None = None,
-    **call_kwargs: Any,
+    **call_kwargs: object,
 ) -> AsyncIterator[dict]:
     """streaming 場景（chat 主對話）的 metered 進入點。
 
@@ -326,7 +325,7 @@ async def log_skip_call(
     v1.3.0 不會被任何 caller 呼叫，但介面先定好；對齊 docs/Arch §5-3。
     """
     baseline = llm_pricing.estimate_baseline_for_skip(user_input)
-    payload: dict[str, Any] = {
+    payload: dict[str, object] = {
         "purpose": PURPOSE_CHAT,
         "route": "skip",
         "session_uid": session_uid,

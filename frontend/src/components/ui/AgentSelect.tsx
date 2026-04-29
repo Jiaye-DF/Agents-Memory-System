@@ -29,7 +29,7 @@ function classifyAgents(
   userUid: string | null,
 ): ClassifiedAgent[] {
   const classified = agents.map((a): ClassifiedAgent => {
-    const isOwn = !!userUid && a.owner_uid === userUid;
+    const isOwn = !!userUid && a.owner_user_uid === userUid;
     const isPublic = a.visibility === "public";
     let tier: 0 | 1 | 2;
     if (isOwn && !isPublic) tier = 0;

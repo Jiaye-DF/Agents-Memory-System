@@ -13,6 +13,7 @@ class LlmModel(Base):
         Uuid, default=uuid.uuid4, nullable=False
     )
     provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    vendor: Mapped[str] = mapped_column(String(50), nullable=False)
     model_id: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
     is_default: Mapped[bool] = mapped_column(

@@ -102,25 +102,33 @@
 ```text
 Agents-Memory-System/
 ├── backend/                # FastAPI 後端（詳見 20-backend.md § 目錄結構與分層）
+│   └── app/
+│       └── config/         # 慢變動設定 YAML（如 LLM 模型價目表）；不適合放 DB 的對照表
 ├── frontend/               # Next.js 前端（詳見 10-frontend.md § 目錄結構）
 ├── migrations/             # Flyway 資料庫 Migration
-│   └── sql/                # V{版號}__{描述}.sql 檔（詳見 21-database.md § Migration）
+│   ├── sql/                # V{版號}__{描述}.sql 檔（詳見 21-database.md § Migration）
+│   ├── scripts/            # Migration 輔助 script（手動還原 / dump 用）
+│   └── snapshot/           # 開發期 schema 快照（非版控真相，僅供查閱）
 ├── docs/                   # 規範與任務文件
 │   ├── Design-Base/        # 專案規範（本目錄）
 │   └── Tasks/              # 版本任務規格與 fixed.md
 │       ├── v{X.Y}/         # 各版本資料夾（含 propose / tasks / fixed.md）
 │       └── scan-project/   # `/scan-project` 指令輸出的歷次掃描報告
 ├── .claude/                # Claude Code 自訂指令與 skills
+├── .agents/                # 專案內 AI agent skill / prompt 素材（與 .claude 分離）
 ├── docker-compose.dev.yml  # 本機開發環境編排（postgres / redis / flyway / backend / frontend）
 ├── .env.example            # 環境變數範本（供新開發者複製為 .env）
 ├── .env                    # 實際環境變數（gitignored）
 ├── .gitignore
+├── .axe-linter.yml         # axe a11y linter 規則覆寫
 ├── CLAUDE.md               # Claude Code 共用基本規範
+├── AGENTS.md               # 給 LLM agent（如 OpenAI Codex）讀的精簡專案說明
 └── README.md
 ```
 
 - 頂層**禁止**新增規範未登記的目錄；如有跨模組共用工具（scripts、tools 等），先於 Design-Base 補規範再建立。
 - `data/`（執行期儲存）由後端服務於 runtime 自動建立，已被 `.gitignore` 排除，不屬版控結構。
+- `backend/app/config/`：放慢變動的 **YAML 設定**（如 OpenRouter 模型價目）；變動頻率低、需 code review 留痕、不需後台編輯的對照表優先用 YAML，**不**為了一張表造一個 admin CRUD。
 
 ---
 

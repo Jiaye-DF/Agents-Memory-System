@@ -8,6 +8,7 @@ MODEL_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9.-]*$")
 class LlmModelResponse(BaseModel):
     llm_model_uid: str
     provider: str
+    vendor: str
     model_id: str
     display_name: str
     is_default: bool = False
@@ -74,6 +75,7 @@ class LlmModelAdminResponse(BaseModel):
 
     llm_model_uid: str
     provider: str
+    vendor: str
     model_id: str
     display_name: str
     is_active: bool

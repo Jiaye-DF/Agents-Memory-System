@@ -69,7 +69,7 @@ export default function AgentDetailPage(): React.ReactNode {
     );
   }
 
-  const isOwner = agent.owner_uid === userUid;
+  const isOwner = agent.owner_user_uid === userUid;
   const languageLabel = (() => {
     if (!agent.language) return null;
     const match = languagesData?.items.find((l) => l.code === agent.language);

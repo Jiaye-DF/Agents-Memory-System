@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -64,7 +63,7 @@ async def log(payload: dict, db: AsyncSession) -> None:
             "rag_max_score",
             "error",
         }
-        clean: dict[str, Any] = {
+        clean: dict[str, object] = {
             k: v for k, v in (payload or {}).items() if k in allowed_fields
         }
         entity = LlmCallLog(**clean)
@@ -90,7 +89,7 @@ async def aggregate_cost(
     """
     where_clause = _RANGE_WHERE.get(range_key)
     group_col = _GROUP_COLUMN.get(group_by)
-    empty: dict[str, Any] = {
+    empty: dict[str, object] = {
         "total_actual": Decimal("0"),
         "total_baseline": Decimal("0"),
         "saved": Decimal("0"),

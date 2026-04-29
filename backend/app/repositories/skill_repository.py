@@ -19,11 +19,11 @@ async def get_by_uid(skill_uid: str, db: AsyncSession) -> Skill | None:
     return result.scalar_one_or_none()
 
 
-def stmt_visible_to_user(owner_uid: str) -> Select[tuple[Skill]]:
+def stmt_visible_to_user(user_uid: str) -> Select[tuple[Skill]]:
     return select(Skill).where(
         Skill.is_deleted == False,
         or_(
-            Skill.owner_uid == owner_uid,
+            Skill.owner_user_uid == user_uid,
             Skill.visibility == "public",
         ),
     )

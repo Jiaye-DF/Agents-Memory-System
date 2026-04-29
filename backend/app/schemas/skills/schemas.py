@@ -49,7 +49,7 @@ class SkillUpdateRequest(BaseModel):
 
 class SkillResponse(BaseModel):
     skill_uid: str
-    owner_uid: str
+    owner_user_uid: str
     owner_username: str | None
     name: str
     description: str

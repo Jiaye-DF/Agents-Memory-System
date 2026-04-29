@@ -79,7 +79,7 @@ def _check_zip_bomb(zip_path: Path, max_total_bytes: int) -> None:
 def _skill_to_dict(skill: Skill, is_favorited: bool = False) -> dict:
     return {
         "skill_uid": str(skill.skill_uid),
-        "owner_uid": str(skill.owner_uid),
+        "owner_user_uid": str(skill.owner_user_uid),
         "owner_username": skill.owner.username if skill.owner else None,
         "name": skill.name,
         "description": skill.description,
@@ -223,7 +223,7 @@ async def upload_skill(
     skill = await skill_repository.create(
         {
             "skill_uid": skill_uid,
-            "owner_uid": user_uid,
+            "owner_user_uid": user_uid,
             "name": name,
             "description": description,
             "file_path": str(zip_path),
@@ -545,23 +545,6 @@ def _build_zip(entries: list[tuple[str, bytes]]) -> bytes:
     return buf.getvalue()
 
 
-def _ensure_owner_only(
-    skill: Skill | None, user_uid: str, action: str
-) -> Skill:
-    """僅擁有者可操作；admin 也不可代改（resource 不存在回 404）。"""
-    if skill is None:
-        raise AppError(
-            detail=NOT_FOUND_DETAIL, response_code=404, status_code=404
-        )
-    if str(skill.owner_uid) != user_uid:
-        raise AppError(
-            detail=f"只有擁有者可以{action}",
-            response_code=403,
-            status_code=403,
-        )
-    return skill
-
-
 def _check_optimistic_lock(skill: Skill, expected_updated_at: str) -> None:
     current = to_taipei_iso(skill.updated_at) or ""
     if current != expected_updated_at:
@@ -606,7 +589,8 @@ async def reupload_skill(
     db: AsyncSession,
 ) -> dict:
     skill = await skill_repository.get_by_uid(skill_uid, db)
-    skill = _ensure_owner_only(skill, user_uid, "重新上傳 Skill")
+    ensure_owner(skill, user_uid, NOT_FOUND_DETAIL, "只有擁有者可以重新上傳 Skill")
+    assert skill is not None
     _check_optimistic_lock(skill, expected_updated_at)
 
     if not files:
@@ -745,7 +729,8 @@ async def update_file_content(
     db: AsyncSession,
 ) -> dict:
     skill = await skill_repository.get_by_uid(skill_uid, db)
-    skill = _ensure_owner_only(skill, user_uid, "編輯 Skill 檔案")
+    ensure_owner(skill, user_uid, NOT_FOUND_DETAIL, "只有擁有者可以編輯 Skill 檔案")
+    assert skill is not None
     _check_optimistic_lock(skill, expected_updated_at)
 
     normalized = path.lstrip("/").replace("\\", "/").strip()
