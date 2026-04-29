@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 BLACKLIST_PREFIX = "token:blacklist:"
 # SSO back-channel logout：撤銷某 user 在指定 timestamp 之前簽出的所有 token
 SSO_LOGOUT_USER_PREFIX = "token:logout_user:"
+# Single Logout 加強模式：剛被中央踢的使用者在這個 window 內回 401 會帶 X-Recently-Logged-Out
+# header；前端據此跳 /?logged_out=1 而不是 silent re-auth, 讓「主動登出」視覺有效。
+# spec 建議 5 分鐘：太短會讓使用者切到別 App 之前 cache 就過期；太長會阻礙重新登入。
+RECENTLY_LOGGED_OUT_WINDOW_SECONDS = 300
 
 
 async def register(data: RegisterRequest, db: AsyncSession) -> dict:
@@ -131,8 +135,17 @@ async def refresh(refresh_token: str, db: AsyncSession) -> tuple[str, str]:
     if logout_at is not None:
         iat = payload.get("iat")
         if iat is not None and int(iat) <= int(logout_at):
+            # Single Logout 加強：在 window 內 → 帶 header, 前端跳 /?logged_out=1
+            # 跨過 window → 不帶 header, 前端走 silent re-auth 嘗試恢復
+            now_ts = datetime.now(timezone.utc).timestamp()
+            is_recent = (
+                int(now_ts) - int(logout_at) <= RECENTLY_LOGGED_OUT_WINDOW_SECONDS
+            )
             raise AppError(
-                detail="Session 已被中央登出", response_code=401, status_code=401
+                detail="Session 已被中央登出",
+                response_code=401,
+                status_code=401,
+                headers={"X-Recently-Logged-Out": "1"} if is_recent else None,
             )
 
     user = await user_repository.get_by_uid(user_uid, db)

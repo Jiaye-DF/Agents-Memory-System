@@ -13,10 +13,13 @@ class AppError(Exception):
         detail: str,
         response_code: int = 400,
         status_code: int = 400,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.detail = detail
         self.response_code = response_code
         self.status_code = status_code
+        # 選用 response headers — 例如 SSO Single Logout 加強模式的 X-Recently-Logged-Out
+        self.headers = headers
         super().__init__(detail)
 
 
@@ -29,6 +32,7 @@ async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
             "detail": exc.detail,
             "response_code": exc.response_code,
         },
+        headers=exc.headers,
     )
 
 
