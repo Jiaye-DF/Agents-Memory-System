@@ -7,7 +7,6 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { DialogProvider } from "@/hooks/useDialog";
 import { useSidebar } from "@/hooks/useSidebar";
 import { useAuth } from "@/hooks/useAuth";
-import { isSsoUser } from "@/lib/api/silent-reauth";
 import { PageLoading } from "@/components/ui/Loading";
 
 interface MainLayoutProps {
@@ -23,9 +22,8 @@ export default function MainLayout({
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      // SSO 用戶 → 走登入頁 auto-redirect 流程；本地用戶帶 ?local=1 避免被誤丟去 SSO
-      const target = isSsoUser() ? "/" : "/?local=1";
-      router.replace(target);
+      // 統一踢回 /, 由登入頁依 last_login_provider hint 決定 SSO auto-redirect 或顯示表單
+      router.replace("/");
     }
   }, [isAuthenticated, isLoading, router]);
 

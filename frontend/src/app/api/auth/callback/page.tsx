@@ -7,6 +7,7 @@ import {
   consumePostReAuthUrl,
   markSsoLogin,
 } from "@/lib/api/silent-reauth";
+import { setLastLoginProvider } from "@/lib/api/login-provider";
 import { Spinner } from "@/components/ui/Loading";
 
 /**
@@ -81,6 +82,8 @@ function SsoCallbackInner(): React.ReactNode {
         setAccessToken(json.data.access_token as string);
         // 標記 SSO 登入：401 攔截器據此判斷是否走 silent re-auth
         markSsoLogin();
+        // 記下 last_login_provider，供登入頁 Portal 模式 auto-redirect 分流
+        setLastLoginProvider("sso");
         // Silent re-auth 復原：若是工作中被踢回中央再簽, 帶回原頁面而非預設 dashboard
         const postReAuthUrl = consumePostReAuthUrl();
         router.replace(postReAuthUrl ?? "/dashboard");

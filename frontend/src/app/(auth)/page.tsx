@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Loading";
 import { useDialog } from "@/hooks/useDialog";
+import { getLastLoginProvider } from "@/lib/api/login-provider";
 import {
   useLoginMutation,
   useSsoAuthorizeUrlQuery,
@@ -44,13 +45,17 @@ export default function LoginPage(): React.ReactNode {
     return SSO_ERROR_MESSAGES[ssoError] ?? `登入失敗：${ssoError}`;
   }, [ssoError]);
 
-  // 跨 app SSO auto-redirect（INTEGRATION.md 契約 #3 的放寬版）：
-  // 沒登出 / 沒錯誤 / 沒指定本地登入時，直接跳中央 /authorize。中央有 session
-  // 就無感簽回 dashboard，沒 session 就走 Azure AD 標準登入流程。
-  // 三個 guard 守住「登出真有效」與「使用者主動選本地」的退路 —
-  //   ?logged_out=1：剛登出, 不跳, 顯示登入頁讓使用者確認
-  //   ?error=...：SSO 流程出錯回來, 不跳, 顯示錯誤訊息
-  //   ?local=1：手動指定走本地帳密（書籤 / 內部後門）
+  // 企業 Portal 模式 + Mode B provider-aware（INTEGRATION.md 契約 #3）：
+  // 只有「上次明確走 SSO」的使用者才 auto-redirect, 其餘都顯示雙選項或表單。
+  //
+  // 決策表：
+  //   ?logged_out=1 / ?error=... / ?local=1 → 顯示登入頁（Portal 例外 + 後門）
+  //   last_login_provider === "sso" → auto-redirect 到中央 /authorize（Portal 行為）
+  //   last_login_provider === "local" → 顯示本地表單, 不跳 SSO
+  //   沒 hint（第一次訪問）→ 顯示雙選項, 不跳（spec 嚴格要求, 避免本地帳號使用者被誤丟）
+  //
+  // DF-SSO 不殺 AD 那層, 第一次訪客 auto-redirect 也只是 silent SSO 把人拉回, 意義不大,
+  // 不如讓使用者主動選一次, 之後靠 hint 對應到「打開即進」UX。
   const redirectingRef = useRef<boolean>(false);
   const [redirecting, setRedirecting] = useState<boolean>(false);
 
@@ -58,6 +63,7 @@ export default function LoginPage(): React.ReactNode {
     if (redirectingRef.current) return;
     if (!ssoAuthorizeUrl) return;
     if (loggedOut === "1" || ssoError || localOnly) return;
+    if (getLastLoginProvider() !== "sso") return;
     redirectingRef.current = true;
     setRedirecting(true);
     window.location.href = ssoAuthorizeUrl;
@@ -128,14 +134,15 @@ export default function LoginPage(): React.ReactNode {
     [account, password, login, router, showDialog]
   );
 
-  // 如果預期會 auto-redirect，在 SSO authorize URL 還沒抓回來前先顯示 spinner，
-  // 避免登入頁閃一下又被導走。SSO 沒設或有 guard 命中（logged_out / error / local）時直接渲染表單。
-  const stillFetchingSsoConfig =
+  // hint=sso 的使用者預期會 auto-redirect, 在 SSO authorize URL 還沒抓回來前先顯示 spinner,
+  // 避免登入頁閃一下又被導走。其他使用者（hint=local / 無 hint / guard 命中）直接渲染表單。
+  const willAutoRedirect =
     !ssoConfigError &&
-    !ssoAuthorizeUrl &&
     loggedOut !== "1" &&
     !ssoError &&
-    !localOnly;
+    !localOnly &&
+    getLastLoginProvider() === "sso";
+  const stillFetchingSsoConfig = willAutoRedirect && !ssoAuthorizeUrl;
 
   if (redirecting || stillFetchingSsoConfig) {
     return (
