@@ -1,4 +1,5 @@
 import type { ApiResponse } from "@/types/api";
+import { isSsoUser, triggerSilentReAuth } from "./silent-reauth";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -14,6 +15,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 let accessToken: string | null = null;
 let isRefreshing = false;
 let refreshPromise: Promise<string | null> | null = null;
+// Silent re-auth dedupe（INTEGRATION.md「Silent Re-Auth Pattern」）：
+// 多個並發 401 共用同一個 navigation, 避免重複觸發 redirect。
+let reAuthPromise: Promise<void> | null = null;
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
@@ -110,6 +114,15 @@ async function request<T>(
         headers: requestHeaders,
       });
     } else {
+      // refresh 失敗：SSO 使用者改走 silent re-auth, 把使用者帶回中央再簽,
+      // 中央仍有 session 即可無感回到原頁；只有中央也沒了才會落到登入頁。
+      // 本地帳密使用者沒這條路, 維持「踢回登入頁」舊行為。
+      if (isSsoUser()) {
+        reAuthPromise ??= triggerSilentReAuth();
+        await reAuthPromise;
+        // 走到此代表 reAuth 沒 navigate（沒設 SSO / 重試上限 / 抓不到 URL）
+        reAuthPromise = null;
+      }
       return {
         success: false,
         data: null,

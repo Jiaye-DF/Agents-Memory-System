@@ -1,5 +1,6 @@
 import { baseApi } from "./api";
 import { setAccessToken } from "@/lib/api/client";
+import { clearSsoLogin } from "@/lib/api/silent-reauth";
 import type {
   LoginRequest,
   LoginResponse,
@@ -28,6 +29,8 @@ export const authApi = baseApi.injectEndpoints({
         try {
           const { data } = await queryFulfilled;
           setAccessToken(data.access_token);
+          // 本地登入：清掉前一輪 SSO 留下的 marker / re-auth 計數, 避免 401 走錯分支
+          clearSsoLogin();
           // 防止前一位使用者的 RTK Query cache 在新登入後被沿用
           dispatch(baseApi.util.resetApiState());
         } catch {
@@ -46,6 +49,7 @@ export const authApi = baseApi.injectEndpoints({
           await queryFulfilled;
         } finally {
           setAccessToken(null);
+          clearSsoLogin();
           dispatch(baseApi.util.resetApiState());
         }
       },

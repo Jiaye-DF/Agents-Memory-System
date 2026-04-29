@@ -3,6 +3,10 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setAccessToken } from "@/lib/api/client";
+import {
+  consumePostReAuthUrl,
+  markSsoLogin,
+} from "@/lib/api/silent-reauth";
 import { Spinner } from "@/components/ui/Loading";
 
 /**
@@ -75,7 +79,11 @@ function SsoCallbackInner(): React.ReactNode {
         }
 
         setAccessToken(json.data.access_token as string);
-        router.replace("/dashboard");
+        // 標記 SSO 登入：401 攔截器據此判斷是否走 silent re-auth
+        markSsoLogin();
+        // Silent re-auth 復原：若是工作中被踢回中央再簽, 帶回原頁面而非預設 dashboard
+        const postReAuthUrl = consumePostReAuthUrl();
+        router.replace(postReAuthUrl ?? "/dashboard");
       } catch {
         setErrorMessage("無法連線到伺服器，請稍後再試");
         setTimeout(() => router.replace("/?error=exchange_error"), 1500);
