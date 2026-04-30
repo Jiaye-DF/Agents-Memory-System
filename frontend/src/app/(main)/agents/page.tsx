@@ -250,7 +250,7 @@ export default function AgentsPage(): React.ReactNode {
   const agents = useMemo((): Agent[] => data?.items ?? [], [data]);
 
   const scopedAgents = useMemo(
-    (): Agent[] => agents.filter((a) => a.owner_uid === userUid),
+    (): Agent[] => agents.filter((a) => a.owner_user_uid === userUid),
     [agents, userUid]
   );
 
@@ -490,7 +490,7 @@ export default function AgentsPage(): React.ReactNode {
               <AgentRow
                 key={agent.agent_uid}
                 agent={agent}
-                isOwner={agent.owner_uid === userUid}
+                isOwner={agent.owner_user_uid === userUid}
                 languageLabel={resolveLanguage(agent.language)}
                 onDelete={handleDelete}
                 onToggleVisibility={handleToggleVisibility}
