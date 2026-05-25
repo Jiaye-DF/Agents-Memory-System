@@ -18,8 +18,8 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
@@ -168,13 +168,13 @@ async def download_script(
     script_uid: str,
     current_user: TokenPayload = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> FileResponse:
+) -> Response:
     """下載 Script zip；**豁免**統一回應格式（與 Skill download 一致）。"""
-    file_path, filename = await script_service.download_script(
+    data, download_name = await script_service.download_script(
         script_uid, current_user.user_uid, current_user.role, db
     )
-    return FileResponse(
-        path=file_path,
-        filename=filename,
+    return Response(
+        content=data,
         media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{download_name}"'},
     )

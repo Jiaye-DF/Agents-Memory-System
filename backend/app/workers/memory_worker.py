@@ -3,7 +3,6 @@ import base64
 import json
 import logging
 import time
-from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +28,7 @@ from app.services import (
     session_event_service,
     system_setting_service,
 )
+from app.storage import s3_storage
 
 logger = logging.getLogger(__name__)
 
@@ -255,10 +255,7 @@ async def _describe_image_attachments(
         if not mime.startswith("image/"):
             continue
         try:
-            path = Path(a.file_path)
-            if not path.exists():
-                continue
-            raw = path.read_bytes()
+            raw = await s3_storage.get_object(a.storage_key)
             b64 = base64.b64encode(raw).decode("ascii")
             data_url = f"data:{mime};base64,{b64}"
             # v1.3.0：經 llm_metering 集中進入點記成本 / 延遲

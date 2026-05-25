@@ -18,7 +18,7 @@ class Skill(Base):
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    file_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(500), nullable=False)
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     visibility: Mapped[str] = mapped_column(

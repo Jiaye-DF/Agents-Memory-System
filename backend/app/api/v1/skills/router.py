@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -131,14 +131,14 @@ async def download_skill(
     skill_uid: str,
     current_user: TokenPayload = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> FileResponse:
-    file_path, filename = await skill_service.download_skill(
+) -> Response:
+    data, download_name = await skill_service.download_skill(
         skill_uid, current_user.user_uid, current_user.role, db
     )
-    return FileResponse(
-        path=file_path,
-        filename=filename,
+    return Response(
+        content=data,
         media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{download_name}"'},
     )
 
 

@@ -15,13 +15,12 @@ import logging
 import os
 import uuid
 import zipfile
-from pathlib import Path
 
+from botocore.exceptions import ClientError
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.access import ensure_modifiable, ensure_owner, ensure_readable
-from app.core.config import settings
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.core.pagination import paginate, paginate_ordered
@@ -32,6 +31,7 @@ from app.repositories import (
 )
 from app.schemas.scripts.schemas import ScriptUpdateRequest
 from app.services import download_service, system_setting_service
+from app.storage import s3_storage
 
 logger = logging.getLogger(__name__)
 
@@ -211,11 +211,11 @@ def _build_zip(entries: list[tuple[str, bytes]]) -> bytes:
     return buf.getvalue()
 
 
-def _check_zip_bomb(zip_path: Path, max_total_bytes: int) -> None:
+def _check_zip_bomb(zip_bytes: bytes, max_total_bytes: int) -> None:
     """預估解壓後大小 > max_total_bytes * 10 時拒絕。"""
     limit = max_total_bytes * 10
     try:
-        with zipfile.ZipFile(zip_path, "r") as zf:
+        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
             total = sum(info.file_size for info in zf.infolist())
     except zipfile.BadZipFile:
         raise AppError(
@@ -231,16 +231,6 @@ def _check_zip_bomb(zip_path: Path, max_total_bytes: int) -> None:
             response_code=400,
             status_code=400,
         )
-
-
-def _scripts_upload_dir() -> Path:
-    """Script 實體儲存目錄：重用 SKILLS_UPLOAD_DIR 的平行層。
-
-    使用 `<SKILLS_UPLOAD_DIR>/../scripts` 以免與 Skills 同層混雜。
-    若環境未設定則預設 `data/scripts`。
-    """
-    skills_dir = Path(settings.SKILLS_UPLOAD_DIR)
-    return skills_dir.parent / "scripts"
 
 
 async def create_script(
@@ -298,13 +288,13 @@ async def create_script(
 
     zip_content = _build_zip(entries)
 
-    script_dir = _scripts_upload_dir() / str(script_uid)
-    script_dir.mkdir(parents=True, exist_ok=True)
-    base = os.path.splitext(os.path.basename(file_name))[0] or name
-    zip_path = script_dir / f"{base}.zip"
+    # zip bomb 檢測（in-memory）
+    _check_zip_bomb(zip_content, max_total_bytes)
 
+    base = os.path.splitext(os.path.basename(file_name))[0] or name
+    key = s3_storage.build_key("scripts", script_uid, f"{base}.zip")
     try:
-        zip_path.write_bytes(zip_content)
+        await s3_storage.put_object(key, zip_content, "application/zip")
     except Exception:
         logger.exception("Script 檔案儲存失敗")
         raise AppError(
@@ -313,16 +303,13 @@ async def create_script(
             status_code=500,
         )
 
-    # zip bomb 檢測
-    _check_zip_bomb(zip_path, max_total_bytes)
-
     script_data: dict = {
         "script_uid": script_uid,
         "owner_user_uid": user_uid,
         "name": name,
         "description": desc,
         "file_name": file_name,
-        "file_path": str(zip_path),
+        "storage_key": key,
         "file_size": len(zip_content),
     }
     if visibility is not None:
@@ -490,22 +477,31 @@ async def soft_delete_script(
     ensure_owner(script, user_uid, NOT_FOUND_DETAIL, "權限不足")
     assert script is not None
     await script_repository.soft_delete(script, db)
+    try:
+        await s3_storage.mark_deleted(script.storage_key)
+    except Exception:
+        logger.warning(
+            "mark_deleted 失敗 key=%s", script.storage_key, exc_info=True
+        )
 
 
 async def download_script(
     script_uid: str, user_uid: str, role: str, db: AsyncSession
-) -> tuple[str, str]:
+) -> tuple[bytes, str]:
     script = await script_repository.get_by_uid(script_uid, db)
     ensure_readable(script, user_uid, role, NOT_FOUND_DETAIL)
     assert script is not None
 
-    file_path = script.file_path
-    if not Path(file_path).exists():
-        raise AppError(
-            detail="檔案不存在，請聯繫管理員",
-            response_code=404,
-            status_code=404,
-        )
+    try:
+        data = await s3_storage.get_object(script.storage_key)
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            raise AppError(
+                detail="檔案不存在，請聯繫管理員",
+                response_code=404,
+                status_code=404,
+            )
+        raise
 
     # StreamingResponse / FileResponse 即將回傳前才 +1（24h Redis dedup）
     await download_service.try_increment_download(
@@ -514,4 +510,4 @@ async def download_script(
 
     base = os.path.splitext(os.path.basename(script.file_name))[0] or script.name
     download_name = f"{base}.zip"
-    return file_path, download_name
+    return data, download_name
