@@ -58,6 +58,7 @@ export const baseApi = createApi({
     "AgentSkillSuggestions",
     "Favorites",
     "Rankings",
+    "Tags",
   ],
   endpoints: () => ({}),
 });

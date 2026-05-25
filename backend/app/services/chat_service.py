@@ -1,10 +1,11 @@
 import asyncio
+import io
 import json
 import logging
 import zipfile
 from collections.abc import AsyncIterator
-from pathlib import Path
 
+from botocore.exceptions import ClientError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.openrouter import model_supports_vision
@@ -29,6 +30,7 @@ from app.repositories import (
     session_agent_repository,
     skill_repository,
 )
+from app.storage import s3_storage
 from app.schemas.chat.schemas import (
     ChatProjectCreateRequest,
     ChatProjectUpdateRequest,
@@ -258,8 +260,15 @@ async def _skill_prompt_text(skill: Skill, db: AsyncSession) -> str:
     `design-base-backend` / `design-base-auth` 命名（無強制）。
     """
     header = f"### {skill.name}\n{skill.description}\n"
-    zip_path = skill.file_path
-    if not zip_path or not Path(zip_path).exists():
+    if not skill.storage_key:
+        return header
+
+    try:
+        zip_bytes = await s3_storage.get_object(skill.storage_key)
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") in ("NoSuchKey", "404"):
+            return header
+        logger.warning("讀取 skill 內容失敗 skill_uid=%s: %s", skill.skill_uid, exc)
         return header
 
     md_max_chars = await system_setting_service.get_int(
@@ -267,7 +276,7 @@ async def _skill_prompt_text(skill: Skill, db: AsyncSession) -> str:
     )
 
     try:
-        with zipfile.ZipFile(zip_path, "r") as zf:
+        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
             md_files = [
                 info for info in zf.infolist()
                 if not info.is_dir() and info.filename.lower().endswith(".md")

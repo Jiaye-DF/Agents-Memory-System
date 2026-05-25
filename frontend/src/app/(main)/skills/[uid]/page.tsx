@@ -24,6 +24,7 @@ import {
   useUpdateSkillMutation,
 } from "@/store/skillsApi";
 import { EditResourceDialog } from "@/components/social/EditResourceDialog";
+import { TagsCard } from "@/components/tags";
 import { baseApi } from "@/store/api";
 import type { AppDispatch } from "@/store/store";
 import {
@@ -1001,6 +1002,13 @@ export default function SkillDetailPage(): React.ReactNode {
             </div>
           </div>
         </div>
+
+        <TagsCard
+          entityType="skill"
+          entityUid={skill.skill_uid}
+          initialTags={skill.tags ?? []}
+          canEdit={isOwner}
+        />
 
         <div className="rounded-xl bg-card-bg p-6 shadow-sm">
           <h2 className="mb-4 text-xl font-semibold text-foreground">

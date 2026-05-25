@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +16,16 @@ from app.schemas.skills.schemas import (
     SkillUpdateRequest,
     SkillUsageResponse,
 )
+from app.schemas.tags.schemas import EntityTagsRequest
 from app.services import skill_service
+
+
+def _parse_tag_uids(raw: str | None) -> list[str] | None:
+    """把 csv tag_uids 解析為 list；空字串視同未指定。"""
+    if not raw:
+        return None
+    parsed = [u.strip() for u in raw.split(",") if u.strip()]
+    return parsed or None
 
 
 class FileTreeData(BaseModel):
@@ -51,10 +60,20 @@ async def list_skills(
         description="排序方向：desc（預設）/ asc；僅在有指定 order_by 時生效",
         pattern="^(asc|desc)$",
     ),
+    tag_uids: str | None = Query(
+        None,
+        description="逗號分隔的 tag_uid；AND 過濾（同時含所有 tag）",
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     result = await skill_service.list_skills(
-        current_user.user_uid, cursor, limit, db, order_by=order_by, order=order
+        current_user.user_uid,
+        cursor,
+        limit,
+        db,
+        order_by=order_by,
+        order=order,
+        tag_uids=_parse_tag_uids(tag_uids),
     )
     return success(data=result)
 
@@ -110,6 +129,22 @@ async def delete_skill(
     return success(data={"message": "Skill 已刪除"})
 
 
+@router.put(
+    "/{skill_uid}/tags",
+    response_model=ApiResponse[SkillResponse],
+)
+async def set_skill_tags(
+    skill_uid: str,
+    data: EntityTagsRequest,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await skill_service.set_tags(
+        skill_uid, current_user.user_uid, current_user.role, data, db
+    )
+    return success(data=result)
+
+
 @router.patch(
     "/{skill_uid}/visibility",
     response_model=ApiResponse[SkillResponse],
@@ -131,14 +166,14 @@ async def download_skill(
     skill_uid: str,
     current_user: TokenPayload = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> FileResponse:
-    file_path, filename = await skill_service.download_skill(
+) -> Response:
+    data, download_name = await skill_service.download_skill(
         skill_uid, current_user.user_uid, current_user.role, db
     )
-    return FileResponse(
-        path=file_path,
-        filename=filename,
+    return Response(
+        content=data,
         media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{download_name}"'},
     )
 
 

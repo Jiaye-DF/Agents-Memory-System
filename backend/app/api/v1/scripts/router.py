@@ -18,8 +18,8 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
@@ -30,9 +30,17 @@ from app.schemas.scripts.schemas import (
     ScriptResponse,
     ScriptUpdateRequest,
 )
+from app.schemas.tags.schemas import EntityTagsRequest
 from app.services import script_service
 
 router = APIRouter(prefix="/scripts", tags=["scripts"])
+
+
+def _parse_tag_uids(raw: str | None) -> list[str] | None:
+    if not raw:
+        return None
+    parsed = [u.strip() for u in raw.split(",") if u.strip()]
+    return parsed or None
 
 
 @router.get("", response_model=ApiResponse[PaginatedData[ScriptResponse]])
@@ -54,10 +62,20 @@ async def list_scripts(
         "desc",
         description="排序方向：desc（預設）/ asc；僅在有指定 order_by 時生效",
     ),
+    tag_uids: str | None = Query(
+        None,
+        description="逗號分隔的 tag_uid；AND 過濾（同時含所有 tag）",
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     result = await script_service.list_scripts(
-        current_user.user_uid, cursor, limit, db, order_by=order_by, order=order
+        current_user.user_uid,
+        cursor,
+        limit,
+        db,
+        order_by=order_by,
+        order=order,
+        tag_uids=_parse_tag_uids(tag_uids),
     )
     return success(data=result)
 
@@ -163,18 +181,34 @@ async def delete_script(
     return success(data={"message": "Script 已刪除"})
 
 
+@router.put(
+    "/{script_uid}/tags",
+    response_model=ApiResponse[ScriptResponse],
+)
+async def set_script_tags(
+    script_uid: str,
+    data: EntityTagsRequest,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await script_service.set_tags(
+        script_uid, current_user.user_uid, current_user.role, data, db
+    )
+    return success(data=result)
+
+
 @router.get("/{script_uid}/download")
 async def download_script(
     script_uid: str,
     current_user: TokenPayload = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> FileResponse:
+) -> Response:
     """下載 Script zip；**豁免**統一回應格式（與 Skill download 一致）。"""
-    file_path, filename = await script_service.download_script(
+    data, download_name = await script_service.download_script(
         script_uid, current_user.user_uid, current_user.role, db
     )
-    return FileResponse(
-        path=file_path,
-        filename=filename,
+    return Response(
+        content=data,
         media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{download_name}"'},
     )

@@ -3,13 +3,11 @@ import logging
 import mimetypes
 import os
 import uuid
-from datetime import datetime
-from pathlib import Path
 
+from botocore.exceptions import ClientError
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.datetime import to_taipei_iso
 from app.core.exceptions import AppError
 from app.models.chat_attachment import ChatAttachment
@@ -18,6 +16,7 @@ from app.repositories import (
     chat_session_repository,
 )
 from app.services import system_setting_service
+from app.storage import s3_storage
 
 logger = logging.getLogger(__name__)
 
@@ -135,18 +134,15 @@ async def upload_attachments(
         staged.append((uf, content, ext, mime))
 
     # 儲存 + 建 DB record
-    ym = datetime.now().strftime("%Y%m")
-    base_dir = Path(settings.ATTACHMENTS_UPLOAD_DIR) / ym
-    base_dir.mkdir(parents=True, exist_ok=True)
-
     created: list[ChatAttachment] = []
     for uf, content, ext, mime in staged:
         attachment_uid = uuid.uuid4()
-        file_path = base_dir / f"{attachment_uid}{ext}"
+        filename = uf.filename or f"{attachment_uid}{ext}"
+        key = s3_storage.build_key("attachments", attachment_uid, filename)
         try:
-            file_path.write_bytes(content)
+            await s3_storage.put_object(key, content, mime)
         except Exception:
-            logger.exception("附件寫檔失敗 %s", file_path)
+            logger.exception("附件上傳 S3 失敗 key=%s", key)
             raise AppError(
                 detail="附件儲存失敗，請稍後再試",
                 response_code=500,
@@ -158,10 +154,10 @@ async def upload_attachments(
                 "chat_attachment_uid": attachment_uid,
                 "owner_user_uid": user_uid,
                 "chat_session_uid": session_uid,
-                "file_name": uf.filename or f"{attachment_uid}{ext}",
+                "file_name": filename,
                 "file_type": mime,
                 "file_size": len(content),
-                "file_path": str(file_path),
+                "storage_key": key,
             },
             db,
         )
@@ -192,17 +188,18 @@ async def get_attachment_content(
             detail="無權存取此附件", response_code=403, status_code=403
         )
 
-    file_path = Path(attachment.file_path)
-    if not file_path.exists():
-        raise AppError(
-            detail="附件檔案不存在，請聯繫管理員",
-            response_code=404,
-            status_code=404,
-        )
     try:
-        data = file_path.read_bytes()
-    except Exception:
-        logger.exception("讀取附件失敗 %s", file_path)
+        data = await s3_storage.get_object(attachment.storage_key)
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            raise AppError(
+                detail="檔案不存在, 請聯繫管理員",
+                response_code=404,
+                status_code=404,
+            )
+        logger.exception(
+            "讀取附件失敗 key=%s", attachment.storage_key
+        )
         raise AppError(
             detail="讀取附件失敗，請稍後再試",
             response_code=500,
@@ -255,17 +252,20 @@ async def load_for_prompt(
             continue
 
         ext = _ext_of(attachment.file_name)
-        file_path = Path(attachment.file_path)
-        if not file_path.exists():
-            logger.warning(
-                "附件檔案不存在，略過 uid=%s path=%s",
-                attachment.chat_attachment_uid,
-                file_path,
+        try:
+            raw = await s3_storage.get_object(attachment.storage_key)
+        except ClientError as e:
+            if e.response["Error"]["Code"] in ("NoSuchKey", "404"):
+                logger.warning(
+                    "附件檔案不存在，略過 uid=%s key=%s",
+                    attachment.chat_attachment_uid,
+                    attachment.storage_key,
+                )
+                continue
+            logger.exception(
+                "讀附件失敗 uid=%s", attachment.chat_attachment_uid
             )
             continue
-
-        try:
-            raw = file_path.read_bytes()
         except Exception:
             logger.exception(
                 "讀附件失敗 uid=%s", attachment.chat_attachment_uid

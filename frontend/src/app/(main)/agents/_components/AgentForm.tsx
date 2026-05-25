@@ -14,6 +14,7 @@ import { PresetButton } from "@/components/ui/PresetButton";
 import { MultiSelect } from "@/components/ui/MultiSelect";
 import type { MultiSelectOption } from "@/components/ui/MultiSelect";
 import { ModalDialog } from "@/components/ui/ModalDialog";
+import { TagInput } from "@/components/tags";
 import { useDialog } from "@/hooks/useDialog";
 import { useAgentDraft } from "@/hooks/useAgentDraft";
 import {
@@ -27,8 +28,9 @@ import { useListSkillsQuery } from "@/store/skillsApi";
 import { useListAgentLanguagesQuery } from "@/store/agentLanguagesApi";
 import { useGetPublicSettingsQuery } from "@/store/systemSettingsApi";
 import { useListAgentTemplatesQuery } from "@/store/agentTemplatesApi";
+import { useSetEntityTagsMutation } from "@/store/tagsApi";
 import { composeSystemPrompt } from "@/utils/agentPrompt";
-import type { Agent, AgentTemplate } from "@/types";
+import type { Agent, AgentTemplate, TagSummary } from "@/types";
 
 type Mode = "create" | "edit";
 
@@ -275,6 +277,8 @@ export function AgentForm({
 
   const [createAgent, { isLoading: creating }] = useCreateAgentMutation();
   const [updateAgent, { isLoading: updating }] = useUpdateAgentMutation();
+  const [setEntityTags, { isLoading: settingTags }] =
+    useSetEntityTagsMutation();
 
   const { data: modelsData } = useListModelsQuery();
   const { data: languagesData } = useListAgentLanguagesQuery();
@@ -302,6 +306,7 @@ export function AgentForm({
   const [draftRestored, setDraftRestored] = useState<boolean>(false);
   const [showCopyModal, setShowCopyModal] = useState<boolean>(false);
   const [showTemplatesMenu, setShowTemplatesMenu] = useState<boolean>(false);
+  const [tags, setTags] = useState<TagSummary[]>([]);
 
   const languages = useMemo(
     () => languagesData?.items ?? [],
@@ -357,6 +362,7 @@ export function AgentForm({
             visibility: "private",
           })
         );
+        setTags(fromAgent.tags ?? []);
         setInitialized(true);
         return;
       }
@@ -543,6 +549,7 @@ export function AgentForm({
         visibility: "private",
       })
     );
+    setTags(source.tags ?? []);
     setShowCopyModal(false);
   }, []);
 
@@ -628,19 +635,48 @@ export function AgentForm({
 
       try {
         if (mode === "create") {
-          await createAgent({
+          const created = await createAgent({
             ...payload,
             visibility: form.visibility,
           }).unwrap();
+
+          let tagWarning: string | null = null;
+          if (tags.length > 0) {
+            try {
+              await setEntityTags({
+                entityType: "agent",
+                entityUid: created.agent_uid,
+                body: { names: tags.map((t) => t.name) },
+              }).unwrap();
+            } catch (err: unknown) {
+              tagWarning =
+                typeof err === "string"
+                  ? err
+                  : "Agent 已建立成功，但標籤設定失敗，請至詳細頁手動補上。";
+            }
+          }
+
           clearDraft();
-          showDialog({
-            type: "info",
-            title: "建立成功",
-            message: "Agent 已成功建立。",
-            onConfirm: () => {
-              router.push("/agents");
-            },
-          });
+
+          if (tagWarning) {
+            showDialog({
+              type: "error",
+              title: "標籤設定失敗",
+              message: tagWarning,
+              onConfirm: () => {
+                router.push("/agents");
+              },
+            });
+          } else {
+            showDialog({
+              type: "info",
+              title: "建立成功",
+              message: "Agent 已成功建立。",
+              onConfirm: () => {
+                router.push("/agents");
+              },
+            });
+          }
         } else if (agent) {
           await updateAgent({
             agentUid: agent.agent_uid,
@@ -669,10 +705,12 @@ export function AgentForm({
     [
       mode,
       form,
+      tags,
       agent,
       validate,
       createAgent,
       updateAgent,
+      setEntityTags,
       clearDraft,
       showDialog,
       router,
@@ -708,7 +746,7 @@ export function AgentForm({
     return form.max_tokens > selectedModel.max_output_tokens;
   }, [selectedModel, form.max_tokens]);
 
-  const submitting = creating || updating;
+  const submitting = creating || updating || settingTags;
 
   const toggleTemplatesMenu = useCallback((): void => {
     setShowTemplatesMenu((prev) => !prev);
@@ -831,6 +869,21 @@ export function AgentForm({
                     <option value="private">私人</option>
                     <option value="public">公開</option>
                   </select>
+                </div>
+              )}
+              {mode === "create" && (
+                <div>
+                  <label className="mb-1.5 block text-base font-medium text-foreground">
+                    標籤
+                  </label>
+                  <TagInput
+                    value={tags}
+                    onChange={setTags}
+                    disabled={submitting}
+                  />
+                  <p className="mt-1 text-sm text-muted">
+                    可自由輸入或從下拉建議中挑選，按 Enter 新增；標籤跨 Skill / Script / Agent 共用。
+                  </p>
                 </div>
               )}
             </Section>

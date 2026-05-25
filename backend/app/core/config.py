@@ -63,17 +63,10 @@ class Settings(BaseSettings):
     OPENROUTER_HTTP_REFERER: str = "http://localhost:3000"
     OPENROUTER_APP_TITLE: str = "Agents Memory System"
 
-    # v1.3.0：LLM 成本 metrics — counterfactual baseline 用的 expensive 模型 id
+    # LLM 成本 metrics — counterfactual baseline 用的 expensive 模型 id
     # 用於 llm_metering wrapper 計算 baseline_cost_usd（假設全走此模型會花多少）
     LLM_BASELINE_EXPENSIVE_MODEL: str = "anthropic/claude-sonnet-4-6"
 
-    LINE_CHANNEL_ACCESS_TOKEN: str = ""
-    LINE_CHANNEL_SECRET: str = ""
-
-    TELEGRAM_BOT_TOKEN: str = ""
-
-    # === DF-SSO（中央集中式 SSO，OAuth2 Authorization Code）===
-    # 正式站：https://df-sso-login.apps.zerozero.tw
     SSO_URL: str = ""
     SSO_APP_ID: str = ""
     SSO_APP_SECRET: str = ""
@@ -83,6 +76,11 @@ class Settings(BaseSettings):
     # 等 hint cookie 會被 *.zerozero.tw 下所有 SSO 接入 App 共享，達成「一處登出 / 登入，他處同步」
     # 的視覺效果。本機開發留空 → 退化為 host-only cookie。
     SSO_COOKIE_DOMAIN: str = ""
+
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
+    AWS_REGION: str = "ap-northeast-1"
+    S3_BUCKET: str = ""
 
     @property
     def DATABASE_URL(self) -> str:

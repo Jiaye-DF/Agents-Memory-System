@@ -44,6 +44,9 @@ credentials.json
 # Data (runtime storage, not versioned)
 data/
 
+# Migration script runtime artifact
+backend/failed_uids.txt
+
 # Logs
 *.log
 logs/

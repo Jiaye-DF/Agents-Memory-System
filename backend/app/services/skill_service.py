@@ -4,8 +4,8 @@ import mimetypes
 import os
 import uuid
 import zipfile
-from pathlib import Path
 
+from botocore.exceptions import ClientError
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,12 +17,15 @@ from app.core.pagination import paginate, paginate_ordered
 from app.models.skill import Skill
 from app.repositories import (
     agent_repository,
+    entity_tag_repository,
     skill_repository,
     user_favorite_repository,
 )
 from app.schemas.common import VisibilityRequest
 from app.schemas.skills.schemas import FileTreeNode, SkillUpdateRequest
-from app.services import download_service
+from app.schemas.tags.schemas import EntityTagsRequest
+from app.services import download_service, tag_service
+from app.storage import s3_storage
 
 EDITABLE_EXTENSIONS = {
     ".md",
@@ -53,14 +56,11 @@ NOT_FOUND_DETAIL = "找不到指定的 Skill"
 ZIP_BOMB_RATIO = 10
 
 
-def _check_zip_bomb(zip_path: Path, max_total_bytes: int) -> None:
-    """預估解壓後大小 > max_total_bytes * ZIP_BOMB_RATIO 時拒絕。
-
-    與 `script_service._check_zip_bomb` 同邏輯（保持兩處對稱以利日後抽出共用）。
-    """
+def _check_zip_bomb(zip_content: bytes, max_total_bytes: int) -> None:
+    """In-memory 版本：直接驗 bytes, 不再 round trip 寫到 disk。"""
     limit = max_total_bytes * ZIP_BOMB_RATIO
     try:
-        with zipfile.ZipFile(zip_path, "r") as zf:
+        with zipfile.ZipFile(io.BytesIO(zip_content), "r") as zf:
             total = sum(info.file_size for info in zf.infolist())
     except zipfile.BadZipFile:
         raise AppError(
@@ -76,7 +76,11 @@ def _check_zip_bomb(zip_path: Path, max_total_bytes: int) -> None:
         )
 
 
-def _skill_to_dict(skill: Skill, is_favorited: bool = False) -> dict:
+def _skill_to_dict(
+    skill: Skill,
+    is_favorited: bool = False,
+    tags: list[dict] | None = None,
+) -> dict:
     return {
         "skill_uid": str(skill.skill_uid),
         "owner_user_uid": str(skill.owner_user_uid),
@@ -90,6 +94,7 @@ def _skill_to_dict(skill: Skill, is_favorited: bool = False) -> dict:
         "favorite_count": skill.favorite_count,
         "download_count": skill.download_count,
         "is_favorited": is_favorited,
+        "tags": tags or [],
         "created_at": to_taipei_iso(skill.created_at),
         "updated_at": to_taipei_iso(skill.updated_at),
     }
@@ -202,13 +207,14 @@ async def upload_skill(
         )
         zip_content = _build_zip(entries)
 
-    skill_dir = Path(settings.SKILLS_UPLOAD_DIR) / str(skill_uid)
-    skill_dir.mkdir(parents=True, exist_ok=True)
     base = os.path.splitext(os.path.basename(original_filename))[0] or name
-    zip_path = skill_dir / f"{base}.zip"
 
+    # zip bomb 偵測：使用者可能直接上傳 .zip 檔，需擋住極高壓縮比
+    _check_zip_bomb(zip_content, max_size)
+
+    key = s3_storage.build_key("skills", skill_uid, f"{base}.zip")
     try:
-        zip_path.write_bytes(zip_content)
+        await s3_storage.put_object(key, zip_content, "application/zip")
     except Exception:
         logger.exception("檔案儲存失敗")
         raise AppError(
@@ -217,16 +223,13 @@ async def upload_skill(
             status_code=500,
         )
 
-    # zip bomb 偵測：使用者可能直接上傳 .zip 檔，需擋住極高壓縮比
-    _check_zip_bomb(zip_path, max_size)
-
     skill = await skill_repository.create(
         {
             "skill_uid": skill_uid,
             "owner_user_uid": user_uid,
             "name": name,
             "description": description,
-            "file_path": str(zip_path),
+            "storage_key": key,
             "original_filename": original_filename,
             "file_size": len(zip_content),
         },
@@ -245,7 +248,14 @@ async def get_skill(
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "skill", [skill_uid], db
     )
-    return _skill_to_dict(skill, is_favorited=skill_uid in favorited)
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "skill", [skill_uid], db
+    )
+    return _skill_to_dict(
+        skill,
+        is_favorited=skill_uid in favorited,
+        tags=tag_map.get(skill_uid, []),
+    )
 
 
 async def list_skills(
@@ -255,8 +265,12 @@ async def list_skills(
     db: AsyncSession,
     order_by: str | None = None,
     order: str = "desc",
+    tag_uids: list[str] | None = None,
 ) -> dict:
     base_stmt = skill_repository.stmt_visible_to_user(user_uid)
+    base_stmt = entity_tag_repository.apply_tag_filter(
+        base_stmt, "skill", Skill.skill_uid, tag_uids
+    )
 
     if order_by is not None:
         try:
@@ -280,10 +294,15 @@ async def list_skills(
     favorited_set = await user_favorite_repository.is_favorited_bulk(
         user_uid, "skill", item_uids, db
     )
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "skill", item_uids, db
+    )
     return {
         "items": [
             _skill_to_dict(
-                s, is_favorited=str(s.skill_uid) in favorited_set
+                s,
+                is_favorited=str(s.skill_uid) in favorited_set,
+                tags=tag_map.get(str(s.skill_uid), []),
             )
             for s in page.items
         ],
@@ -320,7 +339,45 @@ async def update_skill(
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "skill", [skill_uid], db
     )
-    return _skill_to_dict(skill, is_favorited=skill_uid in favorited)
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "skill", [skill_uid], db
+    )
+    return _skill_to_dict(
+        skill,
+        is_favorited=skill_uid in favorited,
+        tags=tag_map.get(skill_uid, []),
+    )
+
+
+async def set_tags(
+    skill_uid: str,
+    user_uid: str,
+    role: str,
+    data: EntityTagsRequest,
+    db: AsyncSession,
+) -> dict:
+    skill = await skill_repository.get_by_uid(skill_uid, db)
+    ensure_modifiable(skill, user_uid, role, NOT_FOUND_DETAIL)
+    assert skill is not None
+
+    target_uids = await tag_service.resolve_tag_uids(
+        user_uid, data.names, data.tag_uids, db
+    )
+    await entity_tag_repository.set_entity_tags(
+        "skill", skill_uid, target_uids, db
+    )
+
+    favorited = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "skill", [skill_uid], db
+    )
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "skill", [skill_uid], db
+    )
+    return _skill_to_dict(
+        skill,
+        is_favorited=skill_uid in favorited,
+        tags=tag_map.get(skill_uid, []),
+    )
 
 
 async def delete_skill(
@@ -332,6 +389,13 @@ async def delete_skill(
     )
     assert skill is not None
     await skill_repository.soft_delete(skill, db)
+
+    try:
+        await s3_storage.mark_deleted(skill.storage_key)
+    except Exception:
+        logger.warning(
+            "mark_deleted 失敗 key=%s", skill.storage_key, exc_info=True
+        )
 
 
 async def toggle_visibility(
@@ -354,18 +418,21 @@ async def toggle_visibility(
 
 async def download_skill(
     skill_uid: str, user_uid: str, role: str, db: AsyncSession
-) -> tuple[str, str]:
+) -> tuple[bytes, str]:
     skill = await skill_repository.get_by_uid(skill_uid, db)
     ensure_readable(skill, user_uid, role, NOT_FOUND_DETAIL)
     assert skill is not None
 
-    file_path = skill.file_path
-    if not Path(file_path).exists():
-        raise AppError(
-            detail="檔案不存在，請聯繫管理員",
-            response_code=404,
-            status_code=404,
-        )
+    try:
+        data = await s3_storage.get_object(skill.storage_key)
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            raise AppError(
+                detail="檔案不存在，請聯繫管理員",
+                response_code=404,
+                status_code=404,
+            )
+        raise
 
     # StreamingResponse / FileResponse 即將回傳前才 +1（且同 user 24h Redis dedup）
     await download_service.try_increment_download(
@@ -373,7 +440,7 @@ async def download_skill(
     )
 
     download_name = f"{os.path.splitext(skill.original_filename)[0]}.zip"
-    return file_path, download_name
+    return data, download_name
 
 
 async def get_file_tree(
@@ -383,18 +450,21 @@ async def get_file_tree(
     ensure_readable(skill, user_uid, role, NOT_FOUND_DETAIL)
     assert skill is not None
 
-    file_path = skill.file_path
-    if not Path(file_path).exists():
-        raise AppError(
-            detail="檔案不存在，請聯繫管理員",
-            response_code=404,
-            status_code=404,
-        )
+    try:
+        data = await s3_storage.get_object(skill.storage_key)
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            raise AppError(
+                detail="檔案不存在，請聯繫管理員",
+                response_code=404,
+                status_code=404,
+            )
+        raise
 
     tree: dict[str, FileTreeNode] = {}
 
     try:
-        with zipfile.ZipFile(file_path, "r") as zf:
+        with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
             for info in zf.infolist():
                 parts = info.filename.rstrip("/").split("/")
                 _build_tree(tree, parts, info.is_dir())
@@ -419,18 +489,21 @@ async def get_file_content(
     ensure_readable(skill, user_uid, role, NOT_FOUND_DETAIL)
     assert skill is not None
 
-    zip_path = skill.file_path
-    if not Path(zip_path).exists():
-        raise AppError(
-            detail="檔案不存在，請聯繫管理員",
-            response_code=404,
-            status_code=404,
-        )
+    try:
+        zip_bytes = await s3_storage.get_object(skill.storage_key)
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            raise AppError(
+                detail="檔案不存在，請聯繫管理員",
+                response_code=404,
+                status_code=404,
+            )
+        raise
 
     normalized = path.lstrip("/").replace("\\", "/")
 
     try:
-        with zipfile.ZipFile(zip_path, "r") as zf:
+        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
             try:
                 info = zf.getinfo(normalized)
             except KeyError:
@@ -642,12 +715,17 @@ async def reupload_skill(
         )
         zip_content = _build_zip(entries)
 
-    zip_path = Path(skill.file_path)
+    # zip bomb 偵測：reupload 同樣可能塞入惡意 zip
+    _check_zip_bomb(zip_content, max_size)
+
+    # 決策 #13：filename 變動 → 新 key put + 舊 key mark_deleted；
+    # filename 不變 → 同 key 覆蓋（bucket versioning 自動保留歷史）
+    base = os.path.splitext(os.path.basename(original_filename))[0] or skill.name
+    new_key = s3_storage.build_key("skills", skill_uid, f"{base}.zip")
+    old_key = skill.storage_key
+
     try:
-        zip_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = zip_path.with_suffix(zip_path.suffix + ".tmp")
-        tmp_path.write_bytes(zip_content)
-        os.replace(str(tmp_path), str(zip_path))
+        await s3_storage.put_object(new_key, zip_content, "application/zip")
     except Exception:
         logger.exception("檔案儲存失敗")
         raise AppError(
@@ -656,12 +734,18 @@ async def reupload_skill(
             status_code=500,
         )
 
-    # zip bomb 偵測：reupload 同樣可能塞入惡意 zip
-    _check_zip_bomb(zip_path, max_size)
+    if new_key != old_key:
+        try:
+            await s3_storage.mark_deleted(old_key)
+        except Exception:
+            logger.warning(
+                "舊 key mark_deleted 失敗 key=%s", old_key, exc_info=True
+            )
 
     await skill_repository.update_obj(
         skill,
         {
+            "storage_key": new_key,
             "original_filename": original_filename,
             "file_size": len(zip_content),
         },
@@ -674,16 +758,16 @@ async def reupload_skill(
 
 
 def _rebuild_zip_with_replacement(
-    zip_path: Path,
+    zip_bytes: bytes,
     target_path: str,
     new_content: bytes,
-) -> int:
-    """讀原 zip → 寫臨時 zip 時跳過目標檔 → 寫入新內容 → atomic rename。回傳新 file_size。"""
-    tmp_path = zip_path.with_suffix(zip_path.suffix + ".tmp")
+) -> bytes:
+    """讀原 zip bytes → 重建一份 zip bytes 並替換 target_path 內容。回傳新 zip bytes。"""
+    buf = io.BytesIO()
     try:
         found = False
-        with zipfile.ZipFile(zip_path, "r") as src, zipfile.ZipFile(
-            tmp_path, "w", zipfile.ZIP_DEFLATED
+        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as src, zipfile.ZipFile(
+            buf, "w", zipfile.ZIP_DEFLATED
         ) as dst:
             for info in src.infolist():
                 if info.filename == target_path and not info.is_dir():
@@ -697,27 +781,14 @@ def _rebuild_zip_with_replacement(
                     status_code=404,
                 )
             dst.writestr(target_path, new_content)
-    except AppError:
-        if tmp_path.exists():
-            try:
-                tmp_path.unlink()
-            except OSError:
-                pass
-        raise
     except zipfile.BadZipFile:
-        if tmp_path.exists():
-            try:
-                tmp_path.unlink()
-            except OSError:
-                pass
         raise AppError(
             detail="檔案格式損毀，無法讀取",
             response_code=500,
             status_code=500,
         )
 
-    os.replace(str(tmp_path), str(zip_path))
-    return zip_path.stat().st_size
+    return buf.getvalue()
 
 
 async def update_file_content(
@@ -761,17 +832,33 @@ async def update_file_content(
             status_code=400,
         )
 
-    zip_path = Path(skill.file_path)
-    if not zip_path.exists():
+    try:
+        zip_bytes = await s3_storage.get_object(skill.storage_key)
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            raise AppError(
+                detail="檔案不存在，請聯繫管理員",
+                response_code=404,
+                status_code=404,
+            )
+        raise
+
+    new_zip = _rebuild_zip_with_replacement(zip_bytes, normalized, encoded)
+
+    # 決策 #13：同 key 覆蓋（bucket versioning 自動保留歷史）
+    try:
+        await s3_storage.put_object(
+            skill.storage_key, new_zip, "application/zip"
+        )
+    except Exception:
+        logger.exception("檔案儲存失敗")
         raise AppError(
-            detail="檔案不存在，請聯繫管理員",
-            response_code=404,
-            status_code=404,
+            detail="檔案儲存失敗，請稍後再試",
+            response_code=500,
+            status_code=500,
         )
 
-    new_size = _rebuild_zip_with_replacement(zip_path, normalized, encoded)
-
-    await skill_repository.update_obj(skill, {"file_size": new_size}, db)
+    await skill_repository.update_obj(skill, {"file_size": len(new_zip)}, db)
 
     return {
         "file_path": normalized,

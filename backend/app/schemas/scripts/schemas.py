@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, field_validator
 
+from app.schemas.tags.schemas import TagSummary
+
 
 class ScriptUpdateRequest(BaseModel):
     name: str | None = None
@@ -43,5 +45,6 @@ class ScriptResponse(BaseModel):
     favorite_count: int = 0
     download_count: int = 0
     is_favorited: bool = False
+    tags: list[TagSummary] = []
     created_at: str
     updated_at: str

@@ -4,8 +4,11 @@ import React, { useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { TagInput } from "@/components/tags";
 import { useDialog } from "@/hooks/useDialog";
 import { useUploadSkillMutation } from "@/store/skillsApi";
+import { useSetEntityTagsMutation } from "@/store/tagsApi";
+import type { TagSummary } from "@/types";
 
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024;
 const BLOCKED_EXTENSIONS = [".exe"];
@@ -38,12 +41,15 @@ export default function SkillsUploadPage(): React.ReactNode {
   const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [tags, setTags] = useState<TagSummary[]>([]);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const [nameError, setNameError] = useState<string>("");
   const [descriptionError, setDescriptionError] = useState<string>("");
   const [fileError, setFileError] = useState<string>("");
 
   const [uploadSkill, { isLoading }] = useUploadSkillMutation();
+  const [setEntityTags, { isLoading: isSettingTags }] =
+    useSetEntityTagsMutation();
 
   const totalSize = useMemo(
     (): number => selectedFiles.reduce((sum, f) => sum + f.size, 0),
@@ -197,20 +203,47 @@ export default function SkillsUploadPage(): React.ReactNode {
       if (hasError) return;
 
       try {
-        await uploadSkill({
+        const created = await uploadSkill({
           name: name.trim(),
           description: description.trim(),
           files: selectedFiles,
         }).unwrap();
 
-        showDialog({
-          type: "info",
-          title: "上傳成功",
-          message: "Skill 已成功上傳。",
-          onConfirm: () => {
-            router.push("/skills");
-          },
-        });
+        let tagWarning: string | null = null;
+        if (tags.length > 0) {
+          try {
+            await setEntityTags({
+              entityType: "skill",
+              entityUid: created.skill_uid,
+              body: { names: tags.map((t) => t.name) },
+            }).unwrap();
+          } catch (err: unknown) {
+            tagWarning =
+              typeof err === "string"
+                ? err
+                : "Skill 已上傳成功，但標籤設定失敗，請至詳細頁手動補上。";
+          }
+        }
+
+        if (tagWarning) {
+          showDialog({
+            type: "error",
+            title: "標籤設定失敗",
+            message: tagWarning,
+            onConfirm: () => {
+              router.push("/skills");
+            },
+          });
+        } else {
+          showDialog({
+            type: "info",
+            title: "上傳成功",
+            message: "Skill 已成功上傳。",
+            onConfirm: () => {
+              router.push("/skills");
+            },
+          });
+        }
       } catch (err: unknown) {
         const message =
           typeof err === "string" ? err : "上傳失敗，請稍後再試";
@@ -221,7 +254,16 @@ export default function SkillsUploadPage(): React.ReactNode {
         });
       }
     },
-    [name, description, selectedFiles, uploadSkill, showDialog, router]
+    [
+      name,
+      description,
+      selectedFiles,
+      tags,
+      uploadSkill,
+      setEntityTags,
+      showDialog,
+      router,
+    ]
   );
 
   const summary = useMemo((): string => {
@@ -388,15 +430,29 @@ export default function SkillsUploadPage(): React.ReactNode {
             )}
           </div>
 
+          <div className="w-full">
+            <label className="mb-1.5 block text-base font-medium text-foreground">
+              標籤
+            </label>
+            <TagInput
+              value={tags}
+              onChange={setTags}
+              disabled={isLoading || isSettingTags}
+            />
+            <p className="mt-1 text-sm text-muted">
+              可自由輸入或從下拉建議中挑選，按 Enter 新增；標籤跨 Skill / Script / Agent 共用。
+            </p>
+          </div>
+
           <div className="flex justify-end gap-3">
             <Button
               variant="secondary"
               onClick={() => router.push("/skills")}
-              disabled={isLoading}
+              disabled={isLoading || isSettingTags}
             >
               取消
             </Button>
-            <Button type="submit" loading={isLoading}>
+            <Button type="submit" loading={isLoading || isSettingTags}>
               上傳
             </Button>
           </div>

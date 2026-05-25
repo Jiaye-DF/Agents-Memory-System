@@ -11,6 +11,7 @@ interface ListScriptsParams {
   cursor?: string | null;
   orderBy?: "favorite_count" | "download_count" | "created_at" | "updated_at";
   order?: "asc" | "desc";
+  tagUids?: string[];
 }
 
 interface ListPublicScriptsParams {
@@ -23,11 +24,12 @@ interface ListPublicScriptsParams {
 export const scriptsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listScripts: builder.query<PaginatedData<Script>, ListScriptsParams>({
-      query: ({ limit = 20, cursor, orderBy, order }) => {
+      query: ({ limit = 20, cursor, orderBy, order, tagUids }) => {
         const params: Record<string, string> = { limit: String(limit) };
         if (cursor) params.cursor = cursor;
         if (orderBy) params.order_by = orderBy;
         if (order) params.order = order;
+        if (tagUids && tagUids.length > 0) params.tag_uids = tagUids.join(",");
         return {
           method: "get",
           path: "/scripts",

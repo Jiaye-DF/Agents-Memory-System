@@ -1,3 +1,5 @@
+import type { TagSummary } from "./tags";
+
 export interface Skill {
   skill_uid: string;
   owner_user_uid: string;
@@ -11,6 +13,7 @@ export interface Skill {
   favorite_count: number;
   download_count: number;
   is_favorited: boolean;
+  tags?: TagSummary[];
   created_at: string;
   updated_at: string;
 }

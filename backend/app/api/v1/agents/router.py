@@ -18,6 +18,7 @@ from app.schemas.agentic.skill_suggestion_schemas import (
 from app.schemas.common import VisibilityRequest
 from app.schemas.auth.schemas import TokenPayload
 from app.schemas.response import ApiResponse, MessageData, PaginatedData
+from app.schemas.tags.schemas import EntityTagsRequest
 from app.services import (
     agent_service,
     agentic_skill_suggestion_service,
@@ -25,6 +26,13 @@ from app.services import (
 )
 
 router = APIRouter(prefix="/agents", tags=["agents"])
+
+
+def _parse_tag_uids(raw: str | None) -> list[str] | None:
+    if not raw:
+        return None
+    parsed = [u.strip() for u in raw.split(",") if u.strip()]
+    return parsed or None
 
 
 @router.get("", response_model=ApiResponse[PaginatedData[AgentResponse]])
@@ -45,10 +53,20 @@ async def list_agents(
         description="排序方向：desc（預設）/ asc；僅在有指定 order_by 時生效",
         pattern="^(asc|desc)$",
     ),
+    tag_uids: str | None = Query(
+        None,
+        description="逗號分隔的 tag_uid；AND 過濾（同時含所有 tag）",
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     result = await agent_service.list_agents(
-        current_user.user_uid, cursor, limit, db, order_by=order_by, order=order
+        current_user.user_uid,
+        cursor,
+        limit,
+        db,
+        order_by=order_by,
+        order=order,
+        tag_uids=_parse_tag_uids(tag_uids),
     )
     return success(data=result)
 
@@ -100,6 +118,22 @@ async def delete_agent(
         agent_uid, current_user.user_uid, current_user.role, db
     )
     return success(data={"message": "Agent 已刪除"})
+
+
+@router.put(
+    "/{agent_uid}/tags",
+    response_model=ApiResponse[AgentResponse],
+)
+async def set_agent_tags(
+    agent_uid: str,
+    data: EntityTagsRequest,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await agent_service.set_tags(
+        agent_uid, current_user.user_uid, current_user.role, data, db
+    )
+    return success(data=result)
 
 
 @router.patch(

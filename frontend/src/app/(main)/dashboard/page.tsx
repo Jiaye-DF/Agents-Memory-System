@@ -12,6 +12,7 @@ import { FilterChip } from "@/components/ui/FilterChip";
 import { RankingPanel } from "@/components/dashboard/RankingPanel";
 import { SocialMetrics } from "@/components/social/SocialMetrics";
 import { FavoriteButton } from "@/components/social/FavoriteButton";
+import { TagList } from "@/components/tags";
 import {
   parseSearch,
   matchByTextAndAuthor,
@@ -113,6 +114,11 @@ const AgentRow = React.memo(function AgentRow({
             {agent.description}
           </p>
         )}
+        {agent.tags && agent.tags.length > 0 && (
+          <div className="mt-1">
+            <TagList tags={agent.tags} />
+          </div>
+        )}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-3 text-sm text-muted md:ml-auto">
         {languageLabel && <span>語言：{languageLabel}</span>}
@@ -154,6 +160,11 @@ const SkillRow = React.memo(function SkillRow({
         <p className="mt-1 line-clamp-1 text-base text-muted">
           {skill.description}
         </p>
+        {skill.tags && skill.tags.length > 0 && (
+          <div className="mt-1">
+            <TagList tags={skill.tags} />
+          </div>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-3 text-sm text-muted md:ml-auto">
         <SocialMetrics
@@ -195,6 +206,11 @@ const ScriptRow = React.memo(function ScriptRow({
             {script.description}
           </p>
         )}
+        {script.tags && script.tags.length > 0 && (
+          <div className="mt-1">
+            <TagList tags={script.tags} />
+          </div>
+        )}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-3 text-sm text-muted md:ml-auto">
         <span className="truncate">{script.file_name}</span>
@@ -214,10 +230,12 @@ const ScriptRow = React.memo(function ScriptRow({
 });
 
 export default function DashboardPage(): React.ReactNode {
-  const [activeTab, setActiveTab] = useState<TabKey>("agents");
+  const [activeTab, setActiveTab] = useState<TabKey>("skills");
   const [query, setQuery] = useState<string>("");
   // chip 選的作者用獨立 state（避免含空白的 username 塞進 query 後被 \s+ 切壞）
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
+  // 公開市集的 tag filter：跨 user 用 tag name (lowercase) 識別；AND 邏輯
+  const [selectedTagNames, setSelectedTagNames] = useState<string[]>([]);
   // §2-5：三頁籤共用 sort state；切換類型保留選擇；重新進頁面預設回「最新」
   const [sort, setSort] = useState<SortState>({
     orderBy: "created_at",
@@ -283,26 +301,56 @@ export default function DashboardPage(): React.ReactNode {
     [selectedAuthors]
   );
 
+  const matchByTags = useCallback(
+    (tags: { name: string }[] | undefined): boolean => {
+      if (selectedTagNames.length === 0) return true;
+      const have = new Set((tags ?? []).map((t) => t.name.toLowerCase()));
+      return selectedTagNames.every((name) => have.has(name));
+    },
+    [selectedTagNames]
+  );
+
   const filteredAgents = useMemo(
     (): Agent[] =>
-      publicAgents.filter((a) =>
-        matchByTextAndAuthor(a.name, a.description, a.owner_username, parsed, selectedAuthorsLower)
+      publicAgents.filter(
+        (a) =>
+          matchByTextAndAuthor(
+            a.name,
+            a.description,
+            a.owner_username,
+            parsed,
+            selectedAuthorsLower
+          ) && matchByTags(a.tags)
       ),
-    [publicAgents, parsed, selectedAuthorsLower]
+    [publicAgents, parsed, selectedAuthorsLower, matchByTags]
   );
   const filteredSkills = useMemo(
     (): Skill[] =>
-      publicSkills.filter((s) =>
-        matchByTextAndAuthor(s.name, s.description, s.owner_username, parsed, selectedAuthorsLower)
+      publicSkills.filter(
+        (s) =>
+          matchByTextAndAuthor(
+            s.name,
+            s.description,
+            s.owner_username,
+            parsed,
+            selectedAuthorsLower
+          ) && matchByTags(s.tags)
       ),
-    [publicSkills, parsed, selectedAuthorsLower]
+    [publicSkills, parsed, selectedAuthorsLower, matchByTags]
   );
   const filteredScripts = useMemo(
     (): Script[] =>
-      publicScripts.filter((s) =>
-        matchByTextAndAuthor(s.name, s.description, s.owner_username, parsed, selectedAuthorsLower)
+      publicScripts.filter(
+        (s) =>
+          matchByTextAndAuthor(
+            s.name,
+            s.description,
+            s.owner_username,
+            parsed,
+            selectedAuthorsLower
+          ) && matchByTags(s.tags)
       ),
-    [publicScripts, parsed, selectedAuthorsLower]
+    [publicScripts, parsed, selectedAuthorsLower, matchByTags]
   );
 
   const currentAuthors = useMemo((): string[] => {
@@ -317,6 +365,24 @@ export default function DashboardPage(): React.ReactNode {
     return Array.from(set).sort();
   }, [activeTab, publicAgents, publicSkills, publicScripts]);
 
+  // 公開市集跨 user 共用 tag 池：以 lowercase name 去重，顯示用首次出現的原樣 name
+  const currentTags = useMemo((): { name: string; display: string }[] => {
+    let items: { tags?: { tag_uid: string; name: string }[] }[] = [];
+    if (activeTab === "agents") items = publicAgents;
+    else if (activeTab === "skills") items = publicSkills;
+    else items = publicScripts;
+    const seen = new Map<string, string>();
+    for (const it of items) {
+      for (const t of it.tags ?? []) {
+        const lower = t.name.toLowerCase();
+        if (!seen.has(lower)) seen.set(lower, t.name);
+      }
+    }
+    return Array.from(seen.entries())
+      .map(([name, display]) => ({ name, display }))
+      .sort((a, b) => a.display.localeCompare(b.display));
+  }, [activeTab, publicAgents, publicSkills, publicScripts]);
+
   const handleQueryChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
       setQuery(e.target.value);
@@ -326,6 +392,14 @@ export default function DashboardPage(): React.ReactNode {
 
   const handleToggleAuthor = useCallback((author: string): void => {
     setSelectedAuthors((prev) => toggleAuthorChip(prev, author));
+  }, []);
+
+  const handleToggleTag = useCallback((lowerName: string): void => {
+    setSelectedTagNames((prev) =>
+      prev.includes(lowerName)
+        ? prev.filter((n) => n !== lowerName)
+        : [...prev, lowerName]
+    );
   }, []);
 
   const handleTabChange = useCallback((tab: TabKey): void => {
@@ -376,16 +450,16 @@ export default function DashboardPage(): React.ReactNode {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-1 border-b border-border">
         <TabButton
-          active={activeTab === "agents"}
-          onClick={() => handleTabChange("agents")}
-        >
-          公開 Agents ({publicAgents.length})
-        </TabButton>
-        <TabButton
           active={activeTab === "skills"}
           onClick={() => handleTabChange("skills")}
         >
           公開 Skills ({publicSkills.length})
+        </TabButton>
+        <TabButton
+          active={activeTab === "agents"}
+          onClick={() => handleTabChange("agents")}
+        >
+          公開 Agents ({publicAgents.length})
         </TabButton>
         <TabButton
           active={activeTab === "scripts"}
@@ -443,6 +517,38 @@ export default function DashboardPage(): React.ReactNode {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {currentTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="shrink-0 text-sm text-muted">標籤：</span>
+          {currentTags.map((t) => {
+            const isSelected = selectedTagNames.includes(t.name);
+            return (
+              <button
+                key={t.name}
+                type="button"
+                onClick={() => handleToggleTag(t.name)}
+                className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors hover:cursor-pointer ${
+                  isSelected
+                    ? "bg-primary text-white"
+                    : "bg-muted-bg text-muted hover:bg-border"
+                }`}
+              >
+                {t.display}
+              </button>
+            );
+          })}
+          {selectedTagNames.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedTagNames([])}
+              className="ml-1 text-xs text-muted hover:cursor-pointer hover:text-foreground hover:underline"
+            >
+              清除
+            </button>
+          )}
         </div>
       )}
 

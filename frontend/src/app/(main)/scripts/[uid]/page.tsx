@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Loading";
 import { SocialMetrics } from "@/components/social/SocialMetrics";
 import { FavoriteButton } from "@/components/social/FavoriteButton";
+import { TagsCard } from "@/components/tags";
 import { useAuth } from "@/hooks/useAuth";
 import { useDialog } from "@/hooks/useDialog";
 import {
@@ -198,6 +199,13 @@ export default function ScriptDetailPage(): React.ReactNode {
             </div>
           </div>
         </div>
+
+        <TagsCard
+          entityType="script"
+          entityUid={script.script_uid}
+          initialTags={script.tags ?? []}
+          canEdit={isOwner}
+        />
       </div>
     </div>
   );

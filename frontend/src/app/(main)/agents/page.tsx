@@ -10,6 +10,7 @@ import { FilterNav } from "@/components/social/FilterNav";
 import { SocialMetrics } from "@/components/social/SocialMetrics";
 import { FavoriteButton } from "@/components/social/FavoriteButton";
 import { TombstoneCard } from "@/components/social/TombstoneCard";
+import { TagFilterBar, TagList } from "@/components/tags";
 import { useAuth } from "@/hooks/useAuth";
 import { useDialog } from "@/hooks/useDialog";
 import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
@@ -97,6 +98,12 @@ const AgentRow = React.memo(function AgentRow({
           </p>
         ) : (
           <p className="mt-1 text-base text-muted italic">尚無描述</p>
+        )}
+
+        {agent.tags && agent.tags.length > 0 && (
+          <div className="mt-1">
+            <TagList tags={agent.tags} />
+          </div>
         )}
 
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
@@ -211,9 +218,10 @@ export default function AgentsPage(): React.ReactNode {
   const [visibilityFilter, setVisibilityFilter] =
     useState<VisibilityFilter>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
+  const [tagUids, setTagUids] = useState<string[]>([]);
 
   const { data, isLoading, isFetching } = useListAgentsQuery(
-    { limit: 50, cursor: null },
+    { limit: 50, cursor: null, tagUids: tagUids.length > 0 ? tagUids : undefined },
     { skip: scope === "favorites" }
   );
   const {
@@ -385,64 +393,68 @@ export default function AgentsPage(): React.ReactNode {
             onChange={handleQueryChange}
           />
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="shrink-0 text-sm text-muted">可見性：</span>
-            <FilterChip
-              active={visibilityFilter === "all"}
-              onClick={() => setVisibilityFilter("all")}
-            >
-              全部
-            </FilterChip>
-            <FilterChip
-              active={visibilityFilter === "public"}
-              onClick={() => setVisibilityFilter("public")}
-            >
-              公開
-            </FilterChip>
-            <FilterChip
-              active={visibilityFilter === "private"}
-              onClick={() => setVisibilityFilter("private")}
-            >
-              私人
-            </FilterChip>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="shrink-0 text-sm text-muted">按時間：</span>
-            <FilterChip
-              active={sortOrder === "newest"}
-              onClick={() => setSortOrder("newest")}
-            >
-              由新到舊
-            </FilterChip>
-            <FilterChip
-              active={sortOrder === "oldest"}
-              onClick={() => setSortOrder("oldest")}
-            >
-              由舊到新
-            </FilterChip>
-          </div>
-
-          {authorOptions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="shrink-0 text-sm text-muted">作者：</span>
-              {authorOptions.map((author) => {
-                const lower = author.toLowerCase();
-                const isSelected =
-                  parsed.authors.includes(lower) ||
-                  selectedAuthors.some((a) => a.toLowerCase() === lower);
-                return (
-                  <FilterChip
-                    key={author}
-                    active={isSelected}
-                    onClick={() => handleToggleAuthor(author)}
-                  >
-                    @{author}
-                  </FilterChip>
-                );
-              })}
+              <span className="shrink-0 text-sm text-muted">可見性：</span>
+              <FilterChip
+                active={visibilityFilter === "all"}
+                onClick={() => setVisibilityFilter("all")}
+              >
+                全部
+              </FilterChip>
+              <FilterChip
+                active={visibilityFilter === "public"}
+                onClick={() => setVisibilityFilter("public")}
+              >
+                公開
+              </FilterChip>
+              <FilterChip
+                active={visibilityFilter === "private"}
+                onClick={() => setVisibilityFilter("private")}
+              >
+                私人
+              </FilterChip>
             </div>
-          )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="shrink-0 text-sm text-muted">按時間：</span>
+              <FilterChip
+                active={sortOrder === "newest"}
+                onClick={() => setSortOrder("newest")}
+              >
+                由新到舊
+              </FilterChip>
+              <FilterChip
+                active={sortOrder === "oldest"}
+                onClick={() => setSortOrder("oldest")}
+              >
+                由舊到新
+              </FilterChip>
+            </div>
+
+            {authorOptions.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="shrink-0 text-sm text-muted">作者：</span>
+                {authorOptions.map((author) => {
+                  const lower = author.toLowerCase();
+                  const isSelected =
+                    parsed.authors.includes(lower) ||
+                    selectedAuthors.some((a) => a.toLowerCase() === lower);
+                  return (
+                    <FilterChip
+                      key={author}
+                      active={isSelected}
+                      onClick={() => handleToggleAuthor(author)}
+                    >
+                      @{author}
+                    </FilterChip>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <TagFilterBar selectedUids={tagUids} onChange={setTagUids} />
         </div>
       )}
 

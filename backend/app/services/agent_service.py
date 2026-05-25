@@ -8,18 +8,23 @@ from app.models.agent import Agent
 from app.repositories import (
     agent_language_repository,
     agent_repository,
+    entity_tag_repository,
     user_favorite_repository,
 )
 from app.schemas.agents.schemas import AgentCreateRequest, AgentUpdateRequest
 from app.schemas.common import VisibilityRequest
-from app.services import download_service, system_setting_service
+from app.schemas.tags.schemas import EntityTagsRequest
+from app.services import download_service, system_setting_service, tag_service
 
 DEFAULT_MAX_SKILLS = 10
 NOT_FOUND_DETAIL = "找不到指定的 Agent"
 
 
 def _agent_to_dict(
-    agent: Agent, skills: list[dict], is_favorited: bool = False
+    agent: Agent,
+    skills: list[dict],
+    is_favorited: bool = False,
+    tags: list[dict] | None = None,
 ) -> dict:
     return {
         "agent_uid": str(agent.agent_uid),
@@ -44,6 +49,7 @@ def _agent_to_dict(
         "favorite_count": agent.favorite_count,
         "download_count": agent.download_count,
         "is_favorited": is_favorited,
+        "tags": tags or [],
         "created_at": to_taipei_iso(agent.created_at),
         "updated_at": to_taipei_iso(agent.updated_at),
     }
@@ -125,7 +131,15 @@ async def get_agent(
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "agent", [agent_uid], db
     )
-    return _agent_to_dict(agent, skills, is_favorited=agent_uid in favorited)
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "agent", [agent_uid], db
+    )
+    return _agent_to_dict(
+        agent,
+        skills,
+        is_favorited=agent_uid in favorited,
+        tags=tag_map.get(agent_uid, []),
+    )
 
 
 async def list_agents(
@@ -135,8 +149,12 @@ async def list_agents(
     db: AsyncSession,
     order_by: str | None = None,
     order: str = "desc",
+    tag_uids: list[str] | None = None,
 ) -> dict:
     base_stmt = agent_repository.stmt_visible_to_user(user_uid)
+    base_stmt = entity_tag_repository.apply_tag_filter(
+        base_stmt, "agent", Agent.agent_uid, tag_uids
+    )
 
     if order_by is not None:
         try:
@@ -161,6 +179,9 @@ async def list_agents(
     favorited_set = await user_favorite_repository.is_favorited_bulk(
         user_uid, "agent", item_uids, db
     )
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "agent", item_uids, db
+    )
 
     return {
         "items": [
@@ -168,6 +189,7 @@ async def list_agents(
                 a,
                 skills_map.get(str(a.agent_uid), []),
                 is_favorited=str(a.agent_uid) in favorited_set,
+                tags=tag_map.get(str(a.agent_uid), []),
             )
             for a in page.items
         ],
@@ -228,8 +250,47 @@ async def update_agent(
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "agent", [agent_uid], db
     )
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "agent", [agent_uid], db
+    )
     return _agent_to_dict(
-        agent, skills, is_favorited=agent_uid in favorited
+        agent,
+        skills,
+        is_favorited=agent_uid in favorited,
+        tags=tag_map.get(agent_uid, []),
+    )
+
+
+async def set_tags(
+    agent_uid: str,
+    user_uid: str,
+    role: str,
+    data: EntityTagsRequest,
+    db: AsyncSession,
+) -> dict:
+    agent = await agent_repository.get_by_uid(agent_uid, db)
+    ensure_modifiable(agent, user_uid, role, NOT_FOUND_DETAIL)
+    assert agent is not None
+
+    target_uids = await tag_service.resolve_tag_uids(
+        user_uid, data.names, data.tag_uids, db
+    )
+    await entity_tag_repository.set_entity_tags(
+        "agent", agent_uid, target_uids, db
+    )
+
+    skills = await agent_repository.get_skills_summary(agent_uid, db)
+    favorited = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "agent", [agent_uid], db
+    )
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "agent", [agent_uid], db
+    )
+    return _agent_to_dict(
+        agent,
+        skills,
+        is_favorited=agent_uid in favorited,
+        tags=tag_map.get(agent_uid, []),
     )
 
 
