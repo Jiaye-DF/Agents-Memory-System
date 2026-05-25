@@ -227,14 +227,14 @@ export function ScriptUploadDialog({
             tagWarning =
               typeof err === "string"
                 ? err
-                : "Script 已上傳成功，但 tag 設定失敗，請至詳細頁手動補上。";
+                : "Script 已上傳成功，但標籤設定失敗，請至詳細頁手動補上。";
           }
         }
 
         if (tagWarning) {
           showDialog({
             type: "error",
-            title: "Tag 設定失敗",
+            title: "標籤設定失敗",
             message: tagWarning,
             onConfirm: () => {
               onClose();

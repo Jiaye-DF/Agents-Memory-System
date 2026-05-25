@@ -45,7 +45,7 @@ export const TagFilterBar = React.memo(function TagFilterBar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="shrink-0 text-sm text-muted">Tag：</span>
+      <span className="shrink-0 text-sm text-muted">標籤：</span>
       {visibleItems.map((t) => {
         const active = selectedUids.includes(t.tag_uid);
         return (
@@ -75,9 +75,6 @@ export const TagFilterBar = React.memo(function TagFilterBar({
         >
           清除
         </button>
-      )}
-      {selectedUids.length > 1 && (
-        <span className="text-xs text-muted">（AND 過濾）</span>
       )}
     </div>
   );

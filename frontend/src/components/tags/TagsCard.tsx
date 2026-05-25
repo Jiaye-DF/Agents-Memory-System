@@ -61,7 +61,7 @@ export const TagsCard = React.memo(function TagsCard({
       setEditing(false);
     } catch (err: unknown) {
       const message =
-        typeof err === "string" ? err : "Tag 更新失敗，請稍後再試";
+        typeof err === "string" ? err : "標籤更新失敗，請稍後再試";
       showDialog({ type: "error", title: "更新失敗", message });
     }
   }, [draft, entityType, entityUid, setEntityTags, showDialog]);

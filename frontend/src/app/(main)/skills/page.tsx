@@ -377,64 +377,66 @@ export default function SkillsListPage(): React.ReactNode {
             onChange={handleQueryChange}
           />
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="shrink-0 text-sm text-muted">可見性：</span>
-            <FilterChip
-              active={visibilityFilter === "all"}
-              onClick={() => setVisibilityFilter("all")}
-            >
-              全部
-            </FilterChip>
-            <FilterChip
-              active={visibilityFilter === "public"}
-              onClick={() => setVisibilityFilter("public")}
-            >
-              公開
-            </FilterChip>
-            <FilterChip
-              active={visibilityFilter === "private"}
-              onClick={() => setVisibilityFilter("private")}
-            >
-              私人
-            </FilterChip>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="shrink-0 text-sm text-muted">按時間：</span>
-            <FilterChip
-              active={sortOrder === "newest"}
-              onClick={() => setSortOrder("newest")}
-            >
-              由新到舊
-            </FilterChip>
-            <FilterChip
-              active={sortOrder === "oldest"}
-              onClick={() => setSortOrder("oldest")}
-            >
-              由舊到新
-            </FilterChip>
-          </div>
-
-          {authorOptions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="shrink-0 text-sm text-muted">作者：</span>
-              {authorOptions.map((author) => {
-                const lower = author.toLowerCase();
-                const isSelected =
-                  parsed.authors.includes(lower) ||
-                  selectedAuthors.some((a) => a.toLowerCase() === lower);
-                return (
-                  <FilterChip
-                    key={author}
-                    active={isSelected}
-                    onClick={() => handleToggleAuthor(author)}
-                  >
-                    @{author}
-                  </FilterChip>
-                );
-              })}
+              <span className="shrink-0 text-sm text-muted">可見性：</span>
+              <FilterChip
+                active={visibilityFilter === "all"}
+                onClick={() => setVisibilityFilter("all")}
+              >
+                全部
+              </FilterChip>
+              <FilterChip
+                active={visibilityFilter === "public"}
+                onClick={() => setVisibilityFilter("public")}
+              >
+                公開
+              </FilterChip>
+              <FilterChip
+                active={visibilityFilter === "private"}
+                onClick={() => setVisibilityFilter("private")}
+              >
+                私人
+              </FilterChip>
             </div>
-          )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="shrink-0 text-sm text-muted">按時間：</span>
+              <FilterChip
+                active={sortOrder === "newest"}
+                onClick={() => setSortOrder("newest")}
+              >
+                由新到舊
+              </FilterChip>
+              <FilterChip
+                active={sortOrder === "oldest"}
+                onClick={() => setSortOrder("oldest")}
+              >
+                由舊到新
+              </FilterChip>
+            </div>
+
+            {authorOptions.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="shrink-0 text-sm text-muted">作者：</span>
+                {authorOptions.map((author) => {
+                  const lower = author.toLowerCase();
+                  const isSelected =
+                    parsed.authors.includes(lower) ||
+                    selectedAuthors.some((a) => a.toLowerCase() === lower);
+                  return (
+                    <FilterChip
+                      key={author}
+                      active={isSelected}
+                      onClick={() => handleToggleAuthor(author)}
+                    >
+                      @{author}
+                    </FilterChip>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <TagFilterBar selectedUids={tagUids} onChange={setTagUids} />
         </div>

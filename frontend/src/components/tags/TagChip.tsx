@@ -51,7 +51,7 @@ export const TagChip = React.memo(function TagChip({
       {onRemove && (
         <button
           type="button"
-          aria-label={`移除 tag ${name}`}
+          aria-label={`移除標籤 ${name}`}
           onClick={(e) => {
             e.stopPropagation();
             onRemove();

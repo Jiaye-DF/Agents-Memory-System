@@ -652,7 +652,7 @@ export function AgentForm({
               tagWarning =
                 typeof err === "string"
                   ? err
-                  : "Agent 已建立成功，但 tag 設定失敗，請至詳細頁手動補上。";
+                  : "Agent 已建立成功，但標籤設定失敗，請至詳細頁手動補上。";
             }
           }
 
@@ -661,7 +661,7 @@ export function AgentForm({
           if (tagWarning) {
             showDialog({
               type: "error",
-              title: "Tag 設定失敗",
+              title: "標籤設定失敗",
               message: tagWarning,
               onConfirm: () => {
                 router.push("/agents");

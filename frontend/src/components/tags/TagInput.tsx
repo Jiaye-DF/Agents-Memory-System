@@ -24,7 +24,7 @@ interface TagInputProps {
 export const TagInput = React.memo(function TagInput({
   value,
   onChange,
-  placeholder = "輸入 tag 後按 Enter，例：資料分析",
+  placeholder = "輸入標籤後按 Enter，例：資料分析",
   disabled = false,
   maxTags = 20,
 }: TagInputProps): React.ReactNode {
@@ -156,7 +156,7 @@ export const TagInput = React.memo(function TagInput({
 
       {value.length >= maxTags && (
         <p className="mt-1 text-xs text-muted">
-          已達上限 {maxTags} 個 tag
+          已達上限 {maxTags} 個標籤
         </p>
       )}
     </div>
