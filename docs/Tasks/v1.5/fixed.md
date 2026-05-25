@@ -68,3 +68,55 @@ S3_BUCKET: ${S3_BUCKET:-}
 **驗證方式**：`docker compose -f docker-compose.dev.yml exec -T backend python -c "from app.core.config import settings; print(settings.S3_BUCKET)"` 應該印出 `agents-platform-dev-datas`（或當下 `.env` 的值），不再是空字串。
 
 **殘留 / 後續**：正式環境部署在 Coolify，env passthrough 由 Coolify 介面而非 compose 控制，須使用者自行確認 v1.5 部署前已在 Coolify 的 Environment Variables 頁面新增上述 4 鍵（test / prod 兩組獨立 IAM User + bucket）。
+
+— **更正**：本段「殘留 / 後續」當時的判斷誤——Coolify 雖然在 UI 設定 env，但 deploy 時仍是用 `docker-compose.yml` 這個 base compose 檔，env 必須透過 compose 的 `${KEY}` 映射才會跨入 container，並不是 Coolify 直接 inject。後續實際在 prod backend container 內跑 `python -m scripts.migrate_storage_to_s3` 時依然炸 `S3 憑證或 bucket 未設定`，由 §3 接續修復。
+
+---
+
+## 3. docker-compose.yml（正式環境）未掛載 AWS 環境變數 + migrate_storage_to_s3 fail 後 MissingGreenlet  〔2026-05-25 16:33:08〕
+
+**問題**：兩個串連的問題：
+
+**(a)** v1.5.0 在 §2 已補了 `docker-compose.dev.yml` 的 AWS env passthrough，但**正式環境用的 `docker-compose.yml`** 沒同步補上。Coolify 部署底層仍是用 `docker-compose.yml`，env 必須透過 compose 的 `${KEY}` explicit 映射才會跨入 container（§2「殘留 / 後續」當時誤判 Coolify 會繞過 compose）。實際在 prod backend container 內跑 migration script 噴：
+
+```text
+[FAIL] skill 88c98db8-0287-4bff-b581-0e6a6dd9e910: RuntimeError: S3 憑證或 bucket 未設定
+```
+
+**(b)** Migration script `_migrate_domain` 在單筆 fail → `await session.rollback()` 後，下一輪迴圈 `for row in rows:` 第一行 `uid = getattr(row, uid_attr)` 觸發了 SQLAlchemy 對該 row 的 lazy load（rollback 會把 session 內 attached objects 都 expire），但因現在不在 greenlet 上下文，直接炸：
+
+```text
+sqlalchemy.exc.MissingGreenlet: greenlet_spawn has not been called; can't call await_only() here.
+```
+
+導致 script 整個 abort，連 `failed_uids.txt` 與彙總都沒寫，第 1 筆失敗就連帶把後面所有筆遺失追蹤訊息。
+
+根因：
+- (a) §2 修 compose 時只盯著 dev 檔，沒檢查 prod 檔；同時對 Coolify 的 deploy 機制誤判
+- (b) script 採用單一 session + 全部 row 都 attached 的設計，rollback 的副作用未隔離；應該讓 fetched rows 一律與 session 解綁，更新時用 `merge()` 把單筆 reattach、commit 後立刻 `expunge`，這樣任何一筆的 rollback 不會污染其他 row
+
+**修正**：
+
+1. `docker-compose.yml` backend service `environment:` 區段補 4 行（與 `docker-compose.dev.yml` 對齊）：
+
+```yaml
+AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+AWS_REGION: ${AWS_REGION:-ap-northeast-1}
+S3_BUCKET: ${S3_BUCKET:-}
+```
+
+2. `backend/scripts/migrate_storage_to_s3.py:_migrate_domain`：拿到 `rows = list(result.scalars().all())` 後立刻 `session.expunge_all()` 讓 rows 跟 session 解綁；更新單筆時用 `merged = await session.merge(row)` reattach、寫入 `merged.storage_key = new_key`、`await session.commit()`、立刻 `session.expunge(merged)`。這樣任何一筆失敗的 rollback 不會擴散到其他 row 的屬性存取。
+
+**影響檔案**：
+
+- `docker-compose.yml`
+- `backend/scripts/migrate_storage_to_s3.py`
+
+**驗證方式**：
+- (a) 重 deploy 後在 backend container 內 `python -c "from app.core.config import settings; print(settings.S3_BUCKET)"` 應印出 bucket 名（非空字串）。
+- (b) 在 dev 內故意造一筆 `storage_key` 不存在的記錄 + 一筆正常記錄，跑 `python -m scripts.migrate_storage_to_s3`，預期：失敗筆走 [FAIL] 寫進 `failed_uids.txt`、正常筆走 [OK] 完成，**整個 script 跑完印出彙總**，不再 traceback。
+
+**殘留 / 後續**：
+- 之後 task spec 涉及新增 settings 鍵時，影響範圍清單應同步要求檢查 `docker-compose.yml` **與** `docker-compose.dev.yml` 兩個 compose 的 `environment:` 區段（本專案 explicit passthrough 風格）。
+- §2 對 Coolify deploy 機制的誤判已在本條更正，未來其他「正式環境 env 設定」需求請以 `docker-compose.yml` 為 source of truth，Coolify UI 設定的 `.env` 必須透過 compose 映射才會跨入 container。
