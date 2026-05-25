@@ -2,8 +2,8 @@
 .env
 .env.local
 .env.*.local
-.env.coolify
-*.env.coolify
+.env.production
+.env.test
 
 # Python
 __pycache__/
