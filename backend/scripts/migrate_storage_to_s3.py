@@ -103,9 +103,11 @@ async def _migrate_domain(
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(model))
-        rows = result.scalars().all()
+        rows = list(result.scalars().all())
         if limit is not None:
             rows = rows[:limit]
+        # 讓 rows 與 session 解綁；後續若單筆 rollback 不會 expire 其他 row 觸發 lazy load
+        session.expunge_all()
 
         for row in rows:
             uid = getattr(row, uid_attr)
@@ -134,8 +136,11 @@ async def _migrate_domain(
                     await s3_storage.put_object(new_key, content, mime)
                     if row.is_deleted:
                         await s3_storage.mark_deleted(new_key)
-                    row.storage_key = new_key
+                    merged = await session.merge(row)
+                    merged.storage_key = new_key
                     await session.commit()
+                    # commit 完立刻 detach，避免下一筆若 rollback 連帶 expire 這筆
+                    session.expunge(merged)
 
                 counters["ok"] += 1
                 print(f"[OK] {domain[:-1]} {uid_str} → {new_key}")
