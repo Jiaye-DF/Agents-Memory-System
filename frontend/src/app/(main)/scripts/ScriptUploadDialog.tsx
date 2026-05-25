@@ -5,8 +5,11 @@ import { ModalDialog } from "@/components/ui/ModalDialog";
 import { Button } from "@/components/ui/Button";
 import { FilterChip } from "@/components/ui/FilterChip";
 import { Input } from "@/components/ui/Input";
+import { TagInput } from "@/components/tags";
 import { useDialog } from "@/hooks/useDialog";
 import { useCreateScriptMutation } from "@/store/scriptsApi";
+import { useSetEntityTagsMutation } from "@/store/tagsApi";
+import type { TagSummary } from "@/types";
 
 interface ScriptUploadDialogProps {
   onClose: () => void;
@@ -62,11 +65,14 @@ export function ScriptUploadDialog({
   const [description, setDescription] = useState<string>("");
   const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [tags, setTags] = useState<TagSummary[]>([]);
   const [nameError, setNameError] = useState<string>("");
   const [descriptionError, setDescriptionError] = useState<string>("");
   const [fileError, setFileError] = useState<string>("");
 
   const [createScript, { isLoading }] = useCreateScriptMutation();
+  const [setEntityTags, { isLoading: isSettingTags }] =
+    useSetEntityTagsMutation();
 
   const totalSize = useMemo(
     (): number => selectedFiles.reduce((sum, f) => sum + f.size, 0),
@@ -201,7 +207,7 @@ export function ScriptUploadDialog({
       if (hasError) return;
 
       try {
-        await createScript({
+        const created = await createScript({
           name: name.trim(),
           description: description.trim(),
           visibility,
@@ -209,14 +215,41 @@ export function ScriptUploadDialog({
           relativePaths: selectedFiles.map((f) => getRelativePath(f)),
         }).unwrap();
 
-        showDialog({
-          type: "info",
-          title: "上傳成功",
-          message: "Script 已成功上傳。",
-          onConfirm: () => {
-            onClose();
-          },
-        });
+        let tagWarning: string | null = null;
+        if (tags.length > 0) {
+          try {
+            await setEntityTags({
+              entityType: "script",
+              entityUid: created.script_uid,
+              body: { names: tags.map((t) => t.name) },
+            }).unwrap();
+          } catch (err: unknown) {
+            tagWarning =
+              typeof err === "string"
+                ? err
+                : "Script 已上傳成功，但 tag 設定失敗，請至詳細頁手動補上。";
+          }
+        }
+
+        if (tagWarning) {
+          showDialog({
+            type: "error",
+            title: "Tag 設定失敗",
+            message: tagWarning,
+            onConfirm: () => {
+              onClose();
+            },
+          });
+        } else {
+          showDialog({
+            type: "info",
+            title: "上傳成功",
+            message: "Script 已成功上傳。",
+            onConfirm: () => {
+              onClose();
+            },
+          });
+        }
       } catch (err: unknown) {
         const message =
           typeof err === "string" ? err : "上傳失敗，請稍後再試";
@@ -227,7 +260,17 @@ export function ScriptUploadDialog({
         });
       }
     },
-    [name, description, visibility, selectedFiles, createScript, showDialog, onClose]
+    [
+      name,
+      description,
+      visibility,
+      selectedFiles,
+      tags,
+      createScript,
+      setEntityTags,
+      showDialog,
+      onClose,
+    ]
   );
 
   const summary = useMemo((): string => {
@@ -399,16 +442,30 @@ export function ScriptUploadDialog({
           </FilterChip>
         </div>
 
+        <div className="w-full">
+          <label className="mb-1.5 block text-base font-medium text-foreground">
+            標籤
+          </label>
+          <TagInput
+            value={tags}
+            onChange={setTags}
+            disabled={isLoading || isSettingTags}
+          />
+          <p className="mt-1 text-sm text-muted">
+            可自由輸入或從下拉建議中挑選，按 Enter 新增；標籤跨 Skill / Script / Agent 共用。
+          </p>
+        </div>
+
         <div className="mt-2 flex justify-end gap-3">
           <Button
             type="button"
             variant="secondary"
             onClick={onClose}
-            disabled={isLoading}
+            disabled={isLoading || isSettingTags}
           >
             取消
           </Button>
-          <Button type="submit" loading={isLoading}>
+          <Button type="submit" loading={isLoading || isSettingTags}>
             上傳
           </Button>
         </div>

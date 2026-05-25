@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, field_validator
 
+from app.schemas.tags.schemas import TagSummary
+
 
 class AgentCreateRequest(BaseModel):
     name: str
@@ -91,6 +93,7 @@ class AgentResponse(BaseModel):
     favorite_count: int = 0
     download_count: int = 0
     is_favorited: bool = False
+    tags: list[TagSummary] = []
     created_at: datetime
     updated_at: datetime
 

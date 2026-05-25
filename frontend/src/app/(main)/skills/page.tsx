@@ -10,6 +10,7 @@ import { FilterNav } from "@/components/social/FilterNav";
 import { SocialMetrics } from "@/components/social/SocialMetrics";
 import { FavoriteButton } from "@/components/social/FavoriteButton";
 import { TombstoneCard } from "@/components/social/TombstoneCard";
+import { TagFilterBar, TagList } from "@/components/tags";
 import { useAuth } from "@/hooks/useAuth";
 import { useDialog } from "@/hooks/useDialog";
 import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
@@ -100,6 +101,12 @@ const SkillRow = React.memo(function SkillRow({
           <p className="mt-1 line-clamp-1 text-base text-muted">
             {skill.description}
           </p>
+        )}
+
+        {skill.tags && skill.tags.length > 0 && (
+          <div className="mt-1">
+            <TagList tags={skill.tags} />
+          </div>
         )}
 
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
@@ -207,9 +214,10 @@ export default function SkillsListPage(): React.ReactNode {
   const [visibilityFilter, setVisibilityFilter] =
     useState<VisibilityFilter>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
+  const [tagUids, setTagUids] = useState<string[]>([]);
 
   const { data, isLoading, isFetching } = useListSkillsQuery(
-    { limit: 50, cursor: null },
+    { limit: 50, cursor: null, tagUids: tagUids.length > 0 ? tagUids : undefined },
     { skip: authLoading || scope === "favorites" }
   );
   const {
@@ -427,6 +435,8 @@ export default function SkillsListPage(): React.ReactNode {
               })}
             </div>
           )}
+
+          <TagFilterBar selectedUids={tagUids} onChange={setTagUids} />
         </div>
       )}
 

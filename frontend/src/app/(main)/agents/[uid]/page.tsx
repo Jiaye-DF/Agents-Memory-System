@@ -16,6 +16,7 @@ import {
   triggerBrowserDownload,
 } from "@/lib/api/download";
 import { useAuth } from "@/hooks/useAuth";
+import { TagsCard } from "@/components/tags";
 import { formatDateTime } from "@/utils/datetime";
 
 export default function AgentDetailPage(): React.ReactNode {
@@ -175,6 +176,13 @@ export default function AgentDetailPage(): React.ReactNode {
               <p className="text-base text-muted italic">尚無關聯 Skills</p>
             )}
           </div>
+
+          <TagsCard
+            entityType="agent"
+            entityUid={agent.agent_uid}
+            initialTags={agent.tags ?? []}
+            canEdit={isOwner}
+          />
 
           <div className="border-t border-border pt-4 text-base text-muted">
             最後更新：{formatDateTime(agent.updated_at)}

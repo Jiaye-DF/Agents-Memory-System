@@ -33,6 +33,16 @@ export type {
   ScriptCreateParams,
 } from "./scripts";
 export type {
+  TagSummary,
+  TagDetail,
+  TagListResponse,
+  TagCreateRequest,
+  TagCreateResponse,
+  TagRenameRequest,
+  EntityTagsRequest,
+  EntityType,
+} from "./tags";
+export type {
   LlmModel,
   LlmModelAdmin,
   LlmModelCreateRequest,

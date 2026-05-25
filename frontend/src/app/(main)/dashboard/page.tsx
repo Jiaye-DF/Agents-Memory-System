@@ -12,6 +12,7 @@ import { FilterChip } from "@/components/ui/FilterChip";
 import { RankingPanel } from "@/components/dashboard/RankingPanel";
 import { SocialMetrics } from "@/components/social/SocialMetrics";
 import { FavoriteButton } from "@/components/social/FavoriteButton";
+import { TagList } from "@/components/tags";
 import {
   parseSearch,
   matchByTextAndAuthor,
@@ -113,6 +114,11 @@ const AgentRow = React.memo(function AgentRow({
             {agent.description}
           </p>
         )}
+        {agent.tags && agent.tags.length > 0 && (
+          <div className="mt-1">
+            <TagList tags={agent.tags} />
+          </div>
+        )}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-3 text-sm text-muted md:ml-auto">
         {languageLabel && <span>語言：{languageLabel}</span>}
@@ -154,6 +160,11 @@ const SkillRow = React.memo(function SkillRow({
         <p className="mt-1 line-clamp-1 text-base text-muted">
           {skill.description}
         </p>
+        {skill.tags && skill.tags.length > 0 && (
+          <div className="mt-1">
+            <TagList tags={skill.tags} />
+          </div>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-3 text-sm text-muted md:ml-auto">
         <SocialMetrics
@@ -195,6 +206,11 @@ const ScriptRow = React.memo(function ScriptRow({
             {script.description}
           </p>
         )}
+        {script.tags && script.tags.length > 0 && (
+          <div className="mt-1">
+            <TagList tags={script.tags} />
+          </div>
+        )}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-3 text-sm text-muted md:ml-auto">
         <span className="truncate">{script.file_name}</span>
@@ -214,7 +230,7 @@ const ScriptRow = React.memo(function ScriptRow({
 });
 
 export default function DashboardPage(): React.ReactNode {
-  const [activeTab, setActiveTab] = useState<TabKey>("agents");
+  const [activeTab, setActiveTab] = useState<TabKey>("skills");
   const [query, setQuery] = useState<string>("");
   // chip 選的作者用獨立 state（避免含空白的 username 塞進 query 後被 \s+ 切壞）
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
@@ -376,16 +392,16 @@ export default function DashboardPage(): React.ReactNode {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-1 border-b border-border">
         <TabButton
-          active={activeTab === "agents"}
-          onClick={() => handleTabChange("agents")}
-        >
-          公開 Agents ({publicAgents.length})
-        </TabButton>
-        <TabButton
           active={activeTab === "skills"}
           onClick={() => handleTabChange("skills")}
         >
           公開 Skills ({publicSkills.length})
+        </TabButton>
+        <TabButton
+          active={activeTab === "agents"}
+          onClick={() => handleTabChange("agents")}
+        >
+          公開 Agents ({publicAgents.length})
         </TabButton>
         <TabButton
           active={activeTab === "scripts"}

@@ -26,11 +26,13 @@ from app.core.exceptions import AppError
 from app.core.pagination import paginate, paginate_ordered
 from app.models.script import Script
 from app.repositories import (
+    entity_tag_repository,
     script_repository,
     user_favorite_repository,
 )
 from app.schemas.scripts.schemas import ScriptUpdateRequest
-from app.services import download_service, system_setting_service
+from app.schemas.tags.schemas import EntityTagsRequest
+from app.services import download_service, system_setting_service, tag_service
 from app.storage import s3_storage
 
 logger = logging.getLogger(__name__)
@@ -49,7 +51,11 @@ _HARD_MAX_TOTAL_SIZE_MB = 200
 _HARD_MAX_FILES = 1000
 
 
-def _script_to_dict(script: Script, is_favorited: bool = False) -> dict:
+def _script_to_dict(
+    script: Script,
+    is_favorited: bool = False,
+    tags: list[dict] | None = None,
+) -> dict:
     return {
         "script_uid": str(script.script_uid),
         "owner_user_uid": str(script.owner_user_uid),
@@ -63,6 +69,7 @@ def _script_to_dict(script: Script, is_favorited: bool = False) -> dict:
         "favorite_count": script.favorite_count,
         "download_count": script.download_count,
         "is_favorited": is_favorited,
+        "tags": tags or [],
         "created_at": to_taipei_iso(script.created_at),
         "updated_at": to_taipei_iso(script.updated_at),
     }
@@ -327,8 +334,12 @@ async def list_scripts(
     db: AsyncSession,
     order_by: str | None = None,
     order: str = "desc",
+    tag_uids: list[str] | None = None,
 ) -> dict:
     base_stmt = script_repository.stmt_owned_by_user(user_uid)
+    base_stmt = entity_tag_repository.apply_tag_filter(
+        base_stmt, "script", Script.script_uid, tag_uids
+    )
 
     if order_by is not None:
         try:
@@ -352,10 +363,15 @@ async def list_scripts(
     favorited_set = await user_favorite_repository.is_favorited_bulk(
         user_uid, "script", item_uids, db
     )
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "script", item_uids, db
+    )
     return {
         "items": [
             _script_to_dict(
-                s, is_favorited=str(s.script_uid) in favorited_set
+                s,
+                is_favorited=str(s.script_uid) in favorited_set,
+                tags=tag_map.get(str(s.script_uid), []),
             )
             for s in page.items
         ],
@@ -401,10 +417,15 @@ async def list_public_scripts(
     favorited_set = await user_favorite_repository.is_favorited_bulk(
         user_uid, "script", item_uids, db
     )
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "script", item_uids, db
+    )
     return {
         "items": [
             _script_to_dict(
-                s, is_favorited=str(s.script_uid) in favorited_set
+                s,
+                is_favorited=str(s.script_uid) in favorited_set,
+                tags=tag_map.get(str(s.script_uid), []),
             )
             for s in page.items
         ],
@@ -422,7 +443,14 @@ async def get_script(
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "script", [script_uid], db
     )
-    return _script_to_dict(script, is_favorited=script_uid in favorited)
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "script", [script_uid], db
+    )
+    return _script_to_dict(
+        script,
+        is_favorited=script_uid in favorited,
+        tags=tag_map.get(script_uid, []),
+    )
 
 
 async def update_script(
@@ -467,7 +495,45 @@ async def update_script(
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "script", [script_uid], db
     )
-    return _script_to_dict(script, is_favorited=script_uid in favorited)
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "script", [script_uid], db
+    )
+    return _script_to_dict(
+        script,
+        is_favorited=script_uid in favorited,
+        tags=tag_map.get(script_uid, []),
+    )
+
+
+async def set_tags(
+    script_uid: str,
+    user_uid: str,
+    role: str,
+    data: EntityTagsRequest,
+    db: AsyncSession,
+) -> dict:
+    script = await script_repository.get_by_uid(script_uid, db)
+    ensure_modifiable(script, user_uid, role, NOT_FOUND_DETAIL)
+    assert script is not None
+
+    target_uids = await tag_service.resolve_tag_uids(
+        user_uid, data.names, data.tag_uids, db
+    )
+    await entity_tag_repository.set_entity_tags(
+        "script", script_uid, target_uids, db
+    )
+
+    favorited = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "script", [script_uid], db
+    )
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "script", [script_uid], db
+    )
+    return _script_to_dict(
+        script,
+        is_favorited=script_uid in favorited,
+        tags=tag_map.get(script_uid, []),
+    )
 
 
 async def soft_delete_script(

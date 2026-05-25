@@ -10,6 +10,7 @@ import { FilterNav } from "@/components/social/FilterNav";
 import { SocialMetrics } from "@/components/social/SocialMetrics";
 import { FavoriteButton } from "@/components/social/FavoriteButton";
 import { TombstoneCard } from "@/components/social/TombstoneCard";
+import { TagFilterBar, TagList } from "@/components/tags";
 import { useAuth } from "@/hooks/useAuth";
 import { useDialog } from "@/hooks/useDialog";
 import { useMutationWithDialog } from "@/hooks/useMutationWithDialog";
@@ -97,6 +98,12 @@ const AgentRow = React.memo(function AgentRow({
           </p>
         ) : (
           <p className="mt-1 text-base text-muted italic">尚無描述</p>
+        )}
+
+        {agent.tags && agent.tags.length > 0 && (
+          <div className="mt-1">
+            <TagList tags={agent.tags} />
+          </div>
         )}
 
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
@@ -211,9 +218,10 @@ export default function AgentsPage(): React.ReactNode {
   const [visibilityFilter, setVisibilityFilter] =
     useState<VisibilityFilter>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
+  const [tagUids, setTagUids] = useState<string[]>([]);
 
   const { data, isLoading, isFetching } = useListAgentsQuery(
-    { limit: 50, cursor: null },
+    { limit: 50, cursor: null, tagUids: tagUids.length > 0 ? tagUids : undefined },
     { skip: scope === "favorites" }
   );
   const {
@@ -443,6 +451,8 @@ export default function AgentsPage(): React.ReactNode {
               })}
             </div>
           )}
+
+          <TagFilterBar selectedUids={tagUids} onChange={setTagUids} />
         </div>
       )}
 

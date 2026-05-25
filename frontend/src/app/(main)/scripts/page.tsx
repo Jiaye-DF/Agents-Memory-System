@@ -11,6 +11,7 @@ import { FilterNav } from "@/components/social/FilterNav";
 import { SocialMetrics } from "@/components/social/SocialMetrics";
 import { FavoriteButton } from "@/components/social/FavoriteButton";
 import { TombstoneCard } from "@/components/social/TombstoneCard";
+import { TagFilterBar, TagList } from "@/components/tags";
 import { useAuth } from "@/hooks/useAuth";
 import { useDialog } from "@/hooks/useDialog";
 import { useConfirmMutation } from "@/hooks/useConfirmMutation";
@@ -117,6 +118,12 @@ const ScriptRow = React.memo(function ScriptRow({
           </p>
         )}
 
+        {script.tags && script.tags.length > 0 && (
+          <div className="mt-1">
+            <TagList tags={script.tags} />
+          </div>
+        )}
+
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
           <span>{formatFileSize(script.file_size)}</span>
           <span className="truncate">{script.file_name}</span>
@@ -213,9 +220,10 @@ export default function ScriptsListPage(): React.ReactNode {
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [uploadOpen, setUploadOpen] = useState<boolean>(false);
+  const [tagUids, setTagUids] = useState<string[]>([]);
 
   const { data, isLoading, isFetching } = useListScriptsQuery(
-    { limit: 50, cursor: null },
+    { limit: 50, cursor: null, tagUids: tagUids.length > 0 ? tagUids : undefined },
     { skip: authLoading || scope === "favorites" }
   );
   const {
@@ -422,6 +430,8 @@ export default function ScriptsListPage(): React.ReactNode {
               })}
             </div>
           )}
+
+          <TagFilterBar selectedUids={tagUids} onChange={setTagUids} />
         </div>
       )}
 

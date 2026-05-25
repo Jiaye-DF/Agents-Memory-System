@@ -17,12 +17,14 @@ from app.core.pagination import paginate, paginate_ordered
 from app.models.skill import Skill
 from app.repositories import (
     agent_repository,
+    entity_tag_repository,
     skill_repository,
     user_favorite_repository,
 )
 from app.schemas.common import VisibilityRequest
 from app.schemas.skills.schemas import FileTreeNode, SkillUpdateRequest
-from app.services import download_service
+from app.schemas.tags.schemas import EntityTagsRequest
+from app.services import download_service, tag_service
 from app.storage import s3_storage
 
 EDITABLE_EXTENSIONS = {
@@ -74,7 +76,11 @@ def _check_zip_bomb(zip_content: bytes, max_total_bytes: int) -> None:
         )
 
 
-def _skill_to_dict(skill: Skill, is_favorited: bool = False) -> dict:
+def _skill_to_dict(
+    skill: Skill,
+    is_favorited: bool = False,
+    tags: list[dict] | None = None,
+) -> dict:
     return {
         "skill_uid": str(skill.skill_uid),
         "owner_user_uid": str(skill.owner_user_uid),
@@ -88,6 +94,7 @@ def _skill_to_dict(skill: Skill, is_favorited: bool = False) -> dict:
         "favorite_count": skill.favorite_count,
         "download_count": skill.download_count,
         "is_favorited": is_favorited,
+        "tags": tags or [],
         "created_at": to_taipei_iso(skill.created_at),
         "updated_at": to_taipei_iso(skill.updated_at),
     }
@@ -241,7 +248,14 @@ async def get_skill(
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "skill", [skill_uid], db
     )
-    return _skill_to_dict(skill, is_favorited=skill_uid in favorited)
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "skill", [skill_uid], db
+    )
+    return _skill_to_dict(
+        skill,
+        is_favorited=skill_uid in favorited,
+        tags=tag_map.get(skill_uid, []),
+    )
 
 
 async def list_skills(
@@ -251,8 +265,12 @@ async def list_skills(
     db: AsyncSession,
     order_by: str | None = None,
     order: str = "desc",
+    tag_uids: list[str] | None = None,
 ) -> dict:
     base_stmt = skill_repository.stmt_visible_to_user(user_uid)
+    base_stmt = entity_tag_repository.apply_tag_filter(
+        base_stmt, "skill", Skill.skill_uid, tag_uids
+    )
 
     if order_by is not None:
         try:
@@ -276,10 +294,15 @@ async def list_skills(
     favorited_set = await user_favorite_repository.is_favorited_bulk(
         user_uid, "skill", item_uids, db
     )
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "skill", item_uids, db
+    )
     return {
         "items": [
             _skill_to_dict(
-                s, is_favorited=str(s.skill_uid) in favorited_set
+                s,
+                is_favorited=str(s.skill_uid) in favorited_set,
+                tags=tag_map.get(str(s.skill_uid), []),
             )
             for s in page.items
         ],
@@ -316,7 +339,45 @@ async def update_skill(
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "skill", [skill_uid], db
     )
-    return _skill_to_dict(skill, is_favorited=skill_uid in favorited)
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "skill", [skill_uid], db
+    )
+    return _skill_to_dict(
+        skill,
+        is_favorited=skill_uid in favorited,
+        tags=tag_map.get(skill_uid, []),
+    )
+
+
+async def set_tags(
+    skill_uid: str,
+    user_uid: str,
+    role: str,
+    data: EntityTagsRequest,
+    db: AsyncSession,
+) -> dict:
+    skill = await skill_repository.get_by_uid(skill_uid, db)
+    ensure_modifiable(skill, user_uid, role, NOT_FOUND_DETAIL)
+    assert skill is not None
+
+    target_uids = await tag_service.resolve_tag_uids(
+        user_uid, data.names, data.tag_uids, db
+    )
+    await entity_tag_repository.set_entity_tags(
+        "skill", skill_uid, target_uids, db
+    )
+
+    favorited = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "skill", [skill_uid], db
+    )
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "skill", [skill_uid], db
+    )
+    return _skill_to_dict(
+        skill,
+        is_favorited=skill_uid in favorited,
+        tags=tag_map.get(skill_uid, []),
+    )
 
 
 async def delete_skill(
