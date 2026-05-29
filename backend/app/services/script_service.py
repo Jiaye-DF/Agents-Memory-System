@@ -570,8 +570,12 @@ async def download_script(
         raise
 
     # StreamingResponse / FileResponse 即將回傳前才 +1（24h Redis dedup）
-    await download_service.try_increment_download(
+    counted = await download_service.try_increment_download(
         "script", script_uid, user_uid, db
+    )
+    # 下載人員紀錄：每次下載都記一筆（與 24h dedup 計數獨立）
+    await download_service.record_download(
+        "script", script_uid, script.name, user_uid, counted, db
     )
 
     base = os.path.splitext(os.path.basename(script.file_name))[0] or script.name

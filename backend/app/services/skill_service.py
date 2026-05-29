@@ -435,8 +435,12 @@ async def download_skill(
         raise
 
     # StreamingResponse / FileResponse 即將回傳前才 +1（且同 user 24h Redis dedup）
-    await download_service.try_increment_download(
+    counted = await download_service.try_increment_download(
         "skill", skill_uid, user_uid, db
+    )
+    # 下載人員紀錄：每次下載都記一筆（與 24h dedup 計數獨立）
+    await download_service.record_download(
+        "skill", skill_uid, skill.name, user_uid, counted, db
     )
 
     download_name = f"{os.path.splitext(skill.original_filename)[0]}.zip"
