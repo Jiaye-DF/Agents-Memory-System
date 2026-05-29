@@ -380,8 +380,12 @@ async def download_agent(
 
     # Response 即將回傳前才 +1（同 user 24h Redis dedup）
     # AGENTS.md 內含關聯 Skills 視為一併下載，連動 Skills 各自計數（dedup 獨立）
-    await download_service.try_increment_download(
+    counted = await download_service.try_increment_download(
         "agent", agent_uid, user_uid, db
+    )
+    # 下載人員紀錄：只記使用者實際請求的 Agent 一筆；附帶的 Skills 僅計數不另記紀錄
+    await download_service.record_download(
+        "agent", agent_uid, agent.name, user_uid, counted, db
     )
     for s in skills:
         await download_service.try_increment_download(

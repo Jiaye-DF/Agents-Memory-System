@@ -11,14 +11,17 @@
 from __future__ import annotations
 
 import logging
+import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.redis_client import try_setnx_with_ttl
 from app.repositories import (
     agent_repository,
+    download_log_repository,
     script_repository,
     skill_repository,
+    user_repository,
 )
 
 logger = logging.getLogger(__name__)
@@ -83,3 +86,32 @@ async def try_increment_download(
     )
     await _increment_by_type(resource_type, resource_uid, db)
     return True
+
+
+async def record_download(
+    resource_type: str,
+    resource_uid: str,
+    resource_name: str,
+    user_uid: str,
+    counted: bool,
+    db: AsyncSession,
+) -> None:
+    """寫入一筆下載紀錄（每次下載都記，與 24h dedup 計數獨立）。
+
+    - username / resource_name 取下載當下快照；查不到 user 時退而以 user_uid 充當
+    - counted 為 try_increment_download 的回傳（是否實際 +1）
+    - 寫入失敗由 repository 吞掉，不影響下載回傳
+    """
+    user = await user_repository.get_by_uid(user_uid, db)
+    username = user.username if user is not None else user_uid
+    await download_log_repository.log(
+        {
+            "user_uid": uuid.UUID(user_uid),
+            "username": username,
+            "resource_type": resource_type,
+            "resource_uid": uuid.UUID(resource_uid),
+            "resource_name": resource_name,
+            "counted": counted,
+        },
+        db,
+    )
