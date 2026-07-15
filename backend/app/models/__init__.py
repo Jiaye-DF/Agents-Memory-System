@@ -14,6 +14,7 @@ from app.models.project_memory import ProjectMemory
 from app.models.script import Script
 from app.models.skill import Skill
 from app.models.skill_embedding import SkillEmbedding
+from app.models.skill_search_log import SkillSearchLog
 from app.models.system_setting import SystemSetting
 from app.models.tag import Tag
 from app.models.user import User, UserRole
@@ -41,6 +42,7 @@ __all__ = [
     "Script",
     "Skill",
     "SkillEmbedding",
+    "SkillSearchLog",
     "SystemSetting",
     "Tag",
     "User",

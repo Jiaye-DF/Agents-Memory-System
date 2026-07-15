@@ -346,3 +346,111 @@ def test_skill_search_request_scope_defaults_to_visible():
     """未帶 scope → 預設 "visible"（v1.6.0 呼叫端零改動）。"""
     req = SkillSearchRequest(query="找一個能寄信的 skill")
     assert req.scope == "visible"
+
+
+# ---------- v1.6.3：AI 查詢稽核（skill_search_log） ----------
+
+
+def _patch_audit(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
+    """patch user 快照與稽核寫入，回傳被捕捉的 payload 清單。"""
+    calls: list[dict] = []
+
+    async def fake_get_by_uid(user_uid, db):
+        return SimpleNamespace(username="稽核使用者")
+
+    async def fake_log(payload, db):
+        calls.append(payload)
+
+    monkeypatch.setattr(
+        skill_service.user_repository, "get_by_uid", fake_get_by_uid
+    )
+    monkeypatch.setattr(
+        skill_service.skill_search_log_repository, "log", fake_log
+    )
+    return calls
+
+
+@pytest.mark.asyncio
+async def test_semantic_search_records_audit_log(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """檢索成功 → 寫一筆稽核：username 快照 + query + results 含 uid/name/score。"""
+    _patch_settings(monkeypatch, analyze_enabled=False)
+    _patch_llm(monkeypatch)
+    skill = _mk_skill("部署技能")
+    _patch_repos(monkeypatch, [(skill, 0.8765)])
+    calls = _patch_audit(monkeypatch)
+
+    result = await skill_service.semantic_search(
+        str(uuid.uuid4()), "  找部署  ", None, _FakeDB()
+    )
+
+    assert len(result["items"]) == 1
+    assert len(calls) == 1
+    payload = calls[0]
+    assert payload["username"] == "稽核使用者"
+    assert payload["query"] == "找部署"
+    assert payload["scope"] == "visible"
+    assert payload["hit_count"] == 1
+    assert payload["results"] == [
+        {"uid": str(skill.skill_uid), "name": "部署技能", "score": 0.8765}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_semantic_search_records_audit_log_on_zero_hits(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """0 命中也記（內容缺口訊號）：hit_count=0、results=[]，回應仍為空結果。"""
+    _patch_settings(monkeypatch)
+    _patch_llm(monkeypatch)
+    _patch_repos(monkeypatch, [])
+    calls = _patch_audit(monkeypatch)
+
+    result = await skill_service.semantic_search(
+        str(uuid.uuid4()), "找不到的東西", None, _FakeDB()
+    )
+
+    assert result == {"items": [], "analysis": None}
+    assert len(calls) == 1
+    assert calls[0]["hit_count"] == 0
+    assert calls[0]["results"] == []
+
+
+@pytest.mark.asyncio
+async def test_semantic_search_audit_failure_does_not_break(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """稽核寫入炸掉 → 搜尋回應完全不受影響（helper 吞例外）。"""
+    _patch_settings(monkeypatch, analyze_enabled=False)
+    _patch_llm(monkeypatch)
+    _patch_repos(monkeypatch, [(_mk_skill(), 0.7)])
+
+    async def broken_log(payload, db):
+        raise RuntimeError("audit down")
+
+    monkeypatch.setattr(
+        skill_service.skill_search_log_repository, "log", broken_log
+    )
+
+    result = await skill_service.semantic_search(
+        str(uuid.uuid4()), "查詢", None, _FakeDB()
+    )
+
+    assert len(result["items"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_semantic_search_early_return_not_recorded(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """enabled=false 的 early-return 不寫稽核（未實際檢索）。"""
+    _patch_settings(monkeypatch, enabled=False)
+    _patch_llm(monkeypatch)
+    calls = _patch_audit(monkeypatch)
+
+    await skill_service.semantic_search(
+        str(uuid.uuid4()), "查詢", None, _FakeDB()
+    )
+
+    assert calls == []

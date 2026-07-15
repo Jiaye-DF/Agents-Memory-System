@@ -13,11 +13,12 @@ interface SearchModeBarProps {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   isLoading?: boolean;
   placeholder?: string;
-  /** 是否顯示左側模式選擇器；隱藏時等同純搜尋框（鎖定 keyword 行為由外部控制） */
+  /** 是否顯示左側模式切換鈕；隱藏時等同純搜尋框（鎖定 keyword 行為由外部控制） */
   showModeSelect?: boolean;
 }
 
-// 搜尋框內建左側模式選擇器（類早期搜尋引擎）：select + input + AI 按鈕同一圓角容器
+// 搜尋框內建左側模式切換鈕（類早期搜尋引擎）：切換鈕 + input + AI 按鈕同一圓角容器
+// 單一按鈕輪替：預設「關鍵字查詢」，點一下切成「AI 查詢」，再點切回
 export const SearchModeBar = React.memo(function SearchModeBar({
   mode,
   onModeChange,
@@ -28,12 +29,9 @@ export const SearchModeBar = React.memo(function SearchModeBar({
   placeholder,
   showModeSelect = true,
 }: SearchModeBarProps): React.ReactNode {
-  const handleModeChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>): void => {
-      onModeChange(e.target.value as SearchMode);
-    },
-    [onModeChange]
-  );
+  const handleModeToggle = useCallback((): void => {
+    onModeChange(mode === "ai" ? "keyword" : "ai");
+  }, [mode, onModeChange]);
 
   return (
     <form
@@ -41,31 +39,19 @@ export const SearchModeBar = React.memo(function SearchModeBar({
       className="flex min-h-11 w-full items-center rounded-xl border border-input-border bg-input-bg transition-colors focus-within:border-input-focus focus-within:ring-2 focus-within:ring-input-focus/20"
     >
       {showModeSelect && (
-        <div className="relative shrink-0 self-stretch border-r border-input-border">
-          <select
-            value={mode}
-            onChange={handleModeChange}
-            aria-label="搜尋模式"
-            className="h-full w-28 appearance-none bg-transparent py-2 pl-3 pr-8 text-sm text-muted transition-colors hover:cursor-pointer hover:text-foreground focus:outline-none"
-          >
-            <option value="keyword">關鍵字</option>
-            <option value="ai">AI 分析</option>
-          </select>
-          <svg
-            className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            aria-hidden="true"
-          >
-            <path
-              d="M6 8l4 4 4-4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
+        <button
+          type="button"
+          onClick={handleModeToggle}
+          aria-pressed={mode === "ai"}
+          aria-label="切換搜尋模式"
+          className={`shrink-0 self-stretch rounded-l-xl border-r border-input-border px-3 text-sm font-medium transition-colors hover:cursor-pointer ${
+            mode === "ai"
+              ? "bg-primary/10 text-primary"
+              : "bg-transparent text-muted hover:text-foreground"
+          }`}
+        >
+          {mode === "ai" ? "AI 查詢" : "關鍵字查詢"}
+        </button>
       )}
       <input
         type="text"

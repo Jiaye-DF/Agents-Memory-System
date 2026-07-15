@@ -19,7 +19,9 @@ from app.repositories import (
     agent_repository,
     entity_tag_repository,
     skill_repository,
+    skill_search_log_repository,
     user_favorite_repository,
+    user_repository,
 )
 from app.schemas.common import VisibilityRequest
 from app.schemas.skills.schemas import FileTreeNode, SkillUpdateRequest
@@ -390,6 +392,10 @@ async def semantic_search(
     rows = await skill_repository.search_similar(
         vector, effective_top_k, min_score, user_uid, db, scope=scope
     )
+
+    # 稽核：AI 查詢行為紀錄（0 命中也記＝內容缺口訊號；失敗不影響搜尋）
+    await _record_search_log(user_uid, cleaned, scope, rows, db)
+
     if not rows:
         return empty
 
@@ -426,6 +432,8 @@ async def semantic_search(
             results = await llm_metering.call_llm_metered(
                 purpose=llm_metering.PURPOSE_SKILL_ANALYZE,
                 user_uid=user_uid,
+                rag_hit_count=len(items),
+                rag_max_score=items[0]["score"],
                 query=cleaned,
                 skills_payload=skills_payload,
                 model=analyze_model,
@@ -446,6 +454,39 @@ async def semantic_search(
             logger.warning("skill 語意檢索 AI 分析失敗，降級為無理由: %s", exc)
 
     return {"items": items, "analysis": None}
+
+
+async def _record_search_log(
+    user_uid: str,
+    query: str,
+    scope: str,
+    rows: list,
+    db: AsyncSession,
+) -> None:
+    """寫入 AI 查詢稽核（skill_search_log）；任何失敗只 warning，不影響搜尋主流程。"""
+    try:
+        user = await user_repository.get_by_uid(user_uid, db)
+        username = user.username if user is not None else user_uid
+        await skill_search_log_repository.log(
+            {
+                "user_uid": uuid.UUID(user_uid),
+                "username": username,
+                "query": query[:500],
+                "scope": scope,
+                "hit_count": len(rows),
+                "results": [
+                    {
+                        "uid": str(s.skill_uid),
+                        "name": s.name,
+                        "score": round(float(score), 4),
+                    }
+                    for s, score in rows
+                ],
+            },
+            db,
+        )
+    except Exception as exc:
+        logger.warning("skill_search_log 稽核寫入失敗（已忽略）: %s", exc)
 
 
 async def update_skill(

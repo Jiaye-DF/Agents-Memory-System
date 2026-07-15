@@ -58,7 +58,7 @@ interface SkillRowProps {
   isOwner: boolean;
   onDelete: (skillUid: string) => void;
   onToggleVisibility: (skillUid: string, current: string) => void;
-  score?: number;
+  isAiResult?: boolean;
   aiReason?: string | null;
 }
 
@@ -67,7 +67,7 @@ const SkillRow = React.memo(function SkillRow({
   isOwner,
   onDelete,
   onToggleVisibility,
-  score,
+  isAiResult,
   aiReason,
 }: SkillRowProps): React.ReactNode {
   const handleDelete = useCallback((): void => {
@@ -104,14 +104,9 @@ const SkillRow = React.memo(function SkillRow({
               @{skill.owner_username}
             </span>
           )}
-          {score !== undefined && (
+          {isAiResult && (
             <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
               AI 分析
-            </span>
-          )}
-          {score !== undefined && (
-            <span className="shrink-0 text-sm text-muted">
-              相似度 {Math.round(score * 100)}%
             </span>
           )}
         </div>
@@ -533,7 +528,7 @@ export default function SkillsListPage(): React.ReactNode {
                     isOwner={item.owner_user_uid === userUid}
                     onDelete={handleDelete}
                     onToggleVisibility={handleToggleVisibility}
-                    score={item.score}
+                    isAiResult
                     aiReason={item.ai_reason}
                   />
                 ))}

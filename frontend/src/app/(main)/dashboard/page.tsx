@@ -147,11 +147,11 @@ const AgentRow = React.memo(function AgentRow({
 
 const SkillRow = React.memo(function SkillRow({
   skill,
-  score,
+  isAiResult,
   aiReason,
 }: {
   skill: Skill;
-  score?: number;
+  isAiResult?: boolean;
   aiReason?: string | null;
 }): React.ReactNode {
   return (
@@ -167,14 +167,9 @@ const SkillRow = React.memo(function SkillRow({
           <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
             @{skill.owner_username ?? "未知"}
           </span>
-          {score !== undefined && (
+          {isAiResult && (
             <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
               AI 分析
-            </span>
-          )}
-          {score !== undefined && (
-            <span className="shrink-0 text-sm text-muted">
-              相似度 {Math.round(score * 100)}%
             </span>
           )}
         </div>
@@ -672,7 +667,7 @@ export default function DashboardPage(): React.ReactNode {
                 <SkillRow
                   key={item.skill_uid}
                   skill={item}
-                  score={item.score}
+                  isAiResult
                   aiReason={item.ai_reason}
                 />
               ))}
