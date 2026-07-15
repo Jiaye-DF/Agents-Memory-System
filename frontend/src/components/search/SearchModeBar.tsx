@@ -68,7 +68,7 @@ export const SearchModeBar = React.memo(function SearchModeBar({
           disabled={value.trim().length === 0}
           className="mr-1 shrink-0"
         >
-          AI 分析
+          查詢
         </Button>
       )}
     </form>
