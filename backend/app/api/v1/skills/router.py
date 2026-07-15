@@ -13,6 +13,8 @@ from app.schemas.skills.schemas import (
     FileTreeNode,
     SkillFileUpdateRequest,
     SkillResponse,
+    SkillSearchData,
+    SkillSearchRequest,
     SkillUpdateRequest,
     SkillUsageResponse,
 )
@@ -90,6 +92,19 @@ async def upload_skill(
         current_user.user_uid, name, description, files, db
     )
     return success(data=result, response_code=201)
+
+
+# 註冊須早於 GET "/{skill_uid}"，避免 /search 被動態路由吃掉
+@router.post("/search", response_model=ApiResponse[SkillSearchData])
+async def semantic_search_skills(
+    body: SkillSearchRequest,
+    current_user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    result = await skill_service.semantic_search(
+        current_user.user_uid, body.query, body.top_k, db
+    )
+    return success(data=result)
 
 
 @router.get("/{skill_uid}", response_model=ApiResponse[SkillResponse])

@@ -24,7 +24,13 @@ from app.repositories import (
 from app.schemas.common import VisibilityRequest
 from app.schemas.skills.schemas import FileTreeNode, SkillUpdateRequest
 from app.schemas.tags.schemas import EntityTagsRequest
-from app.services import download_service, tag_service
+from app.services import (
+    download_service,
+    llm_metering,
+    skill_embedding_service,
+    system_setting_service,
+    tag_service,
+)
 from app.storage import s3_storage
 
 EDITABLE_EXTENSIONS = {
@@ -54,6 +60,13 @@ NOT_FOUND_DETAIL = "找不到指定的 Skill"
 
 # zip bomb 防線：解壓後總大小不得超過 max_size 的 N 倍
 ZIP_BOMB_RATIO = 10
+
+# 語意檢索預設值（與 V57 seed 對齊）
+DEFAULT_RAG_TOP_K = 8
+DEFAULT_RAG_MIN_SCORE = 0.5
+DEFAULT_RAG_ANALYZE_TOP_N = 5
+DEFAULT_RAG_ANALYZE_MODEL = "anthropic/claude-haiku-4-5"
+RAG_TOP_K_MAX = 20
 
 
 def _check_zip_bomb(zip_content: bytes, max_total_bytes: int) -> None:
@@ -236,6 +249,8 @@ async def upload_skill(
         db,
     )
 
+    await skill_embedding_service.update_embedding(skill, zip_content, db)
+
     return _skill_to_dict(skill)
 
 
@@ -311,6 +326,127 @@ async def list_skills(
     }
 
 
+async def semantic_search(
+    user_uid: str,
+    query: str,
+    top_k: int | None,
+    db: AsyncSession,
+) -> dict:
+    """語意檢索：query embedding → cosine 檢索 → （選配）AI 分析回填理由。
+
+    失敗降級策略（對齊 rag_service）：
+    - `skill.rag.enabled=false` 或 query 空 → early-return 空結果（不付 embedding 成本）
+    - embedding 失敗 → log warning 回空結果
+    - AI 分析失敗 → log warning，`ai_reason` 維持 None，items 照回
+    """
+    empty: dict = {"items": [], "analysis": None}
+
+    try:
+        enabled = await system_setting_service.get_bool(
+            "skill.rag.enabled", True, db
+        )
+        if not enabled:
+            return empty
+        setting_top_k = await system_setting_service.get_int(
+            "skill.rag.top_k", DEFAULT_RAG_TOP_K, db
+        )
+        min_score = await system_setting_service.get_float(
+            "skill.rag.min_score", DEFAULT_RAG_MIN_SCORE, db
+        )
+        analyze_enabled = await system_setting_service.get_bool(
+            "skill.rag.analyze_enabled", True, db
+        )
+        analyze_top_n = await system_setting_service.get_int(
+            "skill.rag.analyze_top_n", DEFAULT_RAG_ANALYZE_TOP_N, db
+        )
+        analyze_model = await system_setting_service.get(
+            "skill.rag.analyze_model", DEFAULT_RAG_ANALYZE_MODEL, db
+        )
+        if not analyze_model:
+            analyze_model = DEFAULT_RAG_ANALYZE_MODEL
+    except Exception as exc:
+        logger.warning("skill 語意檢索讀取設定失敗: %s", exc)
+        return empty
+
+    cleaned = (query or "").strip()
+    if not cleaned:
+        return empty
+
+    effective_top_k = (
+        min(top_k, RAG_TOP_K_MAX) if top_k else setting_top_k
+    )
+
+    try:
+        vector = await llm_metering.call_llm_metered(
+            purpose=llm_metering.PURPOSE_EMBEDDING,
+            user_uid=user_uid,
+            text=cleaned[:4000],
+        )
+    except Exception as exc:
+        logger.warning("skill 語意檢索 embedding 失敗: %s", exc)
+        return empty
+
+    rows = await skill_repository.search_similar(
+        vector, effective_top_k, min_score, user_uid, db
+    )
+    if not rows:
+        return empty
+
+    item_uids = [str(s.skill_uid) for s, _ in rows]
+    favorited_set = await user_favorite_repository.is_favorited_bulk(
+        user_uid, "skill", item_uids, db
+    )
+    tag_map = await entity_tag_repository.get_tags_bulk(
+        "skill", item_uids, db
+    )
+
+    items: list[dict] = []
+    for skill, score in rows:
+        uid = str(skill.skill_uid)
+        item = _skill_to_dict(
+            skill,
+            is_favorited=uid in favorited_set,
+            tags=tag_map.get(uid, []),
+        )
+        item["score"] = float(score)
+        item["ai_reason"] = None
+        items.append(item)
+
+    if analyze_enabled and items:
+        skills_payload = [
+            {
+                "name": it["name"],
+                "description": it["description"],
+                "score": it["score"],
+            }
+            for it in items[:analyze_top_n]
+        ]
+        try:
+            results = await llm_metering.call_llm_metered(
+                purpose=llm_metering.PURPOSE_SKILL_ANALYZE,
+                user_uid=user_uid,
+                query=cleaned,
+                skills_payload=skills_payload,
+                model=analyze_model,
+            )
+            for entry in results or []:
+                if not isinstance(entry, dict):
+                    continue
+                idx = entry.get("index")
+                reason = entry.get("reason")
+                if (
+                    isinstance(idx, int)
+                    and not isinstance(idx, bool)
+                    and 0 <= idx < len(items)
+                    and reason
+                ):
+                    items[idx]["ai_reason"] = str(reason)
+        except Exception as exc:
+            logger.warning("skill 語意檢索 AI 分析失敗，降級為無理由: %s", exc)
+
+    return {"items": items, "analysis": None}
+
+
 async def update_skill(
     skill_uid: str,
     user_uid: str,
@@ -336,6 +472,20 @@ async def update_skill(
         )
 
     await skill_repository.update_obj(skill, update_data, db)
+
+    if data.description is not None:
+        # 描述變動需重組 embedding 文字；取檔失敗退化為只用 name + description
+        zip_bytes: bytes | None = None
+        try:
+            zip_bytes = await s3_storage.get_object(skill.storage_key)
+        except Exception:
+            logger.warning(
+                "取得 Skill ZIP 失敗，embedding 退化為僅名稱與描述 key=%s",
+                skill.storage_key,
+                exc_info=True,
+            )
+        await skill_embedding_service.update_embedding(skill, zip_bytes, db)
+
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "skill", [skill_uid], db
     )
@@ -755,6 +905,9 @@ async def reupload_skill(
         },
         db,
     )
+
+    await skill_embedding_service.update_embedding(skill, zip_content, db)
+
     favorited = await user_favorite_repository.is_favorited_bulk(
         user_uid, "skill", [skill_uid], db
     )
@@ -863,6 +1016,8 @@ async def update_file_content(
         )
 
     await skill_repository.update_obj(skill, {"file_size": len(new_zip)}, db)
+
+    await skill_embedding_service.update_embedding(skill, new_zip, db)
 
     return {
         "file_path": normalized,

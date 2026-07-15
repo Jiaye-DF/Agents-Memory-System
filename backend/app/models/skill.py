@@ -1,5 +1,6 @@
 import uuid
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import BigInteger, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,6 +30,9 @@ class Skill(Base):
     )
     download_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
+    )
+    embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(1536), nullable=True
     )
 
     owner: Mapped[User] = relationship(lazy="joined")

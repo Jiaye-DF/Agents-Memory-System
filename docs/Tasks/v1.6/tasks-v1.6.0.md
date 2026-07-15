@@ -1,6 +1,6 @@
 # v1.6.0 任務規格：Skills RAG 語意檢索 + AI 分析
 
-> **狀態：未開始（規格定稿，待實作）**
+> **狀態：進行中（Phase 0-10 code 實作完成；剩 1-3 本機驗證、10-2 手動 smoke、Phase 11 部署待人工執行）**
 >
 > 前置：[propose-v1.6.0.md](propose-v1.6.0.md)
 
@@ -77,8 +77,8 @@
 
 ## Phase 0：依賴與設定
 
-- [ ] 確認 `.env` / `.env.example`：本版不新增環境變數（所有可調參數走 `system_setting`）
-- [ ] 確認 pgvector / HNSW 於現有環境已啟用（V1 已建 extension，chat_memory 已用 HNSW）
+- [x] 確認 `.env` / `.env.example`：本版不新增環境變數（所有可調參數走 `system_setting`）—（另發現 `.env` 缺既有鍵 `SSO_COOKIE_DOMAIN`，與本版無關，本機驗證前需補）
+- [x] 確認 pgvector / HNSW 於現有環境已啟用（V1 已建 extension，chat_memory 已用 HNSW）
 
 ---
 
@@ -86,22 +86,22 @@
 
 ### 1-1 V56 — `skill` 加 `embedding`
 
-- [ ] 新建 [`migrations/sql/V56__add_skill_embedding.sql`](../../../migrations/sql/)
-- [ ] `ALTER TABLE skill ADD COLUMN embedding VECTOR(1536) NULL`
-- [ ] `CREATE INDEX IF NOT EXISTS idx_skill_embedding_hnsw ON skill USING HNSW (embedding vector_cosine_ops)`
-- [ ] `COMMENT ON COLUMN skill.embedding IS '語意檢索向量（text-embedding-3-small，1536 維；name+描述+檔案內容；NULL=未回填/生成失敗）'`
+- [x] 新建 [`migrations/sql/V56__add_skill_embedding.sql`](../../../migrations/sql/)
+- [x] `ALTER TABLE skill ADD COLUMN embedding VECTOR(1536) NULL`
+- [x] `CREATE INDEX IF NOT EXISTS idx_skill_embedding_hnsw ON skill USING HNSW (embedding vector_cosine_ops)`
+- [x] `COMMENT ON COLUMN skill.embedding IS '語意檢索向量（text-embedding-3-small，1536 維；name+描述+檔案內容；NULL=未回填/生成失敗）'`
 
 ### 1-2 V57 — seed `skill.rag.*` system_setting
 
-- [ ] 新建 [`migrations/sql/V57__seed_skill_rag_settings.sql`](../../../migrations/sql/)
-- [ ] `INSERT ... ON CONFLICT DO NOTHING`，鍵：
-  - [ ] `skill.rag.enabled` = `true` (boolean)
-  - [ ] `skill.rag.top_k` = `8` (integer)
-  - [ ] `skill.rag.min_score` = `0.5` (string)
-  - [ ] `skill.rag.analyze_enabled` = `true` (boolean)
-  - [ ] `skill.rag.analyze_top_n` = `5` (integer)
-  - [ ] `skill.rag.analyze_model` = `"anthropic/claude-haiku-4-5"` (json)
-  - [ ] `skill.rag.embed_content_max_chars` = `8000` (integer)
+- [x] 新建 [`migrations/sql/V57__seed_skill_rag_settings.sql`](../../../migrations/sql/)
+- [x] `INSERT ... ON CONFLICT DO NOTHING`，鍵：
+  - [x] `skill.rag.enabled` = `true` (boolean)
+  - [x] `skill.rag.top_k` = `8` (integer)
+  - [x] `skill.rag.min_score` = `0.5` (string)
+  - [x] `skill.rag.analyze_enabled` = `true` (boolean)
+  - [x] `skill.rag.analyze_top_n` = `5` (integer)
+  - [x] `skill.rag.analyze_model` = `"anthropic/claude-haiku-4-5"` (json)
+  - [x] `skill.rag.embed_content_max_chars` = `8000` (integer)
 
 ### 1-3 本機驗證
 
@@ -113,9 +113,9 @@
 
 ## Phase 2：Model 層
 
-- [ ] [`models/skill.py`](../../../backend/app/models/skill.py) 加：
-  - [ ] `from pgvector.sqlalchemy import Vector`
-  - [ ] `embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)`
+- [x] [`models/skill.py`](../../../backend/app/models/skill.py) 加：
+  - [x] `from pgvector.sqlalchemy import Vector`
+  - [x] `embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)`
 
 ---
 
@@ -123,14 +123,14 @@
 
 ### 3-1 `skill_repository.search_similar`（新增）
 
-- [ ] [`repositories/skill_repository.py`](../../../backend/app/repositories/skill_repository.py) 加 `async def search_similar(query_embedding, top_k, min_score, user_uid, db) -> list[tuple[Skill, float]]`
-- [ ] raw SQL（沿用 [chat_memory_repository:126](../../../backend/app/repositories/chat_memory_repository.py)）：
-  - [ ] `WHERE is_deleted = FALSE AND embedding IS NOT NULL`
-  - [ ] `AND (owner_user_uid = :user_uid OR visibility = 'public')`
-  - [ ] `AND 1 - (embedding <=> CAST(:query AS vector)) >= :min_score`
-  - [ ] `ORDER BY embedding <=> CAST(:query AS vector) LIMIT :top_k`
-  - [ ] SELECT 需含 `owner` 顯示名所需欄位（或回 Skill 後另 bulk 取 owner；沿用既有 `owner` joined 模式）
-- [ ] 回傳 `[(Skill, score)]`，不回傳 embedding 省流量
+- [x] [`repositories/skill_repository.py`](../../../backend/app/repositories/skill_repository.py) 加 `async def search_similar(query_embedding, top_k, min_score, user_uid, db) -> list[tuple[Skill, float]]`
+- [x] raw SQL（沿用 [chat_memory_repository:126](../../../backend/app/repositories/chat_memory_repository.py)）：
+  - [x] `WHERE is_deleted = FALSE AND embedding IS NOT NULL`
+  - [x] `AND (owner_user_uid = :user_uid OR visibility = 'public')`
+  - [x] `AND 1 - (embedding <=> CAST(:query AS vector)) >= :min_score`
+  - [x] `ORDER BY embedding <=> CAST(:query AS vector) LIMIT :top_k`
+  - [x] SELECT 需含 `owner` 顯示名所需欄位（或回 Skill 後另 bulk 取 owner；沿用既有 `owner` joined 模式）—（已改為 raw SQL 只取 skill_uid + score 保序，再以 ORM 補完整 Skill 含 owner joined）
+- [x] 回傳 `[(Skill, score)]`，不回傳 embedding 省流量
 
 ---
 
@@ -138,23 +138,23 @@
 
 ### 4-1 `services/skill_embedding_service.py`（新建）
 
-- [ ] `def build_embedding_text(name, description, zip_bytes, max_chars) -> str`
-  - [ ] name + description + 解壓取 `.md` / `.txt` 內容（`SKILL.md` / `README.md` 優先，路徑排序）
-  - [ ] 串接後截斷至 `max_chars`
-  - [ ] 解壓失敗 → 退化為只用 name + description
-- [ ] `async def update_embedding(skill, zip_bytes, db) -> None`
-  - [ ] 讀 setting `skill.rag.embed_content_max_chars`
-  - [ ] `build_embedding_text` → `call_llm_metered(purpose=PURPOSE_EMBEDDING, text=..., user_uid=skill.owner_user_uid)`
-  - [ ] `UPDATE skill SET embedding = ...`
-  - [ ] 全程 try/except，失敗只 `logger.warning`，**不 raise**
+- [x] `def build_embedding_text(name, description, zip_bytes, max_chars) -> str`
+  - [x] name + description + 解壓取 `.md` / `.txt` 內容（`SKILL.md` / `README.md` 優先，路徑排序）
+  - [x] 串接後截斷至 `max_chars`
+  - [x] 解壓失敗 → 退化為只用 name + description
+- [x] `async def update_embedding(skill, zip_bytes, db) -> None`
+  - [x] 讀 setting `skill.rag.embed_content_max_chars`
+  - [x] `build_embedding_text` → `call_llm_metered(purpose=PURPOSE_EMBEDDING, text=..., user_uid=skill.owner_user_uid)`
+  - [x] `UPDATE skill SET embedding = ...`
+  - [x] 全程 try/except，失敗只 `logger.warning`，**不 raise**
 
 ### 4-2 寫入側 hook 掛載
 
-- [ ] [`upload_skill`](../../../backend/app/services/skill_service.py) put_object 成功後呼叫 `update_embedding`（用手上的 zip_content）
-- [ ] [`reupload_skill`](../../../backend/app/services/skill_service.py) put_object 成功後呼叫
-- [ ] [`update_file_content`](../../../backend/app/services/skill_service.py) 寫入後呼叫（用 new_zip）
-- [ ] [`update_skill`](../../../backend/app/services/skill_service.py) 描述變動時 → get_object 拿 zip → 呼叫
-- [ ] 確認四處皆為「失敗不影響原有回應」
+- [x] [`upload_skill`](../../../backend/app/services/skill_service.py) put_object 成功後呼叫 `update_embedding`（用手上的 zip_content）
+- [x] [`reupload_skill`](../../../backend/app/services/skill_service.py) put_object 成功後呼叫
+- [x] [`update_file_content`](../../../backend/app/services/skill_service.py) 寫入後呼叫（用 new_zip）
+- [x] [`update_skill`](../../../backend/app/services/skill_service.py) 描述變動時 → get_object 拿 zip → 呼叫
+- [x] 確認四處皆為「失敗不影響原有回應」
 
 ---
 
@@ -162,14 +162,14 @@
 
 ### 5-1 OpenRouter client
 
-- [ ] [`clients/openrouter.py`](../../../backend/app/clients/openrouter.py) 加 `async def analyze_skill_matches(query, skills_payload, model) -> list[dict]`
-  - [ ] prompt：對每筆 skill 給一句繁中「為什麼符合需求」，回 JSON（`[{name, reason}]` 或依 index 對應）
-  - [ ] 解析失敗 → 回空 list（不 raise）
+- [x] [`clients/openrouter.py`](../../../backend/app/clients/openrouter.py) 加 `async def analyze_skill_matches(query, skills_payload, model) -> list[dict]` —（實際位置為 `clients/openrouter/client.py`，該路徑為 package）
+  - [x] prompt：對每筆 skill 給一句繁中「為什麼符合需求」，回 JSON（`[{name, reason}]` 或依 index 對應）—（已改為 strict json_schema root object `{"matches": [{"index", "reason"}]}`，解析端兼容裸陣列）
+  - [x] 解析失敗 → 回空 list（不 raise）
 
 ### 5-2 `llm_metering` 分派
 
-- [ ] [`llm_metering.py`](../../../backend/app/services/llm_metering.py) 加 `PURPOSE_SKILL_ANALYZE = "skill_analyze"`
-- [ ] [`_dispatch_non_stream`](../../../backend/app/services/llm_metering.py) 加分支：`purpose == PURPOSE_SKILL_ANALYZE → analyze_skill_matches(query, skills_payload, model)`
+- [x] [`llm_metering.py`](../../../backend/app/services/llm_metering.py) 加 `PURPOSE_SKILL_ANALYZE = "skill_analyze"`
+- [x] [`_dispatch_non_stream`](../../../backend/app/services/llm_metering.py) 加分支：`purpose == PURPOSE_SKILL_ANALYZE → analyze_skill_matches(query, skills_payload, model)`
 
 ---
 
@@ -177,15 +177,15 @@
 
 ### 6-1 `skill_service.semantic_search`（新增）
 
-- [ ] `async def semantic_search(user_uid, query, top_k, db) -> dict`
-- [ ] 讀 settings：`skill.rag.enabled` / `top_k` / `min_score` / `analyze_enabled` / `analyze_top_n` / `analyze_model`
-- [ ] `enabled=false` 或 query 空 → 回 `{items: [], analysis: None}`（early-return，不付 embedding 成本）
-- [ ] `call_llm_metered(PURPOSE_EMBEDDING, text=query, user_uid=...)` → vector
-- [ ] `skill_repository.search_similar(vector, top_k, min_score, user_uid, db)`
-- [ ] bulk load `is_favorited` / `tags`（沿用 [list_skills](../../../backend/app/services/skill_service.py) 模式）
-- [ ] `_skill_to_dict` 擴充：多接 `score` / `ai_reason` 參數（或包一層 dict）
-- [ ] `analyze_enabled and items` → `call_llm_metered(PURPOSE_SKILL_ANALYZE, ...)` 對前 `analyze_top_n` 筆生成理由，回填 `ai_reason`
-- [ ] LLM 失敗 → `ai_reason` 全 None，items 照回（降級）
+- [x] `async def semantic_search(user_uid, query, top_k, db) -> dict`
+- [x] 讀 settings：`skill.rag.enabled` / `top_k` / `min_score` / `analyze_enabled` / `analyze_top_n` / `analyze_model`
+- [x] `enabled=false` 或 query 空 → 回 `{items: [], analysis: None}`（early-return，不付 embedding 成本）
+- [x] `call_llm_metered(PURPOSE_EMBEDDING, text=query, user_uid=...)` → vector
+- [x] `skill_repository.search_similar(vector, top_k, min_score, user_uid, db)`
+- [x] bulk load `is_favorited` / `tags`（沿用 [list_skills](../../../backend/app/services/skill_service.py) 模式）
+- [x] `_skill_to_dict` 擴充：多接 `score` / `ai_reason` 參數（或包一層 dict）—（已改為 `_skill_to_dict` 結果 dict 補 `score` / `ai_reason` 鍵，不動既有簽名）
+- [x] `analyze_enabled and items` → `call_llm_metered(PURPOSE_SKILL_ANALYZE, ...)` 對前 `analyze_top_n` 筆生成理由，回填 `ai_reason`
+- [x] LLM 失敗 → `ai_reason` 全 None，items 照回（降級）
 
 ---
 
@@ -193,27 +193,27 @@
 
 ### 7-1 Schema
 
-- [ ] [`schemas/skills/schemas.py`](../../../backend/app/schemas/skills/schemas.py) 加：
-  - [ ] `class SkillSearchRequest`：`query: str`（trim 驗證，非空），`top_k: int | None = None`
-  - [ ] `class SkillSearchItem(SkillResponse)`：加 `score: float`、`ai_reason: str | None = None`
-  - [ ] `class SkillSearchData`：`items: list[SkillSearchItem]`、`analysis: str | None = None`
+- [x] [`schemas/skills/schemas.py`](../../../backend/app/schemas/skills/schemas.py) 加：
+  - [x] `class SkillSearchRequest`：`query: str`（trim 驗證，非空），`top_k: int | None = None`
+  - [x] `class SkillSearchItem(SkillResponse)`：加 `score: float`、`ai_reason: str | None = None`
+  - [x] `class SkillSearchData`：`items: list[SkillSearchItem]`、`analysis: str | None = None`
 
 ### 7-2 Router
 
-- [ ] [`skills/router.py`](../../../backend/app/api/v1/skills/router.py) 加 `POST "/search"`（**註冊於 `GET "/{skill_uid}"` 之前**，避免路由衝突）
-  - [ ] `response_model=ApiResponse[SkillSearchData]`
-  - [ ] 呼叫 `skill_service.semantic_search(current_user.user_uid, body.query, body.top_k, db)`
+- [x] [`skills/router.py`](../../../backend/app/api/v1/skills/router.py) 加 `POST "/search"`（**註冊於 `GET "/{skill_uid}"` 之前**，避免路由衝突）
+  - [x] `response_model=ApiResponse[SkillSearchData]`
+  - [x] 呼叫 `skill_service.semantic_search(current_user.user_uid, body.query, body.top_k, db)`
 - [ ] 確認 `/api/docs` 顯示新 endpoint 與 schema
 
 ---
 
 ## Phase 8：回填 Script
 
-- [ ] 新建 [`backend/scripts/backfill_skill_embedding.py`](../../../backend/scripts/)（沿用 [migrate_storage_to_s3.py](../../../backend/scripts/migrate_storage_to_s3.py) 範式）
-- [ ] 查 `embedding IS NULL AND is_deleted = FALSE` 的 skill
-- [ ] 逐筆 get_object → `build_embedding_text` → embed → UPDATE → commit
-- [ ] 逐筆 log 進度；失敗跳過續跑，最後印失敗 uid 清單
-- [ ] 可重跑（只挑 NULL）
+- [x] 新建 [`backend/scripts/backfill_skill_embedding.py`](../../../backend/scripts/)（沿用 [migrate_storage_to_s3.py](../../../backend/scripts/migrate_storage_to_s3.py) 範式）
+- [x] 查 `embedding IS NULL AND is_deleted = FALSE` 的 skill
+- [x] 逐筆 get_object → `build_embedding_text` → embed → UPDATE → commit —（已改為直接呼叫 `skill_embedding_service.update_embedding` 複用組文字 + embed + 寫回邏輯；S3 NoSuchKey 時 zip 傳 None 退化為 name + description）
+- [x] 逐筆 log 進度；失敗跳過續跑，最後印失敗 uid 清單 —（成敗以呼叫後 `skill.embedding` 是否仍為 NULL 判定；有失敗 exit code 1）
+- [x] 可重跑（只挑 NULL）
 
 ---
 
@@ -221,21 +221,21 @@
 
 ### 9-1 Types + API slice
 
-- [ ] `frontend/src/types` 加 `SkillSearchItem`（Skill + `score` + `ai_reason`）、`SkillSearchResult`
-- [ ] [`store/skillsApi.ts`](../../../frontend/src/store/skillsApi.ts) 加 `useSemanticSearchSkillsMutation()`（`POST /skills/search`，body `{query, top_k?}`）
+- [x] `frontend/src/types` 加 `SkillSearchItem`（Skill + `score` + `ai_reason`）、`SkillSearchResult`
+- [x] [`store/skillsApi.ts`](../../../frontend/src/store/skillsApi.ts) 加 `useSemanticSearchSkillsMutation()`（`POST /skills/search`，body `{query, top_k?}`）
 
 ### 9-2 頁面整合
 
-- [ ] [`skills/page.tsx`](../../../frontend/src/app/(main)/skills/page.tsx)：
-  - [ ] 加 `searchMode: "keyword" | "ai"` state + 切換 UI（FilterChip 或 toggle 按鈕）
-  - [ ] AI 模式：placeholder 改「用一句話描述你要找的 Skill…」，Enter / 按鈕觸發 mutation
-  - [ ] AI 模式渲染 `result.items`：沿用 `SkillRow` + 「AI 分析」徽章 + score（`相似度 NN%`）+ `ai_reason` 文字
-  - [ ] loading 用 `<PageLoading />`；空結果顯示「找不到語意相近的 Skill」
-  - [ ] keyword 模式維持現狀（`filteredSkills`）不受影響
+- [x] [`skills/page.tsx`](../../../frontend/src/app/(main)/skills/page.tsx)：
+  - [x] 加 `searchMode: "keyword" | "ai"` state + 切換 UI（FilterChip 或 toggle 按鈕）
+  - [x] AI 模式：placeholder 改「用一句話描述你要找的 Skill…」，Enter / 按鈕觸發 mutation —（Enter 走 `<form onSubmit>`，既有 Input 元件不支援 onKeyDown）
+  - [x] AI 模式渲染 `result.items`：沿用 `SkillRow` + 「AI 分析」徽章 + score（`相似度 NN%`）+ `ai_reason` 文字
+  - [x] loading 用 `<PageLoading />`；空結果顯示「找不到語意相近的 Skill」
+  - [x] keyword 模式維持現狀（`filteredSkills`）不受影響 —（AI 模式下隱藏可見性/時間/作者 chips 與 TagFilterBar，後端已過濾排序）
 
 ### 9-3 元件
 
-- [ ] `SkillRow`（或新 `SkillSearchRow`）加 `score` / `aiReason` / 徽章 props（不破壞既有呼叫點）
+- [x] `SkillRow`（或新 `SkillSearchRow`）加 `score` / `aiReason` / 徽章 props（不破壞既有呼叫點）
 
 ---
 
@@ -243,18 +243,18 @@
 
 ### 10-1 後端單元
 
-- [ ] `tests/services/test_skill_embedding_service.py`：
-  - [ ] `build_embedding_text` 正常組合（name+desc+md）
-  - [ ] 解壓失敗退化為 name+desc
-  - [ ] 超長內容截斷至 max_chars
-- [ ] `tests/repositories/test_skill_repository.py`（或既有加）：
-  - [ ] `search_similar` cosine 排序正確
-  - [ ] visibility 過濾（他人私有不回）
-  - [ ] `embedding IS NULL` 不回
-- [ ] `tests/services/test_skill_semantic_search.py`：
-  - [ ] `enabled=false` / query 空 → 回空且不呼 embedding
-  - [ ] `analyze_enabled=false` → items 有值、`ai_reason` 全 None
-  - [ ] LLM 失敗降級（items 照回）
+- [x] `tests/services/test_skill_embedding_service.py`：
+  - [x] `build_embedding_text` 正常組合（name+desc+md）
+  - [x] 解壓失敗退化為 name+desc
+  - [x] 超長內容截斷至 max_chars
+- [x] `tests/repositories/test_skill_repository.py`（或既有加）—（conftest 無 pgvector 測試 DB，改以 mock DB 驗 raw SQL 條款 / 綁定參數 / 保序，cosine 運算本身由 DB 端 ORDER BY 保證，留待 Phase 10-2 手動 smoke）：
+  - [x] `search_similar` cosine 排序正確 —（驗 `ORDER BY embedding <=>` 條款 + raw rows 保序回傳）
+  - [x] visibility 過濾（他人私有不回）—（驗 `owner_user_uid = ... OR visibility = 'public'` 條款）
+  - [x] `embedding IS NULL` 不回 —（驗 `embedding IS NOT NULL` 條款）
+- [x] `tests/services/test_skill_semantic_search.py`：
+  - [x] `enabled=false` / query 空 → 回空且不呼 embedding
+  - [x] `analyze_enabled=false` → items 有值、`ai_reason` 全 None
+  - [x] LLM 失敗降級（items 照回）
 
 ### 10-2 手動 smoke
 

@@ -19,6 +19,7 @@ import {
   useListSkillsQuery,
   useDeleteSkillMutation,
   useToggleSkillVisibilityMutation,
+  useSemanticSearchSkillsMutation,
 } from "@/store/skillsApi";
 import {
   useListMyFavoritesQuery,
@@ -26,6 +27,7 @@ import {
 } from "@/store/socialApi";
 import type {
   Skill,
+  SkillSearchResult,
   FilterScope,
   MyFavoriteItem,
   ResourceSnapshot,
@@ -39,6 +41,7 @@ import { formatDateTime } from "@/utils/datetime";
 
 type VisibilityFilter = "all" | "public" | "private";
 type SortOrder = "newest" | "oldest";
+type SearchMode = "keyword" | "ai";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -53,6 +56,8 @@ interface SkillRowProps {
   isOwner: boolean;
   onDelete: (skillUid: string) => void;
   onToggleVisibility: (skillUid: string, current: string) => void;
+  score?: number;
+  aiReason?: string | null;
 }
 
 const SkillRow = React.memo(function SkillRow({
@@ -60,6 +65,8 @@ const SkillRow = React.memo(function SkillRow({
   isOwner,
   onDelete,
   onToggleVisibility,
+  score,
+  aiReason,
 }: SkillRowProps): React.ReactNode {
   const handleDelete = useCallback((): void => {
     onDelete(skill.skill_uid);
@@ -95,12 +102,26 @@ const SkillRow = React.memo(function SkillRow({
               @{skill.owner_username}
             </span>
           )}
+          {score !== undefined && (
+            <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+              AI 分析
+            </span>
+          )}
+          {score !== undefined && (
+            <span className="shrink-0 text-sm text-muted">
+              相似度 {Math.round(score * 100)}%
+            </span>
+          )}
         </div>
 
         {skill.description && (
           <p className="mt-1 line-clamp-1 text-base text-muted">
             {skill.description}
           </p>
+        )}
+
+        {aiReason && (
+          <p className="mt-1 line-clamp-2 text-sm text-muted/80">{aiReason}</p>
         )}
 
         {skill.tags && skill.tags.length > 0 && (
@@ -215,6 +236,8 @@ export default function SkillsListPage(): React.ReactNode {
     useState<VisibilityFilter>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [tagUids, setTagUids] = useState<string[]>([]);
+  const [searchMode, setSearchMode] = useState<SearchMode>("keyword");
+  const [aiResult, setAiResult] = useState<SkillSearchResult | null>(null);
 
   const { data, isLoading, isFetching } = useListSkillsQuery(
     { limit: 50, cursor: null, tagUids: tagUids.length > 0 ? tagUids : undefined },
@@ -230,6 +253,8 @@ export default function SkillsListPage(): React.ReactNode {
   );
 
   const [deleteSkill] = useDeleteSkillMutation();
+  const [semanticSearch, { isLoading: aiSearching }] =
+    useSemanticSearchSkillsMutation();
   const [toggleVisibility] = useToggleSkillVisibilityMutation();
   const [unfavorite, { isLoading: isUnfavoriting }] =
     useUnfavoriteResourceMutation();
@@ -286,6 +311,35 @@ export default function SkillsListPage(): React.ReactNode {
       setQuery(e.target.value);
     },
     []
+  );
+
+  const handleModeKeyword = useCallback((): void => {
+    setSearchMode("keyword");
+    setAiResult(null);
+  }, []);
+
+  const handleModeAi = useCallback((): void => {
+    setSearchMode("ai");
+  }, []);
+
+  const handleSearchSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>): void => {
+      e.preventDefault();
+      if (searchMode !== "ai") return;
+      const trimmed = query.trim();
+      if (trimmed.length === 0) return;
+      void (async (): Promise<void> => {
+        try {
+          const result = await semanticSearch({ query: trimmed }).unwrap();
+          setAiResult(result);
+        } catch (err: unknown) {
+          const fallback = "AI 分析失敗，請稍後再試";
+          const message = typeof err === "string" ? err : fallback;
+          showDialog({ type: "error", title: "AI 分析失敗", message });
+        }
+      })();
+    },
+    [searchMode, query, semanticSearch, showDialog]
   );
 
   const deleteOptions = useMemo(
@@ -371,12 +425,45 @@ export default function SkillsListPage(): React.ReactNode {
 
       {!isFavoritesScope && (
         <div className="mb-4 flex flex-col gap-3">
-          <Input
-            placeholder="搜尋名稱、描述，或輸入 @作者 篩選（可多個）"
-            value={query}
-            onChange={handleQueryChange}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="shrink-0 text-sm text-muted">搜尋模式：</span>
+            <FilterChip
+              active={searchMode === "keyword"}
+              onClick={handleModeKeyword}
+            >
+              關鍵字
+            </FilterChip>
+            <FilterChip active={searchMode === "ai"} onClick={handleModeAi}>
+              AI 分析
+            </FilterChip>
+          </div>
 
+          <form
+            onSubmit={handleSearchSubmit}
+            className="flex items-center gap-2"
+          >
+            <Input
+              placeholder={
+                searchMode === "ai"
+                  ? "用一句話描述你要找的 Skill…"
+                  : "搜尋名稱、描述，或輸入 @作者 篩選（可多個）"
+              }
+              value={query}
+              onChange={handleQueryChange}
+            />
+            {searchMode === "ai" && (
+              <Button
+                type="submit"
+                loading={aiSearching}
+                disabled={query.trim().length === 0}
+                className="shrink-0"
+              >
+                AI 分析
+              </Button>
+            )}
+          </form>
+
+          {searchMode === "keyword" && (
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="shrink-0 text-sm text-muted">可見性：</span>
@@ -437,13 +524,49 @@ export default function SkillsListPage(): React.ReactNode {
               </div>
             )}
           </div>
+          )}
 
-          <TagFilterBar selectedUids={tagUids} onChange={setTagUids} />
+          {searchMode === "keyword" && (
+            <TagFilterBar selectedUids={tagUids} onChange={setTagUids} />
+          )}
         </div>
       )}
 
       <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
-        {showLoading ? (
+        {searchMode === "ai" && !isFavoritesScope ? (
+          aiSearching ? (
+            <PageLoading />
+          ) : aiResult === null ? (
+            <div className="py-12 text-center text-muted">
+              輸入需求描述後按「AI 分析」開始語意檢索。
+            </div>
+          ) : aiResult.items.length === 0 ? (
+            <div className="py-12 text-center text-muted">
+              找不到語意相近的 Skill
+            </div>
+          ) : (
+            <>
+              {aiResult.analysis && (
+                <div className="border-b border-border px-4 py-3 text-sm text-muted">
+                  {aiResult.analysis}
+                </div>
+              )}
+              <div className="divide-y divide-border">
+                {aiResult.items.map((item) => (
+                  <SkillRow
+                    key={item.skill_uid}
+                    skill={item}
+                    isOwner={item.owner_user_uid === userUid}
+                    onDelete={handleDelete}
+                    onToggleVisibility={handleToggleVisibility}
+                    score={item.score}
+                    aiReason={item.ai_reason}
+                  />
+                ))}
+              </div>
+            </>
+          )
+        ) : showLoading ? (
           <PageLoading />
         ) : isFavoritesScope ? (
           favoriteItems.length === 0 ? (

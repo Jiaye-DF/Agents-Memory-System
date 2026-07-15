@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Select, func, or_, select, update
+from sqlalchemy import Select, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.skill import Skill
@@ -118,3 +118,51 @@ async def get_by_uids(
         stmt = stmt.where(Skill.is_deleted == False)  # noqa: E712
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def search_similar(
+    query_embedding: list[float],
+    top_k: int,
+    min_score: float,
+    user_uid: str,
+    db: AsyncSession,
+) -> list[tuple[Skill, float]]:
+    """pgvector cosine 語意檢索：raw SQL 取 skill_uid + score 保序，再以 ORM 補完整 Skill（含 owner），不回傳 embedding。"""
+    vector_literal = "[" + ",".join(repr(float(x)) for x in query_embedding) + "]"
+
+    sql = text(
+        """
+        SELECT skill_uid,
+               1 - (embedding <=> CAST(:query AS vector)) AS score
+        FROM skill
+        WHERE is_deleted = FALSE
+          AND embedding IS NOT NULL
+          AND (owner_user_uid = CAST(:user_uid AS uuid) OR visibility = 'public')
+          AND 1 - (embedding <=> CAST(:query AS vector)) >= :min_score
+        ORDER BY embedding <=> CAST(:query AS vector)
+        LIMIT :top_k
+        """
+    )
+    result = await db.execute(
+        sql,
+        {
+            "query": vector_literal,
+            "user_uid": str(uuid.UUID(user_uid)),
+            "min_score": min_score,
+            "top_k": top_k,
+        },
+    )
+    rows = result.mappings().all()
+    if not rows:
+        return []
+    scores = {row["skill_uid"]: float(row["score"]) for row in rows}
+    stmt = select(Skill).where(Skill.skill_uid.in_(scores.keys()))
+    skills = {
+        skill.skill_uid: skill
+        for skill in (await db.execute(stmt)).scalars().all()
+    }
+    return [
+        (skills[row["skill_uid"]], scores[row["skill_uid"]])
+        for row in rows
+        if row["skill_uid"] in skills
+    ]

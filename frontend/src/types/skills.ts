@@ -18,6 +18,16 @@ export interface Skill {
   updated_at: string;
 }
 
+export interface SkillSearchItem extends Skill {
+  score: number;
+  ai_reason: string | null;
+}
+
+export interface SkillSearchResult {
+  items: SkillSearchItem[];
+  analysis: string | null;
+}
+
 export interface SkillUpdateRequest {
   name?: string;
   description?: string;

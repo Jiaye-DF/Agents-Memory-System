@@ -17,6 +17,8 @@ export type {
 } from "./agents";
 export type {
   Skill,
+  SkillSearchItem,
+  SkillSearchResult,
   SkillUpdateRequest,
   FileTreeNode,
   FileContent,

@@ -269,6 +269,191 @@ async def generate_skill_suggestion(
     }
 
 
+# v1.6.0 Skill 語意檢索 AI 分析：與 SkillSuggestion 同樣策略 —
+# Anthropic structured output root 須為 object，故以 matches 包一層陣列；
+# 長度上限在 prompt 指示並於 parse 後強制截斷
+SKILL_ANALYZE_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "matches": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "index": {"type": "integer"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["index", "reason"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["matches"],
+    "additionalProperties": False,
+}
+
+SKILL_ANALYZE_REASON_MAX_LEN = 200
+
+SKILL_ANALYZE_SYSTEM_PROMPT = (
+    "你是 Skill 推薦理由分析器。輸入為使用者需求（query）與候選 Skill 清單"
+    "（candidates，每筆含 name 名稱、description 描述、score 相似度）。"
+    "請針對每筆候選各給一句繁體中文理由，說明為什麼此 Skill 符合使用者需求，"
+    "每句最多 200 字元。"
+    "以嚴格的 JSON 物件回覆，欄位為："
+    "matches（陣列，每筆含 index（0 起算的候選序號，對應 candidates 順序）、"
+    "reason（一句繁體中文理由））。"
+    "不要加任何額外文字或 markdown。"
+)
+
+
+def _strip_code_fence(text: str) -> str:
+    """剝除 LLM 偶發包住 JSON 的 markdown code fence（```json ... ```）。"""
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else ""
+        if cleaned.rstrip().endswith("```"):
+            cleaned = cleaned.rstrip()[: -len("```")]
+    return cleaned.strip()
+
+
+async def analyze_skill_matches(
+    query: str,
+    skills_payload: list[dict],
+    model: str,
+) -> list[dict]:
+    """
+    呼叫 OpenRouter 小模型，對語意檢索候選 Skill 逐筆生成一句繁中推薦理由。
+    skills_payload 為 [{"name": ..., "description": ..., "score": ...}, ...]。
+    回傳 [{"index": <0 起算候選序號>, "reason": "<一句理由>"}, ...]；
+    解析失敗或回傳非預期結構 → 回空 list（不 raise，呼叫端降級為無理由）。
+    連線 / HTTP 層失敗仍拋 AppError，由 metering 記 error 後由呼叫端降級。
+
+    **內部 API**：外部請呼叫 ``app.services.llm_metering.call_llm_metered``
+    （purpose='skill_analyze'）。集中進入點規範見
+    docs/Arch/01-observability-and-metrics.md §2-3。
+    """
+    if not skills_payload:
+        return []
+
+    if not settings.OPENROUTER_API_KEY:
+        raise AppError(
+            detail="OPENROUTER_API_KEY 未設定，無法呼叫 Skill 分析 API",
+            response_code=500,
+            status_code=500,
+        )
+
+    headers = {
+        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": settings.OPENROUTER_HTTP_REFERER,
+        "X-Title": settings.OPENROUTER_APP_TITLE,
+    }
+
+    user_payload = json.dumps(
+        {"query": query, "candidates": skills_payload},
+        ensure_ascii=False,
+    )
+    payload_messages: list[dict] = [
+        {"role": "system", "content": SKILL_ANALYZE_SYSTEM_PROMPT},
+        {"role": "user", "content": user_payload},
+    ]
+
+    body: dict = {
+        "model": model,
+        "messages": payload_messages,
+        "stream": False,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "SkillAnalyzeResult",
+                "strict": True,
+                "schema": SKILL_ANALYZE_JSON_SCHEMA,
+            },
+        },
+    }
+
+    timeout = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(
+                OPENROUTER_CHAT_URL, headers=headers, json=body
+            )
+            if resp.status_code >= 400:
+                logger.warning(
+                    "OpenRouter analyze_skill_matches 回應錯誤 %s: %s",
+                    resp.status_code,
+                    resp.text[:500],
+                )
+                raise AppError(
+                    detail=f"Skill 分析 API 失敗（HTTP {resp.status_code}）",
+                    response_code=502,
+                    status_code=502,
+                )
+            payload = resp.json()
+    except AppError:
+        raise
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "OpenRouter analyze_skill_matches 連線失敗: %s", exc
+        )
+        raise AppError(
+            detail="無法連線至 OpenRouter（Skill 分析）",
+            response_code=502,
+            status_code=502,
+        ) from exc
+
+    try:
+        content = payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        logger.warning(
+            "OpenRouter analyze_skill_matches 回應格式異常: %s", payload
+        )
+        return []
+
+    try:
+        if isinstance(content, str):
+            data = json.loads(_strip_code_fence(content))
+        else:
+            data = content
+    except Exception as exc:
+        logger.warning(
+            "OpenRouter analyze_skill_matches JSON 解析失敗: %s / 原文: %s",
+            exc,
+            str(content)[:500],
+        )
+        return []
+
+    # 容忍兩種形狀：{"matches": [...]}（schema 正解）或直接回陣列
+    if isinstance(data, dict):
+        data = data.get("matches")
+    if not isinstance(data, list):
+        logger.warning(
+            "OpenRouter analyze_skill_matches 回應非預期結構: %s",
+            str(data)[:500],
+        )
+        return []
+
+    # post-parse 驗證與強制截斷：index 須在候選範圍內、reason 非空
+    results: list[dict] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        try:
+            index = int(item.get("index"))
+        except (TypeError, ValueError):
+            continue
+        if not 0 <= index < len(skills_payload):
+            continue
+        reason = str(item.get("reason") or "").strip()[
+            :SKILL_ANALYZE_REASON_MAX_LEN
+        ]
+        if not reason:
+            continue
+        results.append({"index": index, "reason": reason})
+    return results
+
+
 async def _fetch_models_payload() -> list[dict]:
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:

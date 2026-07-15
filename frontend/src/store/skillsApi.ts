@@ -11,6 +11,7 @@ import type {
   SkillReuploadParams,
   SkillFileUpdateParams,
   SkillFileUpdateResult,
+  SkillSearchResult,
 } from "@/types";
 
 interface ListSkillsParams {
@@ -23,6 +24,11 @@ interface ListSkillsParams {
 
 interface FileTreeResponse {
   tree: FileTreeNode[];
+}
+
+interface SemanticSearchParams {
+  query: string;
+  topK?: number;
 }
 
 export const skillsApi = baseApi.injectEndpoints({
@@ -58,6 +64,17 @@ export const skillsApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, skillUid) => [
         { type: "Skills", id: skillUid },
       ],
+    }),
+
+    semanticSearchSkills: builder.mutation<
+      SkillSearchResult,
+      SemanticSearchParams
+    >({
+      query: ({ query, topK }) => ({
+        method: "post",
+        path: "/skills/search",
+        body: topK !== undefined ? { query, top_k: topK } : { query },
+      }),
     }),
 
     uploadSkill: builder.mutation<Skill, SkillUploadParams>({
@@ -189,6 +206,7 @@ export const skillsApi = baseApi.injectEndpoints({
 export const {
   useListSkillsQuery,
   useGetSkillQuery,
+  useSemanticSearchSkillsMutation,
   useUploadSkillMutation,
   useUpdateSkillMutation,
   useDeleteSkillMutation,

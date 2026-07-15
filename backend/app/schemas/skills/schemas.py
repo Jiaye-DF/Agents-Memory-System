@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.tags.schemas import TagSummary
 
@@ -65,6 +65,29 @@ class SkillResponse(BaseModel):
     tags: list[TagSummary] = []
     created_at: str
     updated_at: str
+
+
+class SkillSearchRequest(BaseModel):
+    query: str
+    top_k: int | None = Field(None, ge=1, le=20)
+
+    @field_validator("query")
+    @classmethod
+    def validate_query(cls, value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > 500:
+            raise ValueError("查詢為必填，且不可超過 500 字元")
+        return value
+
+
+class SkillSearchItem(SkillResponse):
+    score: float
+    ai_reason: str | None = None
+
+
+class SkillSearchData(BaseModel):
+    items: list[SkillSearchItem]
+    analysis: str | None = None
 
 
 class FileTreeNode(BaseModel):

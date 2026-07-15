@@ -35,6 +35,7 @@ PURPOSE_MEMORY_EXTRACT = "memory_extract"
 PURPOSE_EMBEDDING = "embedding"
 PURPOSE_IMAGE_DESCRIBE = "image_describe"
 PURPOSE_SKILL_FACTORY = "skill_factory"
+PURPOSE_SKILL_ANALYZE = "skill_analyze"
 PURPOSE_CLASSIFIER = "classifier"  # v1.3.4 預留
 
 # error 欄位截斷上限（決策 #8）
@@ -147,6 +148,7 @@ async def call_llm_metered(
     - ``embedding``       → ``embed(text)``（call_kwargs 傳入 ``text``）
     - ``image_describe``  → ``describe_image(image_data_url, model)``
     - ``skill_factory``   → ``generate_skill_suggestion(memories_payload, model)``
+    - ``skill_analyze``   → ``analyze_skill_matches(query, skills_payload, model)``
 
     成功與失敗皆會寫入一筆 ``llm_call_log``。失敗時：
     - ``error`` 截斷至 500 字元
@@ -229,6 +231,14 @@ async def _dispatch_non_stream(
     if purpose == PURPOSE_SKILL_FACTORY:
         result = await openrouter_client.generate_skill_suggestion(
             memories_payload=call_kwargs["memories_payload"],
+            model=call_kwargs["model"],
+        )
+        return result, None
+
+    if purpose == PURPOSE_SKILL_ANALYZE:
+        result = await openrouter_client.analyze_skill_matches(
+            query=call_kwargs["query"],
+            skills_payload=call_kwargs["skills_payload"],
             model=call_kwargs["model"],
         )
         return result, None
