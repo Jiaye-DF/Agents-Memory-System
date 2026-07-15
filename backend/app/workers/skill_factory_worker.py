@@ -18,8 +18,10 @@ import json
 import logging
 import time
 
+from redis.exceptions import TimeoutError as RedisTimeoutError
+
 from app.core.database import AsyncSessionLocal
-from app.core.redis import get_redis
+from app.core.redis import get_blocking_redis
 from app.services import skill_factory_service
 
 logger = logging.getLogger(__name__)
@@ -35,7 +37,7 @@ async def run() -> None:
 
     while True:
         try:
-            redis = get_redis()
+            redis = get_blocking_redis()
         except RuntimeError:
             await asyncio.sleep(1)
             continue
@@ -45,6 +47,9 @@ async def run() -> None:
         except asyncio.CancelledError:
             logger.info("skill_factory_worker 收到取消訊號，結束")
             raise
+        except RedisTimeoutError:
+            # socket timeout < BRPOP_TIMEOUT 時佇列閒置即逾時，屬 idle 而非錯誤
+            continue
         except Exception as exc:
             logger.warning("skill_factory_worker BRPOP 失敗: %s", exc)
             await asyncio.sleep(2)

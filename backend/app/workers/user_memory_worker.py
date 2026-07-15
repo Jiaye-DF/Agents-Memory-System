@@ -24,6 +24,7 @@ import logging
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from redis.exceptions import TimeoutError as RedisTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.openrouter.memory_aggregation_prompts import (
@@ -31,7 +32,7 @@ from app.clients.openrouter.memory_aggregation_prompts import (
 )
 from app.core.database import AsyncSessionLocal
 from app.core.queue_keys import USER_MEMORY_DLQ_KEY, USER_MEMORY_QUEUE_KEY
-from app.core.redis import get_redis
+from app.core.redis import get_blocking_redis, get_redis
 from app.models.chat_memory import ChatMemory
 from app.repositories import (
     chat_memory_repository,
@@ -85,7 +86,7 @@ async def run() -> None:
 
     while True:
         try:
-            redis = get_redis()
+            redis = get_blocking_redis()
         except RuntimeError:
             await asyncio.sleep(1)
             continue
@@ -95,6 +96,9 @@ async def run() -> None:
         except asyncio.CancelledError:
             _log_event("boot", None, outcome="cancelled")
             raise
+        except RedisTimeoutError:
+            # socket timeout < BRPOP_TIMEOUT 時佇列閒置即逾時，屬 idle 而非錯誤
+            continue
         except Exception as exc:
             _log_event(
                 "brpop",
