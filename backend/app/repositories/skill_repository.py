@@ -120,6 +120,10 @@ async def get_by_uids(
     return list(result.scalars().all())
 
 
+# 內層近鄰候選數 = top_k * 6：涵蓋同 skill 多 row（最多 3 條向量）與可見性過濾損耗
+CANDIDATE_MULTIPLIER = 6
+
+
 async def search_similar(
     query_embedding: list[float],
     top_k: int,
@@ -128,7 +132,9 @@ async def search_similar(
     db: AsyncSession,
     scope: str = "visible",
 ) -> list[tuple[Skill, float]]:
-    """pgvector cosine 語意檢索：raw SQL 取 skill_uid + score 保序，再以 ORM 補完整 Skill（含 owner），不回傳 embedding。
+    """pgvector cosine 語意檢索（v1.6.2 多向量）：兩層 SQL——內層對 skill_embedding
+    純 HNSW 近鄰取候選，外層 join skill 過濾後 per-skill 取 MAX 分數，門檻作用在
+    MAX 上；raw SQL 取 skill_uid + score 保序，再以 ORM 補完整 Skill（含 owner）。
 
     `scope="public"` 時可見性條款僅取 `visibility = 'public'`（公開市集用，
     不含 owner 條件）；其餘值（含未知值防呆）一律視為 `"visible"`（v1.6.0 原行為）。
@@ -136,24 +142,30 @@ async def search_similar(
     vector_literal = "[" + ",".join(repr(float(x)) for x in query_embedding) + "]"
 
     if scope == "public":
-        visibility_clause = "visibility = 'public'"
+        visibility_clause = "s.visibility = 'public'"
         params: dict = {}
     else:
         visibility_clause = (
-            "(owner_user_uid = CAST(:user_uid AS uuid) OR visibility = 'public')"
+            "(s.owner_user_uid = CAST(:user_uid AS uuid) OR s.visibility = 'public')"
         )
         params = {"user_uid": str(uuid.UUID(user_uid))}
 
     sql = text(
         f"""
-        SELECT skill_uid,
-               1 - (embedding <=> CAST(:query AS vector)) AS score
-        FROM skill
-        WHERE is_deleted = FALSE
-          AND embedding IS NOT NULL
+        SELECT t.skill_uid, MAX(t.score) AS score
+        FROM (
+            SELECT se.skill_uid,
+                   1 - (se.embedding <=> CAST(:query AS vector)) AS score
+            FROM skill_embedding se
+            ORDER BY se.embedding <=> CAST(:query AS vector)
+            LIMIT :candidate_k
+        ) t
+        JOIN skill s ON s.skill_uid = t.skill_uid
+        WHERE s.is_deleted = FALSE
           AND {visibility_clause}
-          AND 1 - (embedding <=> CAST(:query AS vector)) >= :min_score
-        ORDER BY embedding <=> CAST(:query AS vector)
+        GROUP BY t.skill_uid
+        HAVING MAX(t.score) >= :min_score
+        ORDER BY score DESC
         LIMIT :top_k
         """
     )
@@ -162,6 +174,7 @@ async def search_similar(
         {
             "query": vector_literal,
             "min_score": min_score,
+            "candidate_k": top_k * CANDIDATE_MULTIPLIER,
             "top_k": top_k,
             **params,
         },

@@ -1,4 +1,4 @@
-"""一次性回填腳本：為既有 Skill 產生語意檢索 embedding（v1.6.0 部署後執行一次）。
+"""一次性回填腳本：為既有 Skill 產生多向量語意檢索 embedding（v1.6.2 部署後**必須**立即執行）。
 
 用法::
 
@@ -8,13 +8,16 @@
     docker compose exec backend python -m scripts.backfill_skill_embedding
 
 設計重點：
-- 可重跑（idempotent）：只挑 ``embedding IS NULL AND is_deleted = FALSE`` 的 skill,
-  已回填者不重算
-- 逐筆 get_object → update_embedding → commit；單筆失敗跳過續跑
-- S3 NoSuchKey（檔案遺失）→ zip 傳 ``None`` 退化為只用 name + description 組文字,
+- **v1.6.2（V59）已刪除 skill.embedding 舊欄位**, 舊向量隨欄位一併消失；部署後
+  必須立即執行本腳本, 否則語意檢索回空
+- 可重跑（idempotent）：只挑「``skill_embedding`` 無任何 rows 且 ``is_deleted = FALSE``」
+  的 skill, 已回填者不重算
+- 逐筆 get_object → update_embedding（內含逐段 embed + 全量替換）→ commit；
+  單筆失敗跳過續跑
+- S3 NoSuchKey（檔案遺失）→ zip 傳 ``None`` 退化為只用 name + description 建向量,
   不視為失敗（避免每次重跑都卡同一筆）, 但逐筆 log 會標示 [WARN]
-- ``update_embedding`` 內部吞例外只 ``logger.warning``, 故以「呼叫後
-  ``skill.embedding`` 是否仍為 NULL」判定成功 / 失敗
+- ``update_embedding`` 內部吞例外只 ``logger.warning``, 故以「該 skill 在
+  ``skill_embedding`` 的 rows 數 > 0」判定成功 / 失敗
 - 結尾統計總數 / 成功 / 失敗 + 失敗 uid 清單；有失敗 exit code = 1
   （範式 migrate_storage_to_s3 無 exit code 慣例, 此處為配合部署自動化補上）
 """
@@ -23,22 +26,23 @@ import argparse
 import asyncio
 
 from botocore.exceptions import ClientError
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.database import AsyncSessionLocal
 from app.models.skill import Skill
+from app.models.skill_embedding import SkillEmbedding
 from app.services import skill_embedding_service
 from app.storage import s3_storage
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="回填既有 Skill 的 embedding（只挑 embedding IS NULL）"
+        description="回填既有 Skill 的多向量 embedding（只挑 skill_embedding 無 rows 者）"
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="只列印待回填清單（仍讀 S3 驗證檔案存在）, 不呼叫 embedding / 不 UPDATE DB",
+        help="只列印待回填清單（仍讀 S3 驗證檔案存在）, 不呼叫 embedding / 不寫 DB",
     )
     parser.add_argument(
         "--limit",
@@ -59,8 +63,10 @@ async def main() -> None:
 
     async with AsyncSessionLocal() as session:
         stmt = select(Skill).where(
-            Skill.embedding.is_(None),
             Skill.is_deleted == False,
+            ~select(SkillEmbedding.pid)
+            .where(SkillEmbedding.skill_uid == Skill.skill_uid)
+            .exists(),
         )
         result = await session.execute(stmt)
         rows = list(result.scalars().all())
@@ -98,18 +104,26 @@ async def main() -> None:
                 await skill_embedding_service.update_embedding(
                     merged, zip_bytes, session
                 )
-                if merged.embedding is None:
-                    # update_embedding 內部失敗只 warning, 以欄位仍為 NULL 判定失敗
+                count_stmt = (
+                    select(func.count())
+                    .select_from(SkillEmbedding)
+                    .where(SkillEmbedding.skill_uid == row.skill_uid)
+                )
+                rows_count = (await session.execute(count_stmt)).scalar_one()
+                if rows_count == 0:
+                    # update_embedding 內部失敗只 warning, 以無任何 rows 判定失敗
                     await session.rollback()
-                    failed.append((uid_str, "update_embedding 失敗（embedding 仍為 NULL）"))
-                    print(f"[FAIL] {i}/{total} skill {uid_str}: embedding 仍為 NULL")
+                    failed.append(
+                        (uid_str, "update_embedding 失敗（skill_embedding 無 rows）")
+                    )
+                    print(f"[FAIL] {i}/{total} skill {uid_str}: skill_embedding 無 rows")
                     continue
 
                 await session.commit()
                 # commit 完立刻 detach，避免下一筆若 rollback 連帶 expire 這筆
                 session.expunge(merged)
                 success += 1
-                print(f"[OK] {i}/{total} skill {uid_str} ({row.name})")
+                print(f"[OK] {i}/{total} skill {uid_str} ({row.name}) rows={rows_count}")
             except Exception as exc:
                 if not args.dry_run:
                     await session.rollback()

@@ -1,11 +1,12 @@
-"""skill_repository.search_similar 單測（v1.6.0 Phase 10-1）。
+"""skill_repository.search_similar 單測（v1.6.2 多向量 1:N）。
 
 測試環境無 pgvector PostgreSQL（conftest 無真 DB fixture），故不整合驗證
-cosine 距離運算本身；改以假 DB 驗證：
+cosine 距離運算本身；改以假 DB 驗證兩層 SQL：
 
-- raw SQL 條款正確（is_deleted / embedding IS NOT NULL / visibility / min_score / ORDER BY）
-- 綁定參數正確（vector literal / user_uid / min_score / top_k）
-- raw SQL 回傳順序保序（cosine 排序由 DB 端 ORDER BY 保證）
+- 內層條款：FROM skill_embedding 純 HNSW 近鄰（ORDER BY <=> / LIMIT :candidate_k）
+- 外層條款：JOIN skill 過濾（is_deleted / visibility）+ GROUP BY + HAVING MAX + ORDER BY score DESC / LIMIT :top_k
+- 綁定參數正確（vector literal / user_uid / min_score / candidate_k = top_k * 6 / top_k）
+- raw SQL 回傳順序保序（分數排序由 DB 端 ORDER BY 保證）
 - 空結果 early-return，不再發第二段 ORM 查詢
 - scope 切換可見性條款（v1.6.1：public 僅 visibility 條款；未知值防呆落回 visible）
 """
@@ -54,8 +55,8 @@ def _mk_skill(skill_uid: uuid.UUID):
 
 
 @pytest.mark.asyncio
-async def test_search_similar_sql_clauses_and_params():
-    """raw SQL 含全部過濾條款，且綁定參數（vector / user_uid / min_score / top_k）正確。"""
+async def test_search_similar_two_layer_sql_clauses_and_params():
+    """兩層 SQL 條款齊全，且綁定參數（vector / user_uid / min_score / candidate_k / top_k）正確。"""
     user_uid = str(uuid.uuid4())
     uid = uuid.uuid4()
     db = _FakeDB(
@@ -67,22 +68,33 @@ async def test_search_similar_sql_clauses_and_params():
 
     stmt, params = db.calls[0]
     sql = str(stmt)
-    assert "is_deleted = FALSE" in sql
-    assert "embedding IS NOT NULL" in sql
-    assert "owner_user_uid = CAST(:user_uid AS uuid) OR visibility = 'public'" in sql
-    assert "1 - (embedding <=> CAST(:query AS vector)) >= :min_score" in sql
-    assert "ORDER BY embedding <=> CAST(:query AS vector)" in sql
+    # 內層：對 skill_embedding 純 HNSW 近鄰取候選
+    assert "FROM skill_embedding" in sql
+    assert "ORDER BY se.embedding <=> CAST(:query AS vector)" in sql
+    assert "LIMIT :candidate_k" in sql
+    # 外層：join skill 過濾 + per-skill 取 MAX
+    assert "JOIN skill s ON s.skill_uid = t.skill_uid" in sql
+    assert "s.is_deleted = FALSE" in sql
+    assert (
+        "s.owner_user_uid = CAST(:user_uid AS uuid) OR s.visibility = 'public'"
+        in sql
+    )
+    assert "GROUP BY t.skill_uid" in sql
+    assert "HAVING MAX(t.score) >= :min_score" in sql
+    assert "ORDER BY score DESC" in sql
     assert "LIMIT :top_k" in sql
 
     assert params["query"] == "[0.25,0.5]"
     assert params["user_uid"] == user_uid
     assert params["min_score"] == 0.5
+    assert params["candidate_k"] == 8 * skill_repository.CANDIDATE_MULTIPLIER
+    assert params["candidate_k"] == 48
     assert params["top_k"] == 8
 
 
 @pytest.mark.asyncio
 async def test_search_similar_preserves_raw_row_order_and_scores():
-    """回傳順序沿用 raw SQL（DB 端 cosine 排序），ORM 補回順序不影響結果。"""
+    """回傳順序沿用 raw SQL（DB 端 MAX 分數排序），ORM 補回順序不影響結果。"""
     uid_a, uid_b, uid_c = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     skill_a, skill_b, skill_c = _mk_skill(uid_a), _mk_skill(uid_b), _mk_skill(uid_c)
     db = _FakeDB(
@@ -146,19 +158,21 @@ async def test_search_similar_public_scope_excludes_owner_clause():
 
     stmt, params = db.calls[0]
     sql = str(stmt)
-    assert "visibility = 'public'" in sql
+    assert "s.visibility = 'public'" in sql
     assert "owner_user_uid" not in sql
     assert "user_uid" not in params
     # 其餘條款不受 scope 影響
-    assert "is_deleted = FALSE" in sql
-    assert "embedding IS NOT NULL" in sql
-    assert "1 - (embedding <=> CAST(:query AS vector)) >= :min_score" in sql
+    assert "FROM skill_embedding" in sql
+    assert "LIMIT :candidate_k" in sql
+    assert "s.is_deleted = FALSE" in sql
+    assert "GROUP BY t.skill_uid" in sql
+    assert "HAVING MAX(t.score) >= :min_score" in sql
     assert "LIMIT :top_k" in sql
 
 
 @pytest.mark.asyncio
 async def test_search_similar_unknown_scope_falls_back_to_visible():
-    """未知 scope 值防呆：一律當 "visible"（條款與 v1.6.0 預設一致）。"""
+    """未知 scope 值防呆：一律當 "visible"（條款與預設 scope 一致）。"""
     user_uid = str(uuid.uuid4())
     db = _FakeDB(raw_rows=[], orm_skills=[])
 
@@ -168,7 +182,10 @@ async def test_search_similar_unknown_scope_falls_back_to_visible():
 
     stmt, params = db.calls[0]
     sql = str(stmt)
-    assert "owner_user_uid = CAST(:user_uid AS uuid) OR visibility = 'public'" in sql
+    assert (
+        "s.owner_user_uid = CAST(:user_uid AS uuid) OR s.visibility = 'public'"
+        in sql
+    )
     assert params["user_uid"] == user_uid
 
 

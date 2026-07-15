@@ -474,8 +474,8 @@ async def update_skill(
 
     await skill_repository.update_obj(skill, update_data, db)
 
-    if data.description is not None:
-        # 描述變動需重組 embedding 文字；取檔失敗退化為只用 name + description
+    if data.name is not None or data.description is not None:
+        # 名稱或描述任一變動皆全量重建三向量；取檔失敗退化為只用 name + description
         zip_bytes: bytes | None = None
         try:
             zip_bytes = await s3_storage.get_object(skill.storage_key)

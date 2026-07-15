@@ -13,6 +13,7 @@ from app.models.llm_model import LlmModel
 from app.models.project_memory import ProjectMemory
 from app.models.script import Script
 from app.models.skill import Skill
+from app.models.skill_embedding import SkillEmbedding
 from app.models.system_setting import SystemSetting
 from app.models.tag import Tag
 from app.models.user import User, UserRole
@@ -39,6 +40,7 @@ __all__ = [
     "ProjectMemory",
     "Script",
     "Skill",
+    "SkillEmbedding",
     "SystemSetting",
     "Tag",
     "User",

@@ -1,9 +1,11 @@
-"""Skill Embedding 生成服務（v1.6.0）。
+"""Skill Embedding 生成服務（v1.6.2 多向量 1:N）。
 
 責任：
-- 組 embedding 文字（name + description + ZIP 內 .md / .txt 檔案內容）
-- 呼叫 `llm_metering.call_llm_metered(PURPOSE_EMBEDDING)` 產生向量並寫回 `skill.embedding`
-- 失敗只 log warning，不 raise（不擋 upload / update 主流程）
+- 依 name / description / ZIP 內 .md / .txt 內容切成三段文字，各自獨立 embedding
+- 逐段呼叫 `llm_metering.call_llm_metered(PURPOSE_EMBEDDING)` 產生向量，
+  經 `skill_embedding_repository.replace_for_skill` 同 transaction 全量替換
+- 失敗只 log warning，不 raise（不擋 upload / update 主流程）；任一段 embed 失敗
+  即整批放棄，不做半套替換
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ import zipfile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.skill import Skill
-from app.repositories import skill_repository
+from app.repositories import skill_embedding_repository
 from app.services import llm_metering, system_setting_service
 
 logger = logging.getLogger(__name__)
@@ -37,15 +39,10 @@ def _sort_key(info: zipfile.ZipInfo) -> tuple[int, str]:
     return (priority, info.filename)
 
 
-def build_embedding_text(
-    name: str,
-    description: str,
-    zip_bytes: bytes | None,
-    max_chars: int,
-) -> str:
-    base = f"{name}\n\n{description}"
+def _extract_zip_text(zip_bytes: bytes | None, max_chars: int) -> str:
+    """解出 ZIP 內 .md / .txt 文字（截 max_chars）；ZIP 不可用或無內容回空字串。"""
     if zip_bytes is None:
-        return base
+        return ""
 
     try:
         with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
@@ -63,34 +60,65 @@ def build_embedding_text(
                 except Exception:
                     continue
     except zipfile.BadZipFile:
-        return base
+        return ""
 
-    content = "\n\n".join(parts)[:max_chars]
-    if not content:
-        return base
-    return f"{base}\n\n{content}"
+    return "\n\n".join(parts)[:max_chars]
+
+
+def build_embedding_texts(
+    name: str,
+    description: str,
+    zip_bytes: bytes | None,
+    max_chars: int,
+) -> dict[str, str]:
+    """切出 name / description / content 三段文字；空段不出該鍵。"""
+    texts: dict[str, str] = {}
+    if name:
+        texts["name"] = name
+    if description:
+        texts["description"] = description
+    content = _extract_zip_text(zip_bytes, max_chars)
+    if content:
+        texts["content"] = content
+    return texts
 
 
 async def update_embedding(
     skill: Skill, zip_bytes: bytes | None, db: AsyncSession
 ) -> None:
-    """產生並寫回 skill.embedding；失敗只 log warning，絕不 raise。"""
+    """產生各段向量並全量替換該 skill 的 skill_embedding rows；失敗只 log warning，絕不 raise。"""
     try:
         max_chars = await system_setting_service.get_int(
             "skill.rag.embed_content_max_chars",
             DEFAULT_EMBED_CONTENT_MAX_CHARS,
             db,
         )
-        embedding_text = build_embedding_text(
+        texts = build_embedding_texts(
             skill.name, skill.description, zip_bytes, max_chars
         )
-        vector = await llm_metering.call_llm_metered(
-            purpose=llm_metering.PURPOSE_EMBEDDING,
-            user_uid=str(skill.owner_user_uid),
-            text=embedding_text,
+        if not texts:
+            # 防呆：無任何可 embed 文字時不動既有 rows
+            logger.warning(
+                "skill embedding 無可用文字, 略過重建 skill_uid=%s", skill.skill_uid
+            )
+            return
+
+        rows: list[tuple[str, list[float]]] = []
+        for source_type, segment_text in texts.items():
+            vector = await llm_metering.call_llm_metered(
+                purpose=llm_metering.PURPOSE_EMBEDDING,
+                user_uid=str(skill.owner_user_uid),
+                text=segment_text,
+            )
+            rows.append((source_type, vector))
+
+        await skill_embedding_repository.replace_for_skill(
+            str(skill.skill_uid), rows, db
         )
-        await skill_repository.update_obj(skill, {"embedding": vector}, db)
     except Exception as exc:
+        # 任一段 embed 失敗即整批放棄（不做半套替換）, 只 warning 不擋主流程
         logger.warning(
-            "skill embedding 更新失敗 skill_uid=%s: %s", skill.skill_uid, exc
+            "skill embedding 更新失敗（整批放棄, 不做部分替換）skill_uid=%s: %s",
+            skill.skill_uid,
+            exc,
         )
