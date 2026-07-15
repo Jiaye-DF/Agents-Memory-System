@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     )
 
     APP_ENV: str = "development"
+    LOG_LEVEL: str = "INFO"
 
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432

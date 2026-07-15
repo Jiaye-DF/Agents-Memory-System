@@ -19,7 +19,7 @@ from app.workers import (
     user_memory_worker,
 )
 
-setup_logging(level="INFO")
+setup_logging(level=settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
 

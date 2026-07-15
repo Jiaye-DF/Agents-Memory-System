@@ -51,6 +51,7 @@ services:
     environment:
       SERVICE_URL_BACKEND_8000:
       APP_ENV: ${APP_ENV}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       POSTGRES_USER: ${POSTGRES_USER}
