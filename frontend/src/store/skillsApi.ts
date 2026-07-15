@@ -29,6 +29,7 @@ interface FileTreeResponse {
 interface SemanticSearchParams {
   query: string;
   topK?: number;
+  scope?: "visible" | "public";
 }
 
 export const skillsApi = baseApi.injectEndpoints({
@@ -70,11 +71,16 @@ export const skillsApi = baseApi.injectEndpoints({
       SkillSearchResult,
       SemanticSearchParams
     >({
-      query: ({ query, topK }) => ({
-        method: "post",
-        path: "/skills/search",
-        body: topK !== undefined ? { query, top_k: topK } : { query },
-      }),
+      query: ({ query, topK, scope }) => {
+        const body: Record<string, unknown> = { query };
+        if (topK !== undefined) body.top_k = topK;
+        if (scope !== undefined) body.scope = scope;
+        return {
+          method: "post",
+          path: "/skills/search",
+          body,
+        };
+      },
     }),
 
     uploadSkill: builder.mutation<Skill, SkillUploadParams>({

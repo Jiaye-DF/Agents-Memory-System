@@ -126,18 +126,32 @@ async def search_similar(
     min_score: float,
     user_uid: str,
     db: AsyncSession,
+    scope: str = "visible",
 ) -> list[tuple[Skill, float]]:
-    """pgvector cosine 語意檢索：raw SQL 取 skill_uid + score 保序，再以 ORM 補完整 Skill（含 owner），不回傳 embedding。"""
+    """pgvector cosine 語意檢索：raw SQL 取 skill_uid + score 保序，再以 ORM 補完整 Skill（含 owner），不回傳 embedding。
+
+    `scope="public"` 時可見性條款僅取 `visibility = 'public'`（公開市集用，
+    不含 owner 條件）；其餘值（含未知值防呆）一律視為 `"visible"`（v1.6.0 原行為）。
+    """
     vector_literal = "[" + ",".join(repr(float(x)) for x in query_embedding) + "]"
 
+    if scope == "public":
+        visibility_clause = "visibility = 'public'"
+        params: dict = {}
+    else:
+        visibility_clause = (
+            "(owner_user_uid = CAST(:user_uid AS uuid) OR visibility = 'public')"
+        )
+        params = {"user_uid": str(uuid.UUID(user_uid))}
+
     sql = text(
-        """
+        f"""
         SELECT skill_uid,
                1 - (embedding <=> CAST(:query AS vector)) AS score
         FROM skill
         WHERE is_deleted = FALSE
           AND embedding IS NOT NULL
-          AND (owner_user_uid = CAST(:user_uid AS uuid) OR visibility = 'public')
+          AND {visibility_clause}
           AND 1 - (embedding <=> CAST(:query AS vector)) >= :min_score
         ORDER BY embedding <=> CAST(:query AS vector)
         LIMIT :top_k
@@ -147,9 +161,9 @@ async def search_similar(
         sql,
         {
             "query": vector_literal,
-            "user_uid": str(uuid.UUID(user_uid)),
             "min_score": min_score,
             "top_k": top_k,
+            **params,
         },
     )
     rows = result.mappings().all()

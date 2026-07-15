@@ -102,7 +102,7 @@ async def semantic_search_skills(
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     result = await skill_service.semantic_search(
-        current_user.user_uid, body.query, body.top_k, db
+        current_user.user_uid, body.query, body.top_k, db, scope=body.scope
     )
     return success(data=result)
 

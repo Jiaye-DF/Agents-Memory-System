@@ -5,6 +5,8 @@ mock llm_metering / skill_repository / system_setting_service，驗證：
 - analyze_enabled=false → items 有值、ai_reason 全 None、零次 analyze 呼叫
 - analyze LLM 失敗 → 降級（items 照回、ai_reason 全 None）
 - analyze 回 index/reason → 正確回填、越界 index 忽略
+- scope 透傳 search_similar（v1.6.1：預設 "visible"、顯式 "public"）
+- SkillSearchRequest schema：scope 非法值 → ValidationError、未帶 → 預設 "visible"
 """
 from __future__ import annotations
 
@@ -14,10 +16,12 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from pydantic import ValidationError
 
 # 跳過測試若 pgvector 未裝（import 鏈經過 app.models.skill → pgvector）
 pgvector = pytest.importorskip("pgvector")  # noqa: F841
 
+from app.schemas.skills.schemas import SkillSearchRequest  # noqa: E402
 from app.services import llm_metering, skill_service  # noqa: E402
 
 
@@ -117,7 +121,9 @@ def _patch_llm(
 def _patch_repos(
     monkeypatch: pytest.MonkeyPatch, rows: list[tuple]
 ) -> None:
-    async def fake_search_similar(vector, top_k, min_score, user_uid, db):
+    async def fake_search_similar(
+        vector, top_k, min_score, user_uid, db, scope="visible"
+    ):
         return rows
 
     async def fake_is_favorited_bulk(user_uid, item_type, item_uids, db):
@@ -277,7 +283,9 @@ async def test_semantic_search_top_k_capped_at_max(
     _patch_llm(monkeypatch)
     captured: dict = {}
 
-    async def fake_search_similar(vector, top_k, min_score, user_uid, db):
+    async def fake_search_similar(
+        vector, top_k, min_score, user_uid, db, scope="visible"
+    ):
         captured["top_k"] = top_k
         return []
 
@@ -291,3 +299,50 @@ async def test_semantic_search_top_k_capped_at_max(
 
     assert captured["top_k"] == skill_service.RAG_TOP_K_MAX
     assert out == {"items": [], "analysis": None}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("call_kwargs", "expected_scope"),
+    [
+        ({}, "visible"),  # 未帶 scope → 預設 visible（v1.6.0 行為）
+        ({"scope": "public"}, "public"),
+    ],
+)
+async def test_semantic_search_passes_scope_to_search_similar(
+    monkeypatch: pytest.MonkeyPatch,
+    call_kwargs: dict,
+    expected_scope: str,
+):
+    """scope 透傳 search_similar：未帶預設 "visible"，顯式 "public" 原樣透傳。"""
+    _patch_settings(monkeypatch, analyze_enabled=False)
+    _patch_llm(monkeypatch)
+    captured: dict = {}
+
+    async def fake_search_similar(
+        vector, top_k, min_score, user_uid, db, scope="visible"
+    ):
+        captured["scope"] = scope
+        return []
+
+    monkeypatch.setattr(
+        skill_service.skill_repository, "search_similar", fake_search_similar
+    )
+
+    await skill_service.semantic_search(
+        str(uuid.uuid4()), "查詢", None, _FakeDB(), **call_kwargs
+    )
+
+    assert captured["scope"] == expected_scope
+
+
+def test_skill_search_request_scope_invalid_raises():
+    """scope 非法值 → pydantic ValidationError（Literal 白名單）。"""
+    with pytest.raises(ValidationError):
+        SkillSearchRequest(query="找一個能寄信的 skill", scope="invalid")
+
+
+def test_skill_search_request_scope_defaults_to_visible():
+    """未帶 scope → 預設 "visible"（v1.6.0 呼叫端零改動）。"""
+    req = SkillSearchRequest(query="找一個能寄信的 skill")
+    assert req.scope == "visible"

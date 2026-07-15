@@ -3,10 +3,15 @@
 import React, { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useListAgentsQuery } from "@/store/agentsApi";
-import { useListSkillsQuery } from "@/store/skillsApi";
+import {
+  useListSkillsQuery,
+  useSemanticSearchSkillsMutation,
+} from "@/store/skillsApi";
 import { useListScriptsQuery } from "@/store/scriptsApi";
 import { useListAgentLanguagesQuery } from "@/store/agentLanguagesApi";
+import { useDialog } from "@/hooks/useDialog";
 import { PageLoading } from "@/components/ui/Loading";
+import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { FilterChip } from "@/components/ui/FilterChip";
 import { RankingPanel } from "@/components/dashboard/RankingPanel";
@@ -18,9 +23,11 @@ import {
   matchByTextAndAuthor,
   toggleAuthorChip,
 } from "@/utils/search";
-import type { Agent, Skill, Script } from "@/types";
+import type { Agent, Skill, Script, SkillSearchResult } from "@/types";
 
 type TabKey = "agents" | "skills" | "scripts" | "favorites";
+
+type SearchMode = "keyword" | "ai";
 
 type SortOrderBy = "created_at" | "download_count" | "favorite_count";
 type SortOrder = "asc" | "desc";
@@ -140,8 +147,12 @@ const AgentRow = React.memo(function AgentRow({
 
 const SkillRow = React.memo(function SkillRow({
   skill,
+  score,
+  aiReason,
 }: {
   skill: Skill;
+  score?: number;
+  aiReason?: string | null;
 }): React.ReactNode {
   return (
     <div className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-muted-bg/40 md:flex-row md:items-center md:gap-4">
@@ -156,10 +167,23 @@ const SkillRow = React.memo(function SkillRow({
           <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
             @{skill.owner_username ?? "未知"}
           </span>
+          {score !== undefined && (
+            <span className="shrink-0 rounded-xl bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+              AI 分析
+            </span>
+          )}
+          {score !== undefined && (
+            <span className="shrink-0 text-sm text-muted">
+              相似度 {Math.round(score * 100)}%
+            </span>
+          )}
         </div>
         <p className="mt-1 line-clamp-1 text-base text-muted">
           {skill.description}
         </p>
+        {aiReason && (
+          <p className="mt-1 line-clamp-2 text-sm text-muted/80">{aiReason}</p>
+        )}
         {skill.tags && skill.tags.length > 0 && (
           <div className="mt-1">
             <TagList tags={skill.tags} />
@@ -230,8 +254,13 @@ const ScriptRow = React.memo(function ScriptRow({
 });
 
 export default function DashboardPage(): React.ReactNode {
+  const { showDialog } = useDialog();
+
   const [activeTab, setActiveTab] = useState<TabKey>("skills");
   const [query, setQuery] = useState<string>("");
+  // v1.6.1：AI 分析僅作用於公開 Skills 頁籤，其他頁籤維持 keyword 過濾
+  const [searchMode, setSearchMode] = useState<SearchMode>("keyword");
+  const [aiResult, setAiResult] = useState<SkillSearchResult | null>(null);
   // chip 選的作者用獨立 state（避免含空白的 username 塞進 query 後被 \s+ 切壞）
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
   // 公開市集的 tag filter：跨 user 用 tag name (lowercase) 識別；AND 邏輯
@@ -258,6 +287,8 @@ export default function DashboardPage(): React.ReactNode {
     order: sort.order,
   });
   const { data: languagesData } = useListAgentLanguagesQuery();
+  const [semanticSearch, { isLoading: aiSearching }] =
+    useSemanticSearchSkillsMutation();
 
   const languageNameMap = useMemo((): Map<string, string> => {
     const map = new Map<string, string>();
@@ -404,7 +435,42 @@ export default function DashboardPage(): React.ReactNode {
 
   const handleTabChange = useCallback((tab: TabKey): void => {
     setActiveTab(tab);
+    setAiResult(null);
   }, []);
+
+  const handleModeKeyword = useCallback((): void => {
+    setSearchMode("keyword");
+    setAiResult(null);
+  }, []);
+
+  const handleModeAi = useCallback((): void => {
+    setSearchMode("ai");
+  }, []);
+
+  const isAiMode = activeTab === "skills" && searchMode === "ai";
+
+  const handleSearchSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>): void => {
+      e.preventDefault();
+      if (!isAiMode) return;
+      const trimmed = query.trim();
+      if (trimmed.length === 0) return;
+      void (async (): Promise<void> => {
+        try {
+          const result = await semanticSearch({
+            query: trimmed,
+            scope: "public",
+          }).unwrap();
+          setAiResult(result);
+        } catch (err: unknown) {
+          const fallback = "AI 分析失敗，請稍後再試";
+          const message = typeof err === "string" ? err : fallback;
+          showDialog({ type: "error", title: "AI 分析失敗", message });
+        }
+      })();
+    },
+    [isAiMode, query, semanticSearch, showDialog]
+  );
 
   const handleSortChange = useCallback(
     (orderBy: SortOrderBy, order: SortOrder): void => {
@@ -488,13 +554,44 @@ export default function DashboardPage(): React.ReactNode {
       ) : (
         <>
 
-      <Input
-        placeholder="搜尋名稱、描述，或輸入 @作者 篩選（可多個）"
-        value={query}
-        onChange={handleQueryChange}
-      />
+      {activeTab === "skills" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="shrink-0 text-sm text-muted">搜尋模式：</span>
+          <FilterChip
+            active={searchMode === "keyword"}
+            onClick={handleModeKeyword}
+          >
+            關鍵字
+          </FilterChip>
+          <FilterChip active={searchMode === "ai"} onClick={handleModeAi}>
+            AI 分析
+          </FilterChip>
+        </div>
+      )}
 
-      {currentAuthors.length > 0 && (
+      <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
+        <Input
+          placeholder={
+            isAiMode
+              ? "用一句話描述你要找的 Skill…"
+              : "搜尋名稱、描述，或輸入 @作者 篩選（可多個）"
+          }
+          value={query}
+          onChange={handleQueryChange}
+        />
+        {isAiMode && (
+          <Button
+            type="submit"
+            loading={aiSearching}
+            disabled={query.trim().length === 0}
+            className="shrink-0"
+          >
+            AI 分析
+          </Button>
+        )}
+      </form>
+
+      {!isAiMode && currentAuthors.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <span className="shrink-0 text-sm text-muted">作者：</span>
           {currentAuthors.map((author) => {
@@ -520,7 +617,7 @@ export default function DashboardPage(): React.ReactNode {
         </div>
       )}
 
-      {currentTags.length > 0 && (
+      {!isAiMode && currentTags.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <span className="shrink-0 text-sm text-muted">標籤：</span>
           {currentTags.map((t) => {
@@ -552,6 +649,7 @@ export default function DashboardPage(): React.ReactNode {
         </div>
       )}
 
+      {!isAiMode && (
       <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-x-6">
         {SORT_GROUPS.map((group) => (
           <div
@@ -574,8 +672,39 @@ export default function DashboardPage(): React.ReactNode {
           </div>
         ))}
       </div>
+      )}
 
-      {isLoading ? (
+      {isAiMode ? (
+        aiSearching ? (
+          <PageLoading />
+        ) : aiResult === null ? (
+          <div className="rounded-xl bg-card-bg p-8 text-center text-muted">
+            輸入需求描述後按「AI 分析」開始語意檢索。
+          </div>
+        ) : aiResult.items.length === 0 ? (
+          <div className="rounded-xl bg-card-bg p-8 text-center text-muted">
+            找不到語意相近的 Skill
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl bg-card-bg shadow-sm">
+            {aiResult.analysis && (
+              <div className="border-b border-border px-4 py-3 text-sm text-muted">
+                {aiResult.analysis}
+              </div>
+            )}
+            <div className="divide-y divide-border">
+              {aiResult.items.map((item) => (
+                <SkillRow
+                  key={item.skill_uid}
+                  skill={item}
+                  score={item.score}
+                  aiReason={item.ai_reason}
+                />
+              ))}
+            </div>
+          </div>
+        )
+      ) : isLoading ? (
         <PageLoading />
       ) : totalCount === 0 ? (
         <div className="rounded-xl bg-card-bg p-8 text-center text-muted">

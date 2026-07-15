@@ -331,6 +331,7 @@ async def semantic_search(
     query: str,
     top_k: int | None,
     db: AsyncSession,
+    scope: str = "visible",
 ) -> dict:
     """語意檢索：query embedding → cosine 檢索 → （選配）AI 分析回填理由。
 
@@ -387,7 +388,7 @@ async def semantic_search(
         return empty
 
     rows = await skill_repository.search_similar(
-        vector, effective_top_k, min_score, user_uid, db
+        vector, effective_top_k, min_score, user_uid, db, scope=scope
     )
     if not rows:
         return empty

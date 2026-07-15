@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.tags.schemas import TagSummary
@@ -70,6 +72,10 @@ class SkillResponse(BaseModel):
 class SkillSearchRequest(BaseModel):
     query: str
     top_k: int | None = Field(None, ge=1, le=20)
+    scope: Literal["visible", "public"] = Field(
+        "visible",
+        description="檢索範圍：visible（自己的 + 公開，預設）/ public（僅公開）",
+    )
 
     @field_validator("query")
     @classmethod

@@ -7,6 +7,7 @@ cosine 距離運算本身；改以假 DB 驗證：
 - 綁定參數正確（vector literal / user_uid / min_score / top_k）
 - raw SQL 回傳順序保序（cosine 排序由 DB 端 ORDER BY 保證）
 - 空結果 early-return，不再發第二段 ORM 查詢
+- scope 切換可見性條款（v1.6.1：public 僅 visibility 條款；未知值防呆落回 visible）
 """
 from __future__ import annotations
 
@@ -132,6 +133,43 @@ async def test_search_similar_skips_uid_missing_in_orm_load():
     assert len(out) == 1
     assert out[0][0].skill_uid == uid_b
     assert out[0][1] == 0.8
+
+
+@pytest.mark.asyncio
+async def test_search_similar_public_scope_excludes_owner_clause():
+    """scope="public" 時可見性條款僅 visibility，不含 owner 條件，也不綁 user_uid。"""
+    db = _FakeDB(raw_rows=[], orm_skills=[])
+
+    await skill_repository.search_similar(
+        [0.1], 8, 0.5, str(uuid.uuid4()), db, scope="public"
+    )
+
+    stmt, params = db.calls[0]
+    sql = str(stmt)
+    assert "visibility = 'public'" in sql
+    assert "owner_user_uid" not in sql
+    assert "user_uid" not in params
+    # 其餘條款不受 scope 影響
+    assert "is_deleted = FALSE" in sql
+    assert "embedding IS NOT NULL" in sql
+    assert "1 - (embedding <=> CAST(:query AS vector)) >= :min_score" in sql
+    assert "LIMIT :top_k" in sql
+
+
+@pytest.mark.asyncio
+async def test_search_similar_unknown_scope_falls_back_to_visible():
+    """未知 scope 值防呆：一律當 "visible"（條款與 v1.6.0 預設一致）。"""
+    user_uid = str(uuid.uuid4())
+    db = _FakeDB(raw_rows=[], orm_skills=[])
+
+    await skill_repository.search_similar(
+        [0.1], 8, 0.5, user_uid, db, scope="not-a-scope"
+    )
+
+    stmt, params = db.calls[0]
+    sql = str(stmt)
+    assert "owner_user_uid = CAST(:user_uid AS uuid) OR visibility = 'public'" in sql
+    assert params["user_uid"] == user_uid
 
 
 @pytest.mark.asyncio
