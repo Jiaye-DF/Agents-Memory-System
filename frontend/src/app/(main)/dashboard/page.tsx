@@ -11,9 +11,11 @@ import { useListScriptsQuery } from "@/store/scriptsApi";
 import { useListAgentLanguagesQuery } from "@/store/agentLanguagesApi";
 import { useDialog } from "@/hooks/useDialog";
 import { PageLoading } from "@/components/ui/Loading";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { FilterChip } from "@/components/ui/FilterChip";
+import {
+  SearchModeBar,
+  type SearchMode,
+} from "@/components/search/SearchModeBar";
 import { RankingPanel } from "@/components/dashboard/RankingPanel";
 import { SocialMetrics } from "@/components/social/SocialMetrics";
 import { FavoriteButton } from "@/components/social/FavoriteButton";
@@ -26,8 +28,6 @@ import {
 import type { Agent, Skill, Script, SkillSearchResult } from "@/types";
 
 type TabKey = "agents" | "skills" | "scripts" | "favorites";
-
-type SearchMode = "keyword" | "ai";
 
 type SortOrderBy = "created_at" | "download_count" | "favorite_count";
 type SortOrder = "asc" | "desc";
@@ -438,13 +438,9 @@ export default function DashboardPage(): React.ReactNode {
     setAiResult(null);
   }, []);
 
-  const handleModeKeyword = useCallback((): void => {
-    setSearchMode("keyword");
-    setAiResult(null);
-  }, []);
-
-  const handleModeAi = useCallback((): void => {
-    setSearchMode("ai");
+  const handleModeChange = useCallback((mode: SearchMode): void => {
+    setSearchMode(mode);
+    if (mode === "keyword") setAiResult(null);
   }, []);
 
   const isAiMode = activeTab === "skills" && searchMode === "ai";
@@ -554,42 +550,21 @@ export default function DashboardPage(): React.ReactNode {
       ) : (
         <>
 
-      {activeTab === "skills" && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="shrink-0 text-sm text-muted">搜尋模式：</span>
-          <FilterChip
-            active={searchMode === "keyword"}
-            onClick={handleModeKeyword}
-          >
-            關鍵字
-          </FilterChip>
-          <FilterChip active={searchMode === "ai"} onClick={handleModeAi}>
-            AI 分析
-          </FilterChip>
-        </div>
-      )}
-
-      <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
-        <Input
-          placeholder={
-            isAiMode
-              ? "用一句話描述你要找的 Skill…"
-              : "搜尋名稱、描述，或輸入 @作者 篩選（可多個）"
-          }
-          value={query}
-          onChange={handleQueryChange}
-        />
-        {isAiMode && (
-          <Button
-            type="submit"
-            loading={aiSearching}
-            disabled={query.trim().length === 0}
-            className="shrink-0"
-          >
-            AI 分析
-          </Button>
-        )}
-      </form>
+      {/* v1.6 UI 調整：模式選擇器內建於搜尋框左側；僅公開 Skills 頁籤顯示，其他頁籤鎖定 keyword */}
+      <SearchModeBar
+        mode={activeTab === "skills" ? searchMode : "keyword"}
+        onModeChange={handleModeChange}
+        value={query}
+        onChange={handleQueryChange}
+        onSubmit={handleSearchSubmit}
+        isLoading={aiSearching}
+        showModeSelect={activeTab === "skills"}
+        placeholder={
+          isAiMode
+            ? "用一句話描述你要找的 Skill…"
+            : "搜尋名稱、描述，或輸入 @作者 篩選（可多個）"
+        }
+      />
 
       {!isAiMode && currentAuthors.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">

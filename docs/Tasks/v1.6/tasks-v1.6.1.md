@@ -49,7 +49,7 @@
 
 - [x] [`skillsApi.ts`](../../../frontend/src/store/skillsApi.ts) `semanticSearchSkills` 參數加 `scope?: "visible" | "public"`（未給不送，後端預設）
 - [x] [`dashboard/page.tsx`](../../../frontend/src/app/(main)/dashboard/page.tsx)：
-  - [x] 公開 Skills 頁籤加「搜尋模式」chip（`關鍵字` / `AI 分析`），僅該頁籤顯示
+  - [x] 公開 Skills 頁籤加「搜尋模式」chip（`關鍵字` / `AI 分析`），僅該頁籤顯示 —（已改為搜尋框內建左側模式選擇器 `SearchModeBar`，v1.6 UI 調整）
   - [x] AI 模式：placeholder「用一句話描述你要找的 Skill…」、Enter（form onSubmit）/ 按鈕觸發、`scope: "public"`
   - [x] 結果渲染：dashboard `SkillRow` 加選配 `score` / `aiReason` props（徽章 + `相似度 NN%` + 理由淺色文字），既有呼叫點不破壞
   - [x] loading `<PageLoading />`；空結果「找不到語意相近的 Skill」；AI 模式隱藏作者 / 標籤 / 排序 chips

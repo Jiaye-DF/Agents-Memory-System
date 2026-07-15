@@ -227,7 +227,7 @@
 ### 9-2 頁面整合
 
 - [x] [`skills/page.tsx`](../../../frontend/src/app/(main)/skills/page.tsx)：
-  - [x] 加 `searchMode: "keyword" | "ai"` state + 切換 UI（FilterChip 或 toggle 按鈕）
+  - [x] 加 `searchMode: "keyword" | "ai"` state + 切換 UI（FilterChip 或 toggle 按鈕）—（已改為搜尋框內建左側模式選擇器 `SearchModeBar`，v1.6 UI 調整）
   - [x] AI 模式：placeholder 改「用一句話描述你要找的 Skill…」，Enter / 按鈕觸發 mutation —（Enter 走 `<form onSubmit>`，既有 Input 元件不支援 onKeyDown）
   - [x] AI 模式渲染 `result.items`：沿用 `SkillRow` + 「AI 分析」徽章 + score（`相似度 NN%`）+ `ai_reason` 文字
   - [x] loading 用 `<PageLoading />`；空結果顯示「找不到語意相近的 Skill」
