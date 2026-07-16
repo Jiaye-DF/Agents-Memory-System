@@ -1,18 +1,21 @@
 # Agents Memory System
 
-以 **Agent 驅動 + 持久化記憶** 為核心的 AI 助手平台：使用者可自訂 Agent、組合 Skills、並透過向量化記憶實現 Agentic RAG，最終經由 Web 管理介面或 LINE / Telegram 與 Agent 互動。
+以 **Agent 驅動 + 持久化記憶** 為核心的 AI 助手平台：使用者可自訂 Agent、組合 Skills，透過三層向量化記憶（Session / Project / User）實現 Agentic RAG，並以語意檢索打造 Skill 市集，經由 Web 管理介面與 Agent 對話互動。
 
 ---
 
 ## 核心功能
 
-1. **記憶管理**：為 AI Agent 提供持久化儲存與語意檢索（PostgreSQL + pgvector）
-2. **自定義 Agent**：使用者可建立、設定 Agent，組合不同 Skills 完成特定任務
-3. **Skills 系統**：模組化技能元件，Agent 依需求載入與執行
-4. **Agentic RAG**：以 Agent 驅動的檢索增強生成，結合記憶與外部知識進行多步驟推理
-5. **多平台整合**：透過 LINE、Telegram 等通訊平台與 Agent 互動
+1. **三層持久化記憶**：背景 worker 將對話摘要為 Session → Project → User 三層記憶並向量化（PostgreSQL + pgvector，HNSW），對話時 RRF 融合檢索注入 system prompt（Agentic RAG）
+2. **自定義 Agent**：表單化建立 Agent（角色 prompt、語言、模型、生成參數），組合 Skills 完成特定任務；單一 Session 可掛多個 Agent 協作
+3. **Skills / Scripts 系統**：模組化技能與腳本資源（ZIP / 資料夾上傳、單檔線上編輯、公開市集、收藏 / 下載 / 標籤）
+4. **Skills RAG 語意檢索**：每個 Skill 建 name / description / content 三條向量，AI 查詢以 per-skill MAX 召回並附 LLM 推薦理由，查詢全程稽核
+5. **Agentic Skill 工廠**：從累積記憶中自學產出 Skill 候選，經人工審核入庫並推薦給適合的 Agent
+6. **成本工程**：所有 LLM / embedding 呼叫強制走統一計量入口入帳；前置分類器將訊息分流 skip / cheap / expensive
+7. **多平台整合**（規劃中）：透過 LINE、Telegram 等通訊平台與 Agent 互動，目前僅預留環境變數尚未實作
 
-> 完整設計目標、版本路線、系統架構詳見 [docs/Design-Base/00-overview.md](docs/Design-Base/00-overview.md)。
+> 完整設計目標、版本路線、系統架構詳見 [docs/Design-Base/00-overview.md](docs/Design-Base/00-overview.md)；
+> 圖文版整體介紹（含流程圖、版本演進、操作手冊）見 [docs/Agents-Memory-System-專案說明文件.html](docs/Agents-Memory-System-專案說明文件.html)。
 
 ---
 
@@ -22,9 +25,10 @@
 | --- | --- |
 | 前端 | Next.js 16 / React 19 / TailwindCSS 4 / Redux Toolkit + RTK Query / TypeScript 5 |
 | 後端 | Python 3.14+ / FastAPI / SQLAlchemy 2 / Pydantic 2 / Uvicorn / httpx |
-| 資料庫 | PostgreSQL 17（含 pgvector）/ Redis |
-| 第三方 | OpenRouter（LLM + embedding 統一入口）/ LINE / Telegram |
-| 基礎設施 | Docker Compose / Flyway |
+| 資料庫 | PostgreSQL 17（含 pgvector，HNSW 向量索引）/ Redis |
+| 檔案儲存 | AWS S3（Skills / Scripts / 附件；tag 軟刪） |
+| 第三方 | OpenRouter（LLM + embedding 統一入口）/ DF-SSO（OAuth2 單一登入）/ LINE / Telegram（規劃中） |
+| 基礎設施 | Docker Compose / Flyway / Coolify（正式部署） |
 
 各層級細部規範參閱 [docs/Design-Base/](docs/Design-Base/)。
 
@@ -68,10 +72,12 @@ cp .env.example .env
 依序填入下列必填項：
 
 - `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`
-- `SECRET_KEY`（後端 JWT 簽章金鑰）
+- `SECRET_KEY`（後端 JWT 簽章金鑰，至少 32 字元）
 - `OPENROUTER_API_KEY`（LLM / embedding 來源）
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `S3_BUCKET`（Skills / Scripts / 附件檔案儲存）
 - `FLYWAY_USER` / `FLYWAY_PASSWORD`（通常等同 PG 帳密）
-- 若使用 LINE / Telegram：填入對應 token
+- 若使用 DF-SSO：填入 `SSO_URL` / `SSO_APP_ID` / `SSO_APP_SECRET` 等
+- LINE / Telegram token 為規劃中功能的預留變數，可留空
 
 ### 3. 啟動本機開發環境
 
@@ -102,6 +108,7 @@ docker compose -f docker-compose.dev.yml up -d
 
 | 路徑 | 說明 |
 | --- | --- |
+| [docs/Agents-Memory-System-專案說明文件.html](docs/Agents-Memory-System-專案說明文件.html) | 圖文版專案說明（摘要、流程圖、架構、版本演進、操作手冊） |
 | [CLAUDE.md](CLAUDE.md) | 跨專案通用規範（語言、敏感資訊、Git 流程、自訂指令） |
 | [docs/Design-Base/00-overview.md](docs/Design-Base/00-overview.md) | 專案規範總覽（架構、技術棧、時間 / 時區、目錄結構） |
 | [docs/Design-Base/10-frontend.md](docs/Design-Base/10-frontend.md) | 前端：目錄結構、API 呼叫、狀態管理、TypeScript、效能 |

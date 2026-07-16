@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Agents Memory System — 專案說明文件</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWUzYThhIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMjU2M2ViIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTUiIGZpbGw9InVybCgjZykiLz48ZyBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMy4yIiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxwYXRoIGQ9Ik0zMiAyMHYxMCIvPjxwYXRoIGQ9Ik0zMiAzMCAyMCA0MiIvPjxwYXRoIGQ9Ik0zMiAzMCA0NCA0MiIvPjxwYXRoIGQ9Ik0zMiAzMHYxNCIvPjwvZz48ZyBmaWxsPSIjZmZmZmZmIj48Y2lyY2xlIGN4PSIzMiIgY3k9IjE4IiByPSI1LjQiLz48Y2lyY2xlIGN4PSIxOSIgY3k9IjQ0IiByPSI0LjIiLz48Y2lyY2xlIGN4PSIzMiIgY3k9IjQ2IiByPSI0LjIiLz48Y2lyY2xlIGN4PSI0NSIgY3k9IjQ0IiByPSI0LjIiLz48L2c+PC9zdmc+Cg==" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWUzYThhIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMjU2M2ViIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTUiIGZpbGw9InVybCgjZykiLz48ZyBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMy40IiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxwYXRoIGQ9Ik0yMSAzMkgzMyIvPjxwYXRoIGQ9Ik0zMyAzMiA0NCAxOCIvPjxwYXRoIGQ9Ik0zMyAzMkg0NSIvPjxwYXRoIGQ9Ik0zMyAzMiA0NCA0NiIvPjwvZz48ZyBmaWxsPSIjZmZmZmZmIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjMyIiByPSI1LjQiLz48Y2lyY2xlIGN4PSI0NSIgY3k9IjE4IiByPSI0LjIiLz48Y2lyY2xlIGN4PSI0NiIgY3k9IjMyIiByPSI0LjIiLz48Y2lyY2xlIGN4PSI0NSIgY3k9IjQ2IiByPSI0LjIiLz48L2c+PC9zdmc+Cg==" />
 <style>
   :root {
     --blue: #2563eb;
@@ -85,7 +85,6 @@
   .part-divider .pk { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; opacity: .8; font-weight: 600; }
   .part-divider h2 { margin: 4px 0 2px; font-size: 22px; border: none; display: block; }
   .part-divider p { margin: 0; font-size: 14px; opacity: .9; }
-  /* 深底橫幅內的 strong 不可沿用全域深色(否則深底配深字看不見),改用白色。 */
   .part-divider strong { color: #fff; }
 
   /* 有序步驟清單 */
@@ -236,16 +235,16 @@
 <body>
 
   <header class="hero">
-    <div class="kicker">企業內部平台 · 專案說明文件</div>
-    <h1>Agents Memory System<br>Agent 驅動 × 持久化記憶的 AI 助手平台</h1>
-    <p class="lead">使用者可自訂 Agent、組合 Skills，並以三層向量化記憶實現 Agentic RAG——對話重點自動抽取、跨 Session 聚合、下次對話自動帶上下文；Skills / Scripts 以市集形式全公司沉澱共享，並支援 AI 語意查詢。本文件涵蓋系統摘要、架構、操作手冊與整體技術價值。</p>
+    <div class="kicker">AI 平台 · 專案說明文件</div>
+    <h1>Agents Memory System<br>Agent 驅動 + 持久化記憶的 AI 助手平台</h1>
+    <p class="lead">使用者自訂 Agent、組合 Skills，並透過三層向量化記憶（Session / Project / User）實現 Agentic RAG；系統從對話中自學產出 Skill 候選、以語意檢索打造 Skill 市集，所有 LLM 呼叫統一入帳可稽核。本文件涵蓋系統摘要、架構、操作手冊與整體技術價值。</p>
     <div class="badge-row">
       <span class="hbadge">FastAPI · Python 3.14</span>
-      <span class="hbadge">Next.js 16 · React 19 · TypeScript</span>
+      <span class="hbadge">Next.js 16 · TypeScript</span>
       <span class="hbadge">PostgreSQL 17 + pgvector</span>
-      <span class="hbadge">Redis 佇列 · 4 背景 Worker</span>
-      <span class="hbadge">Docker / Coolify · DF-SSO</span>
-      <span class="hbadge">演進至 v1.6 · Skills RAG 語意檢索</span>
+      <span class="hbadge">Redis 背景 Worker</span>
+      <span class="hbadge">AWS S3 · Docker / Coolify</span>
+      <span class="hbadge">演進至 v1.6.3 · Skills RAG</span>
     </div>
   </header>
 
@@ -257,25 +256,25 @@
 
       <div class="toc-section-label">PART I · 系統與技術設計</div>
       <div class="toc-grid">
-        <a class="toc-item" href="#summary"><span class="n">1</span><span class="tx"><span class="tt">專案摘要</span><span class="ds">一句話定位與三大能力</span></span></a>
-        <a class="toc-item" href="#purpose"><span class="n">2</span><span class="tx"><span class="tt">目的</span><span class="ds">記憶、沉澱、成本、治理</span></span></a>
+        <a class="toc-item" href="#summary"><span class="n">1</span><span class="tx"><span class="tt">專案摘要</span><span class="ds">一句話定位與四大能力</span></span></a>
+        <a class="toc-item" href="#purpose"><span class="n">2</span><span class="tx"><span class="tt">目的</span><span class="ds">記憶、模組化、自學、成本可控</span></span></a>
         <a class="toc-item" href="#problem"><span class="n">3</span><span class="tx"><span class="tt">解決的問題與效益</span><span class="ds">痛點對照 + 量化成效</span></span></a>
-        <a class="toc-item" href="#concept"><span class="n">4</span><span class="tx"><span class="tt">核心概念與角色</span><span class="ds">組織模型、三層記憶、權限</span></span></a>
-        <a class="toc-item" href="#flow"><span class="n">5</span><span class="tx"><span class="tt">系統流程圖</span><span class="ds">Agentic RAG · 記憶管線 · AI 查詢</span></span></a>
+        <a class="toc-item" href="#concept"><span class="n">4</span><span class="tx"><span class="tt">核心概念與角色</span><span class="ds">名詞、資源模型、權限</span></span></a>
+        <a class="toc-item" href="#flow"><span class="n">5</span><span class="tx"><span class="tt">系統流程圖</span><span class="ds">對話管線 · 記憶管線 · Skills RAG</span></span></a>
         <a class="toc-item" href="#arch"><span class="n">6</span><span class="tx"><span class="tt">系統架構</span><span class="ds">分層技術棧 + 元件架構圖</span></span></a>
-        <a class="toc-item" href="#evolution"><span class="n">7</span><span class="tx"><span class="tt">版本演進</span><span class="ds">v1.0 → v1.6 時間軸</span></span></a>
+        <a class="toc-item" href="#evolution"><span class="n">7</span><span class="tx"><span class="tt">版本演進</span><span class="ds">v1.0 → v1.6.3 時間軸</span></span></a>
         <a class="toc-item" href="#value"><span class="n">8</span><span class="tx"><span class="tt">技術價值</span><span class="ds">可遷移的工程能力佐證</span></span></a>
       </div>
 
-      <div class="toc-section-label">PART II · 維運操作手冊</div>
+      <div class="toc-section-label">PART II · 操作手冊</div>
       <div class="toc-grid">
-        <a class="toc-item" href="#env"><span class="n">9</span><span class="tx"><span class="tt">線上環境一覽</span><span class="ds">正式部署與本機開發網址</span></span></a>
-        <a class="toc-item" href="#login"><span class="n">10</span><span class="tx"><span class="tt">第一次登入平台</span><span class="ds">註冊、DF-SSO 與角色</span></span></a>
-        <a class="toc-item" href="#tabs"><span class="n">11</span><span class="tx"><span class="tt">平台頁面導覽</span><span class="ds">儀表板、資源、對話、系統管理</span></span></a>
+        <a class="toc-item" href="#env"><span class="n">9</span><span class="tx"><span class="tt">環境與啟動</span><span class="ds">本機開發 · 正式部署（Coolify）</span></span></a>
+        <a class="toc-item" href="#login"><span class="n">10</span><span class="tx"><span class="tt">第一次登入</span><span class="ds">註冊 / DF-SSO / 角色</span></span></a>
+        <a class="toc-item" href="#tabs"><span class="n">11</span><span class="tx"><span class="tt">頁面導覽</span><span class="ds">儀錶板、Agents、Skills、對話、管理</span></span></a>
         <a class="toc-item" href="#ops-concept"><span class="n">12</span><span class="tx"><span class="tt">維運核心觀念</span><span class="ds">操作前必懂的幾條規則</span></span></a>
-        <a class="toc-item" href="#playbook"><span class="n">13</span><span class="tx"><span class="tt">常見需求 Playbook</span><span class="ds">情境式操作 A–G</span></span></a>
-        <a class="toc-item" href="#manual"><span class="n">14</span><span class="tx"><span class="tt">使用者：對話與記憶手冊</span><span class="ds">Session、多 Agent、附件、記憶</span></span></a>
-        <a class="toc-item" href="#api"><span class="n">15</span><span class="tx"><span class="tt">API 端點總覽</span><span class="ds">各 Router 前綴與用途</span></span></a>
+        <a class="toc-item" href="#playbook"><span class="n">13</span><span class="tx"><span class="tt">常見需求 Playbook</span><span class="ds">情境式操作 A–F</span></span></a>
+        <a class="toc-item" href="#api"><span class="n">14</span><span class="tx"><span class="tt">API 端點總覽</span><span class="ds">各資源群組與代表性端點</span></span></a>
+        <a class="toc-item" href="#schema"><span class="n">15</span><span class="tx"><span class="tt">資料庫 Schema 速覽</span><span class="ds">主要資料表與向量索引</span></span></a>
         <a class="toc-item" href="#runbook"><span class="n">16</span><span class="tx"><span class="tt">故障排除 Runbook</span><span class="ds">症狀對照與第一步檢查</span></span></a>
       </div>
     </nav>
@@ -284,31 +283,35 @@
     <div class="part-divider">
       <div class="pk">Part I</div>
       <h2>系統與技術設計</h2>
-      <p>這個平台解決什麼問題、長什麼樣子、記憶怎麼流、做了哪些工程決策與技術價值。</p>
+      <p>這個平台解決什麼問題、長什麼樣子、資料怎麼流、做了哪些工程決策與技術價值。</p>
     </div>
 
     <!-- 1 專案摘要 -->
     <section id="summary">
       <h2 class="sec"><span class="num">1</span>專案摘要</h2>
-      <p class="sectlead lead-line">把「<span class="rd">每次對話都要重講背景、Prompt 技巧散落個人筆記</span>」變成「<span class="mk">Agent 自帶記憶、Skills 全公司沉澱共享</span>」的 AI 助手平台。</p>
-      <p>對話重點由背景 Worker <span class="hl">自動抽取為向量化記憶</span>並逐層聚合（Session → 專案 → 使用者），之後的對話以 <span class="hl">Agentic RAG</span> 自動檢索注入上下文；Agent 可由使用者自訂並組合 Skills，資源以<span class="hl">公開 / 私有市集</span>形式共享，全程成本入帳、操作可稽核。</p>
-      <div class="grid cols3" style="margin-top:18px;">
+      <p class="sectlead lead-line">把「<span class="rd">每次對話都從零開始、AI 什麼都不記得</span>」變成「<span class="mk">Agent 會累積記憶、越用越懂你、還能從對話自學新技能</span>」的 AI 助手平台。</p>
+      <p>使用者建立自己的 <span class="hl">Agent</span>（角色設定 + 掛載 Skills + 指定模型），在 <span class="hl">Project / Session</span> 中與其對話；系統以 <span class="hl">三層記憶（Session / Project / User）</span> 持久化每段對話的重點並向量化（pgvector），下次對話時以 <span class="mk">RRF 融合檢索</span> 把相關記憶注入 system prompt 實現 <span class="hl">Agentic RAG</span>。Skill / Script / Agent 可公開分享形成市集，並以 <span class="hl">多向量語意檢索（AI 查詢）</span>找到最適合的 Skill。</p>
+      <div class="grid cols2" style="margin-top:18px;">
         <div class="subcard">
-          <h4><span class="ico">憶</span>三層記憶</h4>
-          <p><span class="hl">chat / project / user</span> 三層向量記憶（pgvector），自動抽取、主題聚合、長期偏好累積，檢索時 <span class="hl">RRF 融合</span>三層結果。</p>
+          <h4><span class="ico">憶</span>三層持久化記憶</h4>
+          <p>背景 worker 把對話摘要成 <span class="hl">Session → Project → User</span> 三層記憶並向量化，跨對話、跨專案累積長期偏好。</p>
         </div>
         <div class="subcard">
-          <h4><span class="ico">代</span>自訂 Agent</h4>
-          <p>System prompt、模型、語言、Temperature 皆可自訂，<span class="hl">組合多個 Skills</span>；同一對話可掛<span class="hl">多個 Agent</span> 協作。</p>
+          <h4><span class="ico">組</span>自訂 Agent × Skills</h4>
+          <p><span class="hl">Agent 表單化設定</span>（角色、語言、模型、生成參數），模組化掛載 Skills；支援多 Agent 同 Session 協作。</p>
         </div>
         <div class="subcard">
-          <h4><span class="ico">集</span>資源市集</h4>
-          <p>Skills / Scripts / Agents 公開分享、收藏、下載、排行；v1.6 起支援 <span class="hl">AI 語意查詢</span>，用自然語言找到對的 Skill。</p>
+          <h4><span class="ico">檢</span>Skills RAG 語意檢索</h4>
+          <p>每個 Skill 建 <span class="hl">name / description / content 三條向量</span>，HNSW 檢索 per-skill 取最高分，LLM 產生推薦理由。</p>
+        </div>
+        <div class="subcard">
+          <h4><span class="ico">學</span>Agentic Skill 工廠</h4>
+          <p>掃描累積的記憶，<span class="hl">LLM 自學產出 Skill 候選</span>供人工審核入庫，並主動推薦給適合的 Agent，形成自我成長閉環。</p>
         </div>
       </div>
       <div class="note info" style="margin-top:16px;">
-        <div class="head">🔍 v1.6 新增能力 · Skills RAG 語意檢索（AI 查詢）</div>
-        Skill 以 <span class="hl">name / description / content 三向量</span>（<code>skill_embedding</code> 1:N）建索引，檢索取 per-skill <span class="hl">MAX 相似度</span>並以<span class="mk">實測校準門檻 0.45</span> 過濾，再由 LLM 生成<span class="hl">推薦理由</span>；每次查詢（含 0 命中）寫入 <code>skill_search_log</code> 稽核快照。
+        <div class="head">🧪 v1.6 系列新增能力 · Skills RAG + AI 查詢稽核</div>
+        Skill 市集從關鍵字搜尋升級為<span class="hl">語意檢索</span>：向量儲存重設計為 <span class="hl">skill_embedding 1:N 多向量表</span>（v1.6.2），檢索採兩層 HNSW SQL、per-skill 取 MAX，<span class="mk">min_score 0.45 實測校準</span>（正例 0.58–0.89 全收、雜訊 ≤0.33 全擋）；每次 AI 查詢寫入 <span class="hl">skill_search_log 稽核快照</span>（0 命中也記，作為內容缺口訊號，v1.6.3）。
       </div>
     </section>
 
@@ -317,20 +320,20 @@
       <h2 class="sec"><span class="num">2</span>目的</h2>
       <div class="grid cols2" style="margin-top:18px;">
         <div class="subcard">
-          <h4>🧠 記憶持久化</h4>
-          <p>對話重點自動抽取為記憶並跨 Session / 專案累積，<span class="hl">LLM 不再是金魚腦</span>，使用者不必每次重講背景。</p>
+          <h4>🧠 讓 AI 有記憶</h4>
+          <p>對話重點<span class="hl">自動摘要、向量化、持久化</span>，跨 Session / Project 累積使用者偏好，AI 回應越用越貼合情境。</p>
         </div>
         <div class="subcard">
-          <h4>🧩 知識沉澱與複用</h4>
-          <p>Prompt 技巧元件化為 Skill / Agent / Script，公開市集全公司共享；<span class="hl">Skill 工廠</span>更能自動從對話中學出 Skill 候選供人工審核入庫。</p>
+          <h4>🧩 能力模組化與共享</h4>
+          <p>Skills / Scripts / Agents 皆為<span class="hl">可上傳、可版本更新、可公開分享</span>的資源，搭配收藏 / 下載 / 排行榜形成內部市集。</p>
         </div>
         <div class="subcard">
-          <h4>💰 成本可觀測</h4>
-          <p>所有 LLM 呼叫經 <span class="hl">單一計量進入點</span>寫入 <code>llm_call_log</code>（token / 成本 / 延遲），並以 <span class="hl">Classifier 三路分流</span>讓便宜問題不走貴模型。</p>
+          <h4>🤖 系統自我成長</h4>
+          <p>Agentic Skill 工廠從記憶中<span class="hl">歸納可複用的技能</span>，經人工審核轉為正式 Skill —— 知識從對話沉澱為資產。</p>
         </div>
         <div class="subcard">
-          <h4>🔐 企業級治理</h4>
-          <p><span class="hl">DF-SSO 單一登入</span> + RBAC 角色權限；下載、AI 查詢皆留稽核紀錄，資源軟刪除保留歷史、S3 檔案<span class="hl">絕不真刪</span>。</p>
+          <h4>💰 成本可控可稽核</h4>
+          <p>所有 LLM / embedding 呼叫<span class="hl">強制走單一計量入口</span>寫入成本 log；前置分類器把訊息分流 skip / cheap / expensive，避免大砲打小鳥。</p>
         </div>
       </div>
     </section>
@@ -338,7 +341,7 @@
     <!-- 3 解決的問題 -->
     <section id="problem">
       <h2 class="sec"><span class="num">3</span>解決的問題與效益</h2>
-      <p class="sectlead">團隊日常使用 LLM 的四大實際痛點，以及平台如何對應。</p>
+      <p class="sectlead">通用 Chat 工具在團隊落地的四大痛點，以及平台如何對應。</p>
       <div class="table-wrap">
         <table>
           <thead>
@@ -346,47 +349,47 @@
           </thead>
           <tbody>
             <tr>
-              <td><strong>LLM 沒有記憶</strong><br><span class="muted small">每開新對話都要<span class="rd">重講一次專案背景與個人偏好</span></span></td>
-              <td>背景 Worker 自動抽取對話重點寫入三層記憶，之後對話<span class="hl">自動 RAG 檢索注入</span>，愈用愈懂你。</td>
+              <td><strong>AI 沒有長期記憶</strong><br><span class="muted small">每次對話從零開始，<span class="rd">偏好與上下文無法累積</span></span></td>
+              <td>三層記憶表（<code>chat_memory</code> / <code>project_memory</code> / <code>user_memory</code>）+ pgvector HNSW 檢索，<span class="hl">RRF 融合注入 system prompt</span>。</td>
             </tr>
             <tr>
-              <td><strong>Prompt / 技能散落個人</strong><br><span class="muted small">好用的 system prompt 與技巧<span class="rd">存在個人筆記，無法複用</span></span></td>
-              <td>Skill（zip 技能包）/ Agent / Script 元件化管理，<span class="hl">公開市集</span>可收藏、下載、排行，知識全公司沉澱。</td>
+              <td><strong>Prompt / 技能散落各處</strong><br><span class="muted small">好用的提示詞存在個人筆記，<span class="rd">無法沉澱與複用</span></span></td>
+              <td>Skills / Scripts 資源化管理（上傳、版本更新、單檔編輯、公開市集、標籤分類），Agent 一鍵掛載。</td>
             </tr>
             <tr>
-              <td><strong>關鍵字找不到對的 Skill</strong><br><span class="muted small">資源一多，<span class="rd">命名不同就搜不到</span>語意相關的技能</span></td>
-              <td>v1.6 <span class="hl">AI 語意查詢</span>：pgvector 三向量檢索 + LLM 推薦理由，用自然語言描述需求即可命中。</td>
+              <td><strong>找不到對的 Skill</strong><br><span class="muted small">關鍵字搜尋<span class="rd">比對不到語意相近的資源</span></span></td>
+              <td>Skill 三向量語意檢索 + LLM 推薦理由；查無結果也寫稽核 log，<span class="hl">缺口變成內容經營訊號</span>。</td>
             </tr>
             <tr>
-              <td><strong>LLM 花費黑箱</strong><br><span class="muted small"><span class="rd">不知道哪個人 / 哪個 Agent 燒掉多少 token</span></span></td>
-              <td>每次呼叫寫入 <code>llm_call_log</code>（user / session / agent / 用途維度），Classifier 分流省成本且記 <span class="hl">counterfactual baseline</span> 證明省了多少。</td>
+              <td><strong>LLM 花費黑箱</strong><br><span class="muted small"><span class="rd">不知道哪個功能、哪次呼叫花了多少</span></span></td>
+              <td>統一計量入口 <code>llm_metering</code> 寫 <code>llm_call_log</code>（成本 / 延遲 / RAG 命中），admin metrics 檢視；分類器讓寒暄類訊息<span class="hl">零成本短路</span>。</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <h3>量化效益</h3>
-      <p class="sectlead">對應平台四大核心價值：自動記憶、全量計費、成本分流、語意檢索。</p>
+      <p class="sectlead">對應平台四大核心價值：持久化記憶、語意檢索、成本工程、自學閉環。</p>
       <div class="metrics">
         <div class="metric">
           <div class="big">3 <small>層</small></div>
-          <div class="ml">向量記憶自動聚合</div>
-          <div class="ms">Session → 專案 → 使用者逐層聚合，檢索以 <span class="hl">RRF 融合</span>三層結果</div>
+          <div class="ml">持久化記憶 RRF 融合</div>
+          <div class="ms">Session / Project / User 三層向量記憶，<span class="hl">跨對話累積</span>、檢索融合注入</div>
+        </div>
+        <div class="metric">
+          <div class="big">3 <small>向量 / Skill</small></div>
+          <div class="ml">多向量語意檢索</div>
+          <div class="ms">name / description / content 各自建 1536 維向量，per-skill 取 MAX，<span class="hl">min_score 0.45 實測校準</span></div>
         </div>
         <div class="metric">
           <div class="big">100<small>%</small></div>
-          <div class="ml">LLM 呼叫入帳</div>
-          <div class="ms">全系統<span class="hl">唯一計量出口</span> <code>call_llm_metered</code>，繞過即 code review 退回</div>
+          <div class="ml">LLM 呼叫統一入帳</div>
+          <div class="ms">所有 LLM / embedding 呼叫<span class="hl">強制走單一計量入口</span>，成本、延遲、RAG 命中全記錄</div>
         </div>
         <div class="metric">
-          <div class="big">3 <small>路</small></div>
-          <div class="ml">成本智慧分流</div>
-          <div class="ms"><span class="arw">全走貴模型 →</span> Classifier 分流 <span class="hl">skip / cheap / expensive</span>，便宜問題不燒貴模型</div>
-        </div>
-        <div class="metric">
-          <div class="big">0.45</div>
-          <div class="ml">語意檢索門檻（實測校準）</div>
-          <div class="ms">正例 0.58~0.89 / 雜訊 ≤0.33，<span class="hl">三向量重設計</span>解決長向量語意稀釋</div>
+          <div class="big">0 <small>成本</small></div>
+          <div class="ml">寒暄訊息智慧短路</div>
+          <div class="ms">前置分類器分流 <span class="hl">skip / cheap / expensive</span>，打招呼類訊息不呼叫 LLM 直接回覆</div>
         </div>
       </div>
     </section>
@@ -394,305 +397,308 @@
     <!-- 4 核心概念與角色 -->
     <section id="concept">
       <h2 class="sec"><span class="num">4</span>核心概念與角色</h2>
-      <p class="sectlead">理解平台前需先掌握的對話組織模型、三種資源、三層記憶與權限角色。</p>
+      <p class="sectlead">理解平台前需先掌握的資源模型、記憶層級與權限角色。</p>
 
-      <h3>對話組織模型</h3>
-      <p>對話以階層方式組織，記憶沿此階層逐層抽取與聚合：</p>
-      <div class="flow" style="flex-direction:row; flex-wrap:wrap; gap:10px; align-items:center;">
-        <div class="flow-node" style="flex:1; min-width:120px;"><div class="t">專案 Project</div><div class="d">分組 Session，聚合專案層記憶</div></div>
-        <div class="arrow" style="padding:0 4px;">→</div>
-        <div class="flow-node" style="flex:1; min-width:120px;"><div class="t">Session</div><div class="d">單一對話串，可掛多個 Agent（含 primary）</div></div>
-        <div class="arrow" style="padding:0 4px;">→</div>
-        <div class="flow-node" style="flex:1; min-width:120px;"><div class="t">訊息 / 附件</div><div class="d">SSE 串流回覆；圖片走 vision、文字檔拼入 prompt</div></div>
-        <div class="arrow" style="padding:0 4px;">→</div>
-        <div class="flow-node store" style="flex:1; min-width:120px;"><div class="t">記憶</div><div class="d">背景 Worker 自動抽取 + 向量化</div></div>
-      </div>
-
-      <h3>三種資源</h3>
+      <h3>資源模型</h3>
       <div class="grid cols3">
         <div class="subcard">
           <span class="badge">Agent</span>
-          <p class="label">可對話的 AI 角色</p>
-          <p>System prompt + 模型 + 語言偏好 + Temperature / max_tokens，並可綁定多個 Skills；支援範本快速建立與草稿自動儲存。</p>
+          <p class="label">對話主體 · 可組合</p>
+          <p>角色 prompt + 語言偏好 + 指定 LLM 模型 + 生成參數，可掛載多個 Skills；支援範本快速建立、匯出 <code>AGENTS.md</code>。</p>
         </div>
         <div class="subcard">
           <span class="badge">Skill</span>
-          <p class="label">技能文件包（zip）</p>
-          <p>上傳 zip（可含多份 md，自動拼接進 prompt），支援線上編輯、下載、AI 語意查詢；檔案存 AWS S3。</p>
+          <p class="label">技能元件 · ZIP 上傳</p>
+          <p>模組化技能包（ZIP 存 S3），支援整包重上傳與單檔線上編輯（樂觀鎖）；掛載後以純文本注入 Agent system prompt。</p>
         </div>
         <div class="subcard">
           <span class="badge">Script</span>
-          <p class="label">腳本 / 資料夾</p>
-          <p>可上傳整個資料夾的腳本資源，與 Skill / Agent 同樣支援公開分享、收藏、下載與標籤分類。</p>
+          <p class="label">腳本資源 · 檔案 / 資料夾</p>
+          <p>可上傳單檔或整資料夾的腳本資源，與 Skill 同樣支援公開分享、收藏、下載計數與標籤。</p>
+        </div>
+        <div class="subcard">
+          <span class="badge">Project / Session</span>
+          <p class="label">對話容器 · 兩層</p>
+          <p>Session 為對話單位，可歸屬 Project 或<span class="hl">游離存在</span>、可移入移出；一個 Session 可掛多個 Agent（1:N）並指定主 Agent。</p>
+        </div>
+        <div class="subcard">
+          <span class="badge">三層記憶</span>
+          <p class="label">Session → Project → User</p>
+          <p>背景 worker 逐層聚合：Session 記憶即時萃取，Project 記憶彙整同專案，User 記憶沉澱跨專案長期偏好。</p>
+        </div>
+        <div class="subcard">
+          <span class="badge">Skill 候選</span>
+          <p class="label">Agentic 自學產物</p>
+          <p>Skill 工廠掃描記憶產出的候選技能（含信心分數與來源記憶），<span class="key">須人工審核</span>核准後才成為正式 Skill。</p>
         </div>
       </div>
-      <div class="note info">
-        <div class="head">可見性與社群互動</div>
-        三種資源皆有 <span class="hl">private / public</span> 可見性：公開資源全站登入者可讀、收藏、下載（計入排行）；<span class="key">修改</span>限擁有者與 admin，<span class="key">軟刪除與切換可見性僅擁有者本人</span>（admin 也不能代刪）。標籤（tag）為 per-user 標籤池，三種資源共用並支援列表 AND 篩選。
-      </div>
 
-      <h3>三層記憶</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th style="width:22%">層級</th><th style="width:24%">資料表</th><th>內容與聚合方式</th></tr></thead>
-          <tbody>
-            <tr><td><strong>Session 層</strong></td><td><code>chat_memory</code></td><td>單一對話的重點片段，由 <code>memory_worker</code> 從訊息即時抽取 + embedding（1536 維，HNSW 索引）。</td></tr>
-            <tr><td><strong>專案層</strong></td><td><code>project_memory</code></td><td>聚合專案下所有 session 記憶，依<span class="hl">主題分群</span>二次聚合，跨 session 找相關討論。</td></tr>
-            <tr><td><strong>使用者層</strong></td><td><code>user_memory</code></td><td>跨專案 <span class="hl">30 天窗</span>的長期偏好；同主題 ≥5 筆且占比 ≥60% 才聚合，避免噪音入庫。</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="muted small">對話時三層各撈 top-N 後以 <span class="hl">RRF（Reciprocal Rank Fusion）</span>融合排序，再組入 prompt——完整藍圖見 <code>docs/Arch/00-memory-system.md</code>。</p>
+      <h3>資源可見性</h3>
+      <p>Agent / Skill / Script 皆有 <span class="hl">私人 / 公開</span> 兩態：私人僅擁有者可見；公開進入市集供所有人瀏覽、收藏與下載。權限判斷收斂於共用的三段式檢查（<code>core/access.py</code>）：<span class="hl">可讀（owner 或公開）→ 可改（owner）→ 擁有者限定</span>，前端僅控制顯示，實際過濾一律由後端完成。</p>
 
       <h3>角色與權限</h3>
       <div class="table-wrap">
         <table>
-          <thead><tr><th style="width:34%">資源 / 動作</th><th>管理員 admin</th><th>一般使用者 member</th></tr></thead>
+          <thead><tr><th style="width:34%">資源 / 動作</th><th>管理員 admin</th><th>一般成員 member</th></tr></thead>
           <tbody>
-            <tr><td>自建 Agent / Skill / Script CRUD</td><td>✅</td><td>✅</td></tr>
-            <tr><td>公開資源 讀取 / 收藏 / 下載</td><td>✅</td><td>✅</td></tr>
-            <tr><td>修改他人資源</td><td>✅（擁有者 + admin）</td><td>❌</td></tr>
-            <tr><td>軟刪除 / 切換可見性</td><td>❌（僅擁有者本人）</td><td>✅ 僅自己的</td></tr>
-            <tr><td>使用者 / 角色管理</td><td>✅</td><td>❌</td></tr>
-            <tr><td>LLM 模型清單、語言、範本、系統設定</td><td>✅ 管理</td><td>僅讀啟用中清單</td></tr>
-            <tr><td>LLM 成本 metrics / debug trace</td><td>✅</td><td>❌</td></tr>
+            <tr><td>Agents / Skills / Scripts CRUD</td><td>✅</td><td>✅ 僅自身資源（公開資源可讀）</td></tr>
+            <tr><td>對話 / 記憶 / 附件</td><td>✅</td><td>✅ 僅自身 Session</td></tr>
+            <tr><td>使用者管理（角色 / 停用）</td><td>✅</td><td>❌</td></tr>
+            <tr><td>LLM 模型清單 / 語言 / 範本管理</td><td>✅ 維護</td><td>唯讀（表單下拉選取）</td></tr>
+            <tr><td>系統設定（RAG / 記憶 / 分類器參數）</td><td>✅</td><td>❌</td></tr>
+            <tr><td>成本 metrics / 記憶 trace / debug</td><td>✅</td><td>❌</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="muted small">角色由 <code>user_role</code> 表管理（內建 <code>admin</code> / <code>member</code>，註冊預設 member），寫入 JWT 的 <code>role</code> claim 即時比對；前端另有路由守衛，但實際過濾一律由後端完成。</p>
     </section>
 
     <!-- 5 系統流程圖 -->
     <section id="flow">
       <h2 class="sec"><span class="num">5</span>系統流程圖</h2>
 
-      <h3>流程 A：對話 Agentic RAG 管線（核心資料流）</h3>
-      <p class="sectlead">一則訊息從送出到串流回覆，記憶如何被檢索與注入。</p>
+      <h3>流程 A：對話訊息處理管線（核心資料流）</h3>
+      <p class="sectlead">一則使用者訊息從送出到回覆，經過分類、檢索、組裝與計量的完整路徑。</p>
       <figure class="diagram">
         <pre class="mermaid">
 %%{init: {'sequence': {'mirrorActors': false, 'actorMargin': 45}} }%%
 sequenceDiagram
-  participant U as 👤 使用者（瀏覽器）
-  participant B as 🛡️ 後端 · FastAPI
-  participant P as 🌐 OpenRouter
-  participant R as 🧰 Redis 佇列
+  participant U as 👤 使用者 · Next.js 前端
+  participant B as ⚙️ FastAPI · chat_service
   participant D as 🗄️ PostgreSQL + pgvector
+  participant O as 🌐 OpenRouter
+  participant R as 🧰 Redis 佇列
 
-  U->>B: ① 送出訊息（SSE 連線）
-  Note over B: 分層 Classifier 分流<br/>skip / cheap / expensive
-  Note over B,D: expensive 路：query embedding →<br/>三層記憶 vector search（session / project / user）<br/>→ RRF 融合 → 組裝 prompt
-  B->>P: ② call_llm_metered（全系統唯一 LLM 出口）
-  P-->>B: ③ 串流回應
-  B-->>U: ④ SSE 逐字回傳
-  B->>D: ⑤ 寫 chat_message + llm_call_log<br/>（token / 成本 / 延遲 / baseline）
-  B->>R: ⑥ 訊息推入記憶佇列<br/>背景抽取不擋回覆
-  R-->>U: ⑦ 記憶完成後 SSE 推 memory_updated
+  U->>B: ① POST /chat/sessions/{uid}/messages
+  Note over B: 前置路由分類器（規則引擎）<br/>skip → 不呼叫 LLM 直接回覆<br/>cheap / expensive → 選用對應模型<br/>含圖片附件一律 expensive
+  B->>D: ② 三層記憶檢索（RRF 融合）<br/>session 0.7 / project 0.65 / user 0.6
+  D-->>B: 相關記憶 top 8
+  Note over B: 組 system prompt<br/>Agent 角色 + Skills 純文本 + &lt;memory&gt; 區塊
+  B->>O: ③ 呼叫 LLM（llm_metering 統一入口）
+  O-->>B: SSE streaming 逐字回傳
+  B-->>U: ④ SSE 串流回覆並持久化 chat_message
+  B->>D: ⑤ 寫 llm_call_log（成本 / 延遲 / RAG 命中）
+  B->>R: ⑥ 推入記憶佇列（背景摘要 + 向量化）
         </pre>
-        <figcaption>圖 1 · 對話 Agentic RAG 管線（含 Classifier 分流、三層檢索與成本入帳）</figcaption>
+        <figcaption>圖 1 · 對話訊息處理管線（分類 → 三層 RAG → 串流回覆 → 計量 → 背景記憶）</figcaption>
       </figure>
       <div class="note tip">
         <div class="head">🔑 設計關鍵</div>
-        整條管線只有主回答是<span class="hl">貴的 LLM 推理</span>，classifier / embedding / vector search 成本低 1~3 個量級；記憶抽取<span class="hl">完全非同步</span>，不增加對話延遲。<span class="key">不引入 LangChain 等框架</span>，以 httpx + OpenRouter 自建，每個元件可控可觀測。
+        記憶寫入<span class="hl">完全非同步</span>（Redis 佇列 + 背景 worker），不阻塞對話回應；所有 LLM / embedding 呼叫<span class="key">強制</span>經 <code>llm_metering.call_llm_metered</code> 唯一入口，skip 路線也寫 baseline log，成本紀錄不漏帳。
       </div>
 
-      <h3>流程 B：記憶抽取與聚合管線（4 個背景 Worker）</h3>
-      <p class="sectlead">Redis BRPOP 佇列驅動的背景管線，逐層把對話變成可檢索的長期記憶，並自動學出 Skill 候選。</p>
+      <h3>流程 B：三層記憶管線（背景非同步）</h3>
+      <p class="sectlead">對話重點如何沉澱為 Session → Project → User 三層可檢索的長期記憶。</p>
       <figure class="diagram">
         <pre class="mermaid">
 flowchart TD
-  M([💬 chat_message 對話訊息]) --> Q[(🧰 Redis 佇列<br/>BRPOP · 重試 3 次 → DLQ)]
-  Q --> W1[🤖 memory_worker<br/>抽取重點 + embedding]
-  W1 --> CM[(chat_memory<br/>Session 層)]
-  CM --> W2[🤖 project_memory_worker<br/>主題分群二次聚合]
-  W2 --> PM[(project_memory<br/>專案層)]
-  PM --> W3[🤖 user_memory_worker<br/>30 天窗長期偏好<br/>同主題 ≥5 筆且 ≥60%]
-  W3 --> UM[(user_memory<br/>使用者層)]
-  CM --> W4[🤖 skill_factory_worker<br/>Agentic Skill 工廠]
-  W4 --> SG[agentic_skill_suggestion<br/>Skill 候選]
-  SG --> HR{👤 人工審核<br/>/skill-suggestions}
-  HR -->|採納| SK[(skill 正式入庫)]
-  HR -->|退回| X[🛑 駁回]
+  A([💬 對話訊息落地]) --> Q[(🧰 Redis 記憶佇列)]
+  Q --> W[🤖 memory_worker]
+  W --> PF{規則預篩<br/>值得記嗎?}
+  PF -->|否| SKIP[略過 · 不產生費用]
+  PF -->|是| EX[小模型萃取<br/>keywords / entities / topic]
+  EX --> EMB[向量化<br/>text-embedding-3-small · 1536 維]
+  EMB --> M1[(🗄️ chat_memory<br/>Session 層 · HNSW)]
+  M1 --> PUB[📡 Redis pub/sub<br/>SSE 推播 memory_updated]
+  M1 --> W2[🤖 project_memory_worker<br/>同 Project 二次聚合]
+  W2 --> M2[(🗄️ project_memory<br/>Project 層 · HNSW)]
+  M2 --> W3[🤖 user_memory_worker<br/>跨 Project 長期偏好]
+  W3 --> M3[(🗄️ user_memory<br/>User 層 · HNSW)]
+  M1 -.-> SF[🏭 skill_factory_worker<br/>掃描記憶 → Skill 候選]
+  SF -.-> SUG[(agentic_skill_suggestion<br/>人工審核後入庫)]
 
   classDef ai fill:#eff6ff,stroke:#bfdbfe,color:#1e3a8a;
   classDef store fill:#ecfdf5,stroke:#6ee7b7,color:#065f46;
   classDef stop fill:#fef2f2,stroke:#fecaca,color:#991b1b;
-  class W1,W2,W3,W4 ai;
-  class CM,PM,UM,SK,Q store;
-  class X stop;
+  class W,W2,W3,EX,EMB,SF ai;
+  class M1,M2,M3,Q,SUG store;
+  class SKIP stop;
         </pre>
-        <figcaption>圖 2 · 記憶抽取與聚合管線（4 Worker 皆為 backend 進程內 asyncio 任務）</figcaption>
+        <figcaption>圖 2 · 三層記憶管線（預篩 → 萃取 → 向量化 → 逐層聚合；Skill 工廠掛載於記憶流之上）</figcaption>
       </figure>
 
-      <h3>流程 C：Skills AI 語意查詢（v1.6 系列核心創新）</h3>
-      <p class="sectlead">把 RAG 能力從對話記憶帶到資源檢索本身——用自然語言找 Skill。</p>
+      <h3>流程 C：Skills RAG 語意檢索（v1.6 系列核心創新）</h3>
+      <p class="sectlead">「AI 查詢」如何從自然語言找到最適合的 Skill，並留下完整稽核紀錄。</p>
       <figure class="diagram">
         <pre class="mermaid">
-flowchart LR
-  Q([🔍 SearchModeBar 切「AI 查詢」<br/>輸入自然語言]) --> E[query embedding]
-  E --> VS[skill_embedding 檢索<br/>name / description / content 三向量<br/>per-skill 取 MAX（兩層 HNSW SQL）]
-  VS --> TH{相似度 ≥ 0.45?}
-  TH -->|否| Z[回空結果]
-  TH -->|是| LLM[🤖 LLM 生成推薦理由]
-  LLM --> UI([結果清單 + 推薦理由])
-  VS --> LOG[(skill_search_log<br/>JSONB 快照含相似度<br/>0 命中也記)]
-  Z --> LOG
+flowchart TD
+  A([👤 AI 查詢<br/>自然語言描述需求]) --> EMB[query 向量化<br/>text-embedding-3-small]
+  EMB --> L1[內層 SQL · 純 HNSW 近鄰<br/>skill_embedding 三向量池<br/>candidate_k = top_k × 6]
+  L1 --> L2[外層 SQL · join skill<br/>可見性過濾 scope visible / public<br/>GROUP BY per-skill 取 MAX score]
+  L2 --> TH{MAX score<br/>≥ min_score 0.45?}
+  TH -->|否| ZERO[0 命中<br/>也寫稽核 · 內容缺口訊號]
+  TH -->|是| LLM[🤖 LLM 產生推薦理由<br/>前端顯示 AI 徽章 + 理由]
+  LLM --> LOG[(🗄️ skill_search_log<br/>JSONB 結果快照 · 含相似度)]
+  ZERO --> LOG
 
   classDef ai fill:#eff6ff,stroke:#bfdbfe,color:#1e3a8a;
   classDef store fill:#ecfdf5,stroke:#6ee7b7,color:#065f46;
-  class E,VS,LLM ai;
+  classDef stop fill:#fef2f2,stroke:#fecaca,color:#991b1b;
+  class EMB,L1,L2,LLM ai;
   class LOG store;
+  class ZERO stop;
         </pre>
-        <figcaption>圖 3 · Skills AI 語意查詢（三向量檢索 + LLM 推薦理由 + 全量稽核）</figcaption>
+        <figcaption>圖 3 · Skills RAG 語意檢索（兩層 HNSW SQL + per-skill MAX + LLM 推薦理由 + 全程稽核）</figcaption>
       </figure>
       <div class="note info">
-        <div class="head">🔑 為什麼是三向量</div>
-        v1.6.0 原以單一長向量（name + description + content 串接）建索引，實測發現<span class="rd">語意被稀釋</span>——「Coolify」單詞查詢對同名 Skill 相似度僅 0.49。v1.6.2 重設計為 <code>skill_embedding</code> <span class="hl">1:N 三向量</span>、檢索取 per-skill MAX，並以實測校準門檻 <span class="mk">0.45</span>（正例 0.58~0.89 / 雜訊 ≤0.33）；向量於寫入側自動維護，歷史資料以 backfill script 補齊。
+        <div class="head">🔑 設計重點</div>
+        一個 Skill 拆 <span class="hl">name / description / content 三條獨立向量</span>（1:N 儲存於 <code>skill_embedding</code>），任一面向命中即可召回；<span class="hl">min_score 0.45</span> 為 V60 實測校準（正例 0.58–0.89 全收、雜訊 ≤0.33 全擋，邊際 &gt; 0.12）；UI 自 v1.6.3 起<span class="key">隱藏相似度分數</span>，分數轉入稽核 log 供後台分析。
       </div>
     </section>
 
     <!-- 6 系統架構 -->
     <section id="arch">
       <h2 class="sec"><span class="num">6</span>系統架構</h2>
-      <p class="sectlead">Monorepo 前後端分離，以 Docker Compose 編排，Coolify 正式部署（走 <code>main</code> 分支）。</p>
+      <p class="sectlead">Monorepo 前後端分離，以 Docker Compose 編排，Coolify 正式部署。</p>
 
       <div class="layer">
         <div class="lh">前端層 · Frontend</div>
         <div class="lb">
           <span class="chip"><b>Next.js 16</b> App Router</span>
-          <span class="chip"><b>React 19</b> · TypeScript 5</span>
+          <span class="chip"><b>React 19</b> · <b>TypeScript 5</b></span>
           <span class="chip"><b>Redux Toolkit + RTK Query</b></span>
-          <span class="chip"><b>Tailwind CSS 4</b></span>
-          <span class="chip">SSE 串流對話 UI · 管理介面 · 公開市集</span>
+          <span class="chip"><b>TailwindCSS 4</b></span>
+          <span class="chip">儀錶板市集 · Agent / Skill 管理 · 對話介面（SSE）</span>
         </div>
       </div>
 
       <div class="layer">
         <div class="lh">後端層 · Backend（分層架構）</div>
         <div class="lb">
-          <span class="chip"><b>FastAPI</b> + Uvicorn</span>
+          <span class="chip"><b>FastAPI</b> + Uvicorn（async）</span>
           <span class="chip"><b>Pydantic v2</b> 驗證</span>
           <span class="chip">api → <b>services</b> → repositories → models</span>
-          <span class="chip"><b>call_llm_metered</b> 唯一 LLM 計量出口</span>
-          <span class="chip">雙 Token JWT · DF-SSO 雙模式</span>
-          <span class="chip">SSE（串流回覆 + <code>memory_updated</code> 事件）</span>
+          <span class="chip"><b>llm_metering</b> LLM 呼叫唯一計量入口</span>
+          <span class="chip">路由分類器 · 三層 RAG · Skill 工廠 service</span>
+          <span class="chip">JWT 雙 Token + DF-SSO 雙模式</span>
           <span class="chip">Swagger <code>/api/docs</code></span>
         </div>
       </div>
 
       <div class="layer">
-        <div class="lh">背景 Worker 層 · In-process Async Workers</div>
+        <div class="lh">背景任務層 · Async Workers（lifespan 啟動 4 個）</div>
         <div class="lb">
-          <span class="chip"><b>4 個 asyncio Worker</b>（backend 進程內，lifespan 啟動）</span>
-          <span class="chip"><b>Redis BRPOP</b> 佇列 + DLQ + 重試</span>
-          <span class="chip">memory_worker（Session 記憶抽取）</span>
-          <span class="chip">project_memory_worker（主題聚合）</span>
-          <span class="chip">user_memory_worker（長期偏好）</span>
-          <span class="chip">skill_factory_worker（Skill 工廠）</span>
+          <span class="chip"><b>memory_worker</b> Session 摘要 + 向量化</span>
+          <span class="chip"><b>project_memory_worker</b> 同 Project 二次聚合</span>
+          <span class="chip"><b>user_memory_worker</b> 跨 Project 長期偏好</span>
+          <span class="chip"><b>skill_factory_worker</b> Agentic 自學候選</span>
+          <span class="chip"><b>Redis</b> 佇列 / DLQ / pub-sub / dedup</span>
         </div>
       </div>
 
       <div class="layer">
         <div class="lh">資料與基礎設施 · Data &amp; Infra</div>
         <div class="lb">
-          <span class="chip"><b>PostgreSQL 17</b> + <b>pgvector</b>（HNSW · 軟刪除）</span>
-          <span class="chip"><b>Redis 7</b> 佇列 / 快取 / Token 黑名單</span>
-          <span class="chip"><b>Flyway</b> Migration（V1–V61 增量鏈）</span>
-          <span class="chip"><b>AWS S3</b>（versioning · 軟刪 tag 絕不真刪）</span>
+          <span class="chip"><b>PostgreSQL 17 + pgvector</b>（HNSW cosine · 軟刪除 · UUID 對外識別）</span>
+          <span class="chip"><b>Flyway</b> Migration（V1–V61 · build-time 烤進 image）</span>
+          <span class="chip"><b>Redis 7</b></span>
+          <span class="chip"><b>AWS S3</b> 檔案儲存（Skills / Scripts / 附件 · 軟刪 tag）</span>
+          <span class="chip"><b>Adminer</b> DB 管理</span>
           <span class="chip"><b>Docker Compose</b> · Coolify</span>
-          <span class="chip"><b>Adminer</b> DB 管理（正式 compose）</span>
         </div>
       </div>
 
       <div class="layer">
         <div class="lh">外部整合 · External</div>
         <div class="lb">
-          <span class="chip"><b>OpenRouter API</b>（LLM + embedding 統一入口）</span>
-          <span class="chip"><b>DF-SSO</b>（OAuth2 單一登入 · back-channel logout）</span>
-          <span class="chip"><b>AWS S3</b>（Skills / Scripts / 附件檔案）</span>
-          <span class="chip"><b>LINE / Telegram</b>（架構預留，尚未實作）</span>
+          <span class="chip"><b>OpenRouter</b>（LLM + embedding 統一入口 · 多模型切換）</span>
+          <span class="chip"><b>DF-SSO</b>（OAuth2 / Azure AD bridge 單一登入）</span>
+          <span class="chip"><b>LINE / Telegram</b><span class="muted">（規劃中 · 環境變數已預留）</span></span>
         </div>
       </div>
 
       <h3>元件架構圖</h3>
-      <p class="sectlead">同步請求（對話 / 管理）與背景記憶管線共用 PostgreSQL，但以 <span class="hl">Redis 佇列解耦</span>；所有 LLM 呼叫收斂到單一計量出口。</p>
+      <p class="sectlead">同步對話路徑與<span class="hl">背景記憶 / 自學管線</span>共用 PostgreSQL，經 Redis 佇列完全解耦。</p>
       <figure class="diagram">
         <pre class="mermaid">
 flowchart LR
   subgraph CLIENT[使用者]
-    BR[🧑‍💻 瀏覽器]
+    U[👤 瀏覽器]
   end
-  subgraph FE[前端 · Next.js 16]
-    UI[管理 UI / 對話介面<br/>SSE 串流]
+  subgraph FE[前端 · Next.js]
+    UI[管理 UI + 對話介面<br/>儀錶板市集 / AI 查詢]
   end
   subgraph BE[後端 · FastAPI]
-    API[REST API + SSE]
-    MET[call_llm_metered<br/>唯一 LLM 計量出口]
-    subgraph WK[進程內 Worker × 4]
-      W[memory / project /<br/>user / skill_factory]
-    end
+    CHAT[chat_service<br/>分類器 + 三層 RAG]
+    RES[資源 API<br/>Agents / Skills / Scripts / Tags]
+    ADM[admin API<br/>metrics / trace / 設定]
+    MET[llm_metering<br/>唯一計量入口]
   end
-  RED[(🧰 Redis<br/>佇列 · 黑名單 · dedup)]
-  PG[(🗄️ PostgreSQL 17<br/>+ pgvector)]
-  S3[(🪣 AWS S3<br/>Skills · Scripts · 附件)]
+  subgraph WK[背景 Workers]
+    MW[memory_worker]
+    PW[project / user<br/>memory_worker]
+    SW[skill_factory_worker]
+  end
+  RED[(🧰 Redis<br/>佇列 / pub-sub)]
+  PG[(🗄️ PostgreSQL 17<br/>+ pgvector HNSW)]
+  S3[(☁️ AWS S3<br/>Skills / Scripts / 附件)]
   OR{{🌐 OpenRouter<br/>LLM + embedding}}
   SSO{{🔐 DF-SSO}}
 
-  BR --> UI --> API
-  API --> PG
-  API --> S3
-  API --> RED
-  RED --> W
-  API --> MET
-  W --> MET
-  MET --> OR
-  W --> PG
-  UI -. SSO 登入 .-> SSO
-  API -. token 交換 / back-channel .-> SSO
+  U --> UI
+  UI --> CHAT
+  UI --> RES
+  UI --> ADM
+  UI -. SSE 記憶事件 .-> CHAT
+  CHAT --> MET --> OR
+  CHAT --> PG
+  CHAT --> RED
+  RES --> PG
+  RES --> S3
+  ADM --> PG
+  RED --> MW --> PG
+  MW --> PW --> PG
+  RED --> SW --> PG
+  MW -. pub/sub .-> RED
+  UI -.-> SSO
 
   classDef be fill:#eff6ff,stroke:#bfdbfe,color:#1e3a8a;
   classDef store fill:#ecfdf5,stroke:#6ee7b7,color:#065f46;
   classDef ext fill:#f3f4f6,stroke:#e5e7eb,color:#374151;
-  class API,MET,W,UI be;
+  class CHAT,RES,ADM,MET,MW,PW,SW,UI be;
   class RED,PG,S3 store;
   class OR,SSO ext;
         </pre>
-        <figcaption>圖 4 · 系統元件架構（同步路徑 + 記憶背景管線，經 Redis 解耦）</figcaption>
+        <figcaption>圖 4 · 系統元件架構（同步對話路徑 + 背景記憶 / 自學管線，經 Redis 解耦）</figcaption>
       </figure>
     </section>
 
     <!-- 7 版本演進 -->
     <section id="evolution">
       <h2 class="sec"><span class="num">7</span>版本演進</h2>
-      <p class="sectlead">從資源管理工具的 MVP，成長為「可對話、有記憶」的 Agent 平台，再進化到<span class="hl">三層記憶、成本可觀測與 Skills RAG 語意檢索</span>。</p>
+      <p class="sectlead">從資源管理骨架，成長為「對話 × 三層記憶 × Agentic RAG」的 AI 平台，再進化到 <span class="hl">Skills 語意檢索與 AI 查詢稽核</span>。</p>
       <div class="timeline">
         <div class="tl-item milestone">
           <div class="ver">v1.0 <span class="badge green">MVP</span></div>
-          <div class="desc">系統基線：Docker / FastAPI / Next.js / Flyway 骨架、登入系統與 admin / member RBAC、Agents 與 Skills CRUD（zip 上傳下載）、Cursor-based 分頁規範；.1 補 LLM 模型清單管理（<code>/admin/models</code>），.2 Agent 表單全面改版（範本、Skills 多選、草稿自動儲存）。</div>
+          <div class="desc">系統骨架：登入 / RBAC（admin / member）、Agents CRUD 與 AGENTS.md 匯出、Skills ZIP 上傳管理、LLM 模型清單管理、Agent 表單強化（範本 / 草稿 / preset）。</div>
         </div>
         <div class="tl-item milestone">
-          <div class="ver">v1.1 <span class="badge green">對話與記憶誕生</span>（.1–.7）</div>
-          <div class="desc">從「資源管理工具」躍升為「可對話、有記憶」的平台，且不引入 LangChain 自建管線：chat 三表 + SSE 串流對話（.1）、<code>chat_memory</code>（pgvector + HNSW）+ Redis 記憶 Worker + Session 層 RAG（.2）、Skills 線上編輯（.3）、ChatGPT 風格導航（.4）、輸入 UX Pack（.5）、附件系統——圖片走 vision、文字拼 prompt（.6）、Agentic Skill 工廠 PoC（.7）。</div>
+          <div class="ver">v1.1 <span class="badge green">對話 + 記憶</span></div>
+          <div class="desc">Project / Session / Message 對話系統（SSE streaming）、<span class="hl">Session 層向量記憶 + RAG 注入</span>、Skills 線上編輯（樂觀鎖）、游離 Session 雙區導航、附件系統（圖片 vision / 文字拼接）、Agentic Skill 工廠 PoC。</div>
         </div>
         <div class="tl-item">
-          <div class="ver">v1.2 · 社群互動 + Scripts + 排行（.1–.5）</div>
-          <div class="desc">收藏 / 下載計數與泛型 <code>user_favorite</code>（.1）、三段式 filter 與社群元件（.2）、Scripts 資源頁 + Sidebar 三分組（.3）、儀表板統一排行 endpoint（.4）、Script 可見性與公開頁籤（.5）。</div>
+          <div class="ver">v1.2 · 社群互動 + 儀錶板</div>
+          <div class="desc">收藏 / 下載計數（Redis dedup）、三段式 filter、Scripts 管理（檔案 / 資料夾上傳）、儀錶板跨資源排行榜與排序。</div>
         </div>
         <div class="tl-item milestone">
-          <div class="ver">v1.3 <span class="badge green">多 Agent + 三層記憶 + 可觀測</span>（.0–.7）</div>
-          <div class="desc">Agent 能力重大躍進：<code>llm_call_log</code> + <code>call_llm_metered</code> 集中計量（.0）、記憶 pipeline debug trace（.1）、SSE <code>memory_updated</code> 事件（.2）、Session 多 Agent 1:N（.3）、分層 Model Classifier 三路分流（.4）、三層記憶 <code>project_memory</code> / <code>user_memory</code> + RRF 融合（.5）、Skill 工廠正式版（.6）、權限整合 refactor（.7）。</div>
-        </div>
-        <div class="tl-item milestone">
-          <div class="ver">v1.4 <span class="badge green">雙線合一 + SSO + 正式部署</span></div>
-          <div class="desc">開源主線與公司版合併為單一 <code>main</code>（正式部署自此走 main）；<span class="hl">DF-SSO</span>（OAuth2）與本地 JWT 雙模式並存（back-channel logout、跨 <code>*.zerozero.tw</code> hint cookie、無感自動登入）；Coolify 部署管線正式化（build-time 烤 Flyway SQL）。</div>
+          <div class="ver">v1.3 <span class="badge green">多 Agent + 三層記憶</span></div>
+          <div class="desc">LLM 成本計量（<code>llm_call_log</code> + 唯一入口）、記憶可觀察性（trace / SSE 即時推播）、<span class="hl">Session:Agent 1:N 多 Agent 對話</span>、前置路由分類器（skip / cheap / expensive）、<span class="hl">Project / User 記憶 + 三層 RRF 融合</span>、Skill 工廠正式版、權限收斂 refactor。</div>
         </div>
         <div class="tl-item">
-          <div class="ver">v1.5 · 儲存基建與資源治理（.0–.2）</div>
-          <div class="desc">檔案儲存全面切換 <span class="hl">AWS S3</span>——三領域共用 module、bucket versioning、軟刪 tag 絕不真刪（.0）；Tag 標籤池 + 泛型 <code>entity_tag</code> 三資源共用（.1）；<code>download_log</code> 下載稽核——寫入即不可變、含名稱快照（.2）。</div>
+          <div class="ver">v1.4 · 分支統一 + DF-SSO + 部署</div>
+          <div class="desc">開源線與公司線合一；DF-SSO（OAuth2 / Azure AD）與本地 JWT 雙模式並存；Coolify 部署管線正式化，正式環境自此走 <code>main</code>。</div>
+        </div>
+        <div class="tl-item">
+          <div class="ver">v1.5 · S3 儲存 + 標籤 + 稽核</div>
+          <div class="desc">檔案儲存全面切換 <span class="hl">AWS S3</span>（覆蓋更新 + tag 軟刪、絕不物理刪除）；per-user 標籤池跨資源分類與 AND 篩選；<code>download_log</code> 下載稽核表。</div>
         </div>
         <div class="tl-item milestone">
-          <div class="ver">v1.6 <span class="badge green">Skills RAG 語意檢索</span>（.0–.3，2026-07 進行中）</div>
-          <div class="desc">把 RAG 從對話記憶帶到資源檢索：Skill embedding + <code>POST /skills/search</code> + LLM 推薦理由 + 前端 AI 查詢模式（.0）；Dashboard 公開市集語意檢索（<code>scope</code> 參數，.1）；向量儲存重設計——<code>skill_embedding</code> 1:N 三向量 + per-skill MAX + 實測校準 0.45（.2）；<code>skill_search_log</code> 查詢稽核（0 命中也記）+ SearchModeBar 單鍵切換（.3）。</div>
+          <div class="ver">v1.6 <span class="badge green">Skills RAG</span>（2026-07）</div>
+          <div class="desc">Skill 語意檢索 + LLM 推薦理由（.0）、公開市集 AI 查詢（.1）、<span class="hl">向量儲存重設計</span>：skill_embedding 1:N 三向量 + per-skill MAX + min_score 0.45 實測校準（.2）、<span class="hl">AI 查詢稽核</span> skill_search_log + UI 單一切換按鈕（.3）。</div>
         </div>
+      </div>
+      <div class="note info">
+        <div class="head">🗺️ 規劃中</div>
+        <span class="hl">LINE / Telegram 多平台整合</span>為設計目標之一（環境變數已預留），webhook 與訊息橋接尚未實作，屬後續版本範疇。
       </div>
     </section>
 
@@ -702,136 +708,131 @@ flowchart LR
       <p class="sectlead">這份專案展現的可遷移工程能力 —— 適合作為技術能力佐證。</p>
       <div class="grid cols2">
         <div class="subcard">
-          <h4>🧠 RAG 工程與實測校準</h4>
-          <p>三層記憶 + <span class="hl">RRF 融合</span>、HNSW 索引；發現長向量語意稀釋後<span class="hl">以實測數據重設計</span>為三向量架構並校準門檻，而非憑感覺調參。嚴守 RAG 適用邊界——時序資料走 SQL、不為 vector 而 vector。</p>
+          <h4>🧠 向量檢索工程</h4>
+          <p>pgvector <span class="hl">HNSW cosine 索引</span>、多向量 1:N 儲存設計、兩層 SQL（純 HNSW 近鄰 → join 過濾 + per-skill MAX）、<span class="hl">以實測資料校準 min_score</span> 而非拍腦袋定值。</p>
         </div>
         <div class="subcard">
-          <h4>🏗️ 免框架 Agentic 架構</h4>
-          <p>刻意<span class="hl">不引入 LangChain</span>，以 httpx + OpenRouter 自建 classifier → embedding → 檢索 → 融合 → 生成管線，每個元件成本、行為、失敗模式皆可控可觀測。</p>
+          <h4>🏗️ 記憶系統架構</h4>
+          <p>三層記憶（Session / Project / User）逐層聚合、<span class="hl">RRF 多路融合檢索</span>、規則預篩 + 小模型萃取的成本分層，完整的 Agentic RAG 落地。</p>
         </div>
         <div class="subcard">
           <h4>⚙️ 非同步管線設計</h4>
-          <p>Redis <span class="hl">BRPOP 佇列 + DLQ + 重試</span>驅動 4 個背景 Worker，記憶抽取與聚合完全不擋對話回覆；佇列深度納入 healthcheck，阻塞讀取連線獨立配置避免誤報逾時。</p>
+          <p>Redis 佇列 + DLQ + <span class="hl">4 個背景 worker</span>，記憶寫入與對話回應完全解耦；pub/sub → SSE 讓前端即時看到記憶更新，不引入 WebSocket 的最小方案。</p>
         </div>
         <div class="subcard">
-          <h4>💰 成本工程</h4>
-          <p>Classifier <span class="hl">三路分流</span>讓便宜問題不走貴模型，並記 <span class="hl">counterfactual baseline</span> 證明「省了多少」；先量再優化——任何優化前必先有 metrics。</p>
+          <h4>💰 LLM 成本工程</h4>
+          <p><span class="hl">唯一計量入口</span>強制所有呼叫入帳（含 skip baseline）、前置分類器分流 skip / cheap / expensive、embedding 內容截長、30 天 log 保留策略。</p>
         </div>
         <div class="subcard">
-          <h4>🛡️ 認證與安全</h4>
-          <p><span class="hl">雙 Token</span>（Access 15 分鐘僅存記憶體 / Refresh 7 天 HttpOnly Cookie）+ Redis 黑名單；登入<span class="hl">漸進鎖定</span>（5 次 15 分 / 10 次 1 小時 / 15 次永久）；SSO back-channel logout 走 <span class="hl">HMAC-SHA256 驗簽</span>。</p>
+          <h4>🤖 Agentic 自學閉環</h4>
+          <p>「對話 → 記憶 → 歸納 Skill 候選 → 人工審核 → 推薦掛載」的<span class="hl">自我成長迴路</span>，AI 產出一律過人工閘門，兼顧自動化與可控性。</p>
         </div>
         <div class="subcard">
-          <h4>📦 儲存工程</h4>
-          <p>本地 volume 平滑遷移 <span class="hl">AWS S3</span>：三領域共用 storage module、人類可讀 key、覆蓋走 bucket versioning、刪除採軟刪 tag <span class="hl">絕不真刪</span>，可追溯可還原。</p>
+          <h4>🔐 認證與安全</h4>
+          <p>JWT 雙 Token（httpOnly refresh cookie）、<span class="hl">DF-SSO OAuth2 / Azure AD bridge</span> 與本地登入並存、back-channel logout（HMAC 驗證）、production CORS 白名單強制。</p>
         </div>
         <div class="subcard">
-          <h4>📈 可觀測與稽核</h4>
-          <p>三本稽核帳：<code>llm_call_log</code>（成本 / 延遲 / 用途維度）、<code>download_log</code>（不可變下載紀錄）、<code>skill_search_log</code>（查詢快照，<span class="hl">0 命中也記</span>）——花多少、誰拿了什麼、搜了什麼皆可回答。</p>
+          <h4>🧱 工程化實踐</h4>
+          <p>Monorepo 分層架構（api / service / repository / model）、<span class="hl">Flyway 增量 migration V1–V61</span>（build-time 烤 image 保部署一致）、S3 tag 軟刪不物理刪除、統一 <code>ApiResponse</code> 契約、Swagger 文件。</p>
         </div>
         <div class="subcard">
           <h4>🔄 規格驅動迭代</h4>
-          <p><span class="hl">v1.0 → v1.6 穩定演進</span>，每版皆有 propose（設計提案）/ tasks（任務拆解）/ fixed（修正紀錄）文件鏈；Flyway V1–V61 增量 migration，規格與 schema 演進全程留痕。</p>
+          <p><span class="hl">v1.0 → v1.6.3 穩定演進</span>，每版皆有 propose（設計提案）與 tasks（任務拆解）文件並回填進度，架構重設計（v1.6.2）敢於推翻既有欄位設計並校準驗證。</p>
         </div>
       </div>
       <div class="note info">
         <div class="head">💡 一句話總結</div>
-        本專案完整涵蓋「<span class="mk">記憶 × 檢索 × 成本 × 治理</span>」四大 LLM 應用平台關注點，<span class="hl">從 0 到 1 免框架自建</span> Agentic RAG 管線並以實測數據迭代，是<span class="hl">RAG 工程、非同步架構與 AI 平台設計能力</span>的綜合展現。
+        本專案完整涵蓋「<span class="mk">記憶 × 檢索 × 成本 × 自學</span>」四大 AI 平台關注點，<span class="hl">從 0 到 1 設計並迭代</span>一套三層向量記憶 + Agentic RAG 系統，是<span class="hl">向量檢索工程、非同步架構與 LLM 應用整合能力</span>的綜合展現。
       </div>
     </section>
 
-    <!-- ===== PART II · 維運操作手冊 ===== -->
+    <!-- ===== PART II · 操作手冊 ===== -->
     <div class="part-divider">
       <div class="pk">Part II</div>
-      <h2>維運操作手冊</h2>
-      <p>以「<strong>有人來找你說 ___，你該怎麼做</strong>」的情境為主：帳號開通、建 Agent、找 Skill、查成本與排錯；照著點即可。</p>
+      <h2>操作手冊</h2>
+      <p>以「<strong>想做 ___，該怎麼操作</strong>」的情境為主：如何啟動環境、建 Agent 開始對話、上傳 Skill、用 AI 查詢找資源、審核自學候選與排錯。照著點即可。</p>
     </div>
 
-    <!-- 9 線上環境一覽 -->
+    <!-- 9 環境與啟動 -->
     <section id="env">
-      <h2 class="sec"><span class="num">9</span>線上環境一覽</h2>
-      <p class="sectlead">正式環境由 <span class="hl">Coolify</span> 部署（走 <code>main</code> 分支），容器全部 <code>expose</code> 不對外綁 port，由反向代理接入。</p>
+      <h2 class="sec"><span class="num">9</span>環境與啟動</h2>
+      <p class="sectlead">本機以 Docker Compose 一鍵啟動；正式環境由 <span class="hl">Coolify</span> 以 <code>docker-compose.yml</code> 部署並反代發佈。</p>
+
+      <h3>本機開發環境</h3>
+      <ol class="steps">
+        <li>複製環境變數範本：<code>cp .env.example .env</code>，依序填入 PostgreSQL 帳密、<code>SECRET_KEY</code>（≥32 字元）、<code>OPENROUTER_API_KEY</code>、AWS S3 憑證、Flyway 帳密等必填項。</li>
+        <li>啟動：<code>docker compose -f docker-compose.dev.yml up -d</code>（或用自訂指令 <code>/dev-up</code> 一鍵啟動）。</li>
+        <li>Flyway 會先完成 migration（<code>V1</code>–<code>V61</code>），成功結束後 backend 才會啟動。</li>
+      </ol>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>環境</th><th>後端 API Base URL</th><th>說明</th></tr></thead>
+          <thead><tr><th>服務</th><th>位置</th></tr></thead>
           <tbody>
-            <tr><td><strong>正式 Prod</strong></td><td class="mono small"><code>https://df-it-agents-platform-api.it.zerozero.tw</code></td><td>前端網址由 Coolify 反向代理設定（未寫死於 repo）</td></tr>
-            <tr><td><strong>DF-SSO 中央認證</strong></td><td class="mono small"><code>https://df-sso-login.apps.zerozero.tw</code></td><td>SSO 登入導向此站；hint cookie 共享網域 <code>.zerozero.tw</code></td></tr>
+            <tr><td>前端</td><td><code>http://localhost:3000</code></td></tr>
+            <tr><td>後端 API</td><td><code>http://localhost:8000/api/v1</code></td></tr>
+            <tr><td>API 文件（Swagger）</td><td><code>http://localhost:8000/api/docs</code></td></tr>
+            <tr><td>PostgreSQL</td><td><code>localhost:5433</code>（容器內 5432）</td></tr>
+            <tr><td>Redis</td><td><code>localhost:6379</code></td></tr>
           </tbody>
         </table>
       </div>
 
-      <h3>本機開發環境</h3>
-      <p><code>docker compose -f docker-compose.dev.yml up -d</code>（或自訂指令 <code>/dev-up</code>）一鍵啟動：</p>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>服務</th><th>網址 / Port</th><th>說明</th></tr></thead>
-          <tbody>
-            <tr><td>前端</td><td class="mono small"><code>http://localhost:3000</code></td><td>Next.js dev server（node:22，程式碼掛載熱更新）</td></tr>
-            <tr><td>後端 API</td><td class="mono small"><code>http://localhost:8000/api/v1</code></td><td>uvicorn --reload</td></tr>
-            <tr><td>Swagger 文件</td><td class="mono small"><code>http://localhost:8000/api/docs</code></td><td>統一路徑 <code>/api/docs</code>（禁用其他路徑）</td></tr>
-            <tr><td>PostgreSQL</td><td class="mono small"><code>localhost:5433</code></td><td>容器內 5432；pgvector/pgvector:pg17</td></tr>
-            <tr><td>Redis</td><td class="mono small"><code>localhost:6379</code></td><td>redis:7-alpine</td></tr>
-            <tr><td>Flyway</td><td>—</td><td>一次性 migration container，bind-mount <code>migrations/sql</code></td></tr>
-          </tbody>
-        </table>
-      </div>
+      <h3>正式部署（Coolify）</h3>
+      <ul>
+        <li>部署分支為 <span class="hl"><code>main</code></span>（v1.4 起）；服務組成：postgres（pgvector/pg17）、redis、flyway（一次性 migrate）、backend、frontend、adminer，全走 <code>expose</code> 由 Coolify 反代。</li>
+        <li>Migration SQL 於 <span class="hl">build 時烤進 flyway image</span>（runtime bind mount 在 Coolify 不可靠），backend <code>depends_on</code> flyway 成功完成。</li>
+        <li>S3 bucket 依環境分離：測試 <code>agents-platform-test-datas</code> / 正式 <code>agents-platform-prod-datas</code>。</li>
+        <li>部署環境建議設 <code>LOG_LEVEL=WARNING</code> 抑制 INFO 噪音（預設 INFO）。</li>
+      </ul>
       <div class="note warn">
-        <div class="head">⚠ 正式 vs 開發差異</div>
-        正式 compose 的 Flyway 把 SQL <span class="hl">烤進 image</span>（build-time），並多一個 <span class="hl">Adminer</span>（DB 管理 UI，port 8080）；開發 compose 的 PostgreSQL 對外是 <span class="key">5433</span> 不是 5432。環境變數以 <code>.env.example</code> 為準——DB / Redis / SECRET_KEY / OpenRouter / AWS S3（bucket 命名 <code>agents-platform-{test,prod}-datas</code>）/ DF-SSO / Flyway 缺一不可。
+        <div class="head">⚠ 環境變數要點</div>
+        <code>SECRET_KEY</code> 少於 32 字元後端啟動即報錯；production 下 <code>CORS_ORIGINS</code> <span class="rd">禁止</span> <code>*</code> 與 localhost；<code>NEXT_PUBLIC_API_URL</code> 於前端 <span class="key">build 階段內聯</span>，改值需重 build。<code>LINE_CHANNEL_ACCESS_TOKEN</code> / <code>TELEGRAM_BOT_TOKEN</code> 為預留變數，目前無對應功能。
       </div>
     </section>
 
     <!-- 10 第一次登入 -->
     <section id="login">
-      <h2 class="sec"><span class="num">10</span>第一次登入平台</h2>
-      <p class="sectlead">所有人（admin 與 member）都從同一個前端登入；差別只在 Sidebar 是否出現「系統管理」分組。</p>
+      <h2 class="sec"><span class="num">10</span>第一次登入</h2>
+      <p class="sectlead">支援本地帳密與 DF-SSO 兩種登入方式並存；角色分 <code>admin</code> 與 <code>member</code>。</p>
       <ol class="steps">
-        <li>開啟前端首頁 <code>/</code>——首頁即登入頁（不設獨立 <code>/login</code>）。</li>
-        <li>兩種登入方式擇一：<strong>本地帳密</strong>（先於 <code>/register</code> 註冊，預設角色 <code>member</code>）或 <strong>DF-SSO</strong>（導向公司中央認證，回調後自動換發本平台 Token）。</li>
-        <li>登入成功導向 <strong>/dashboard 儀表板</strong>；若你是 admin，Sidebar 會多出「系統管理」分組。</li>
-        <li>需要管理權限時，由<strong>現任 admin</strong> 至「使用者管理」（<code>/admin/users</code>）把你的角色調為 <code>admin</code>——角色寫入 Token，重新登入後生效。</li>
+        <li>開啟前端網址，未登入會停在登入頁；可<strong>註冊本地帳號</strong>（Email + 密碼），或點 <strong>DF-SSO 登入</strong>走公司單一登入。</li>
+        <li>登入後採 <span class="hl">JWT 雙 Token</span>：access token 15 分鐘、refresh token 7 天（httpOnly cookie，僅送 <code>/api/v1/auth</code> 路徑）；前端自動刷新，一般使用無感。</li>
+        <li>新帳號預設角色 <code>member</code>，可管理自身 Agents / Skills / Scripts 與對話；需要管理功能（使用者、模型清單、系統設定）由現任 <code>admin</code> 在「使用者管理」調整角色。</li>
+        <li>SSO 登出支援 <span class="hl">Single Logout</span>：在 SSO 端登出會透過 back-channel 通知本系統同步失效。</li>
       </ol>
-      <div class="note info">
-        <div class="head">登入機制</div>
-        平台採<span class="hl">雙 Token</span>：Access Token（JWT，15 分鐘）僅存前端記憶體、<span class="key">禁存 localStorage</span>；Refresh Token（7 天）走 HttpOnly Cookie，過期自動換發，登出即入 Redis 黑名單。連續登入失敗有<span class="hl">漸進鎖定</span>：5 次鎖 15 分鐘、10 次鎖 1 小時、<span class="rd">15 次永久鎖</span>（<code>is_active=False</code>，須管理員解鎖）；錯誤訊息一律通用化，防帳號列舉。
-      </div>
     </section>
 
-    <!-- 11 平台頁面導覽 -->
+    <!-- 11 頁面導覽 -->
     <section id="tabs">
-      <h2 class="sec"><span class="num">11</span>平台頁面導覽</h2>
-      <p class="sectlead">Sidebar 分三組：概覽、我的資源、對話；admin 另有「系統管理」分組。</p>
+      <h2 class="sec"><span class="num">11</span>頁面導覽</h2>
+      <p class="sectlead">Sidebar 分三組：<span class="hl">概覽 / 我的資源 / 系統管理</span>（系統管理僅 admin 可見）。</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th style="width:26%">頁面</th><th>用途</th></tr></thead>
           <tbody>
-            <tr><td><strong>儀表板</strong> <code>/dashboard</code></td><td>排行榜與公開市集總覽；公開 Skills 頁籤支援 <span class="hl">AI 查詢</span>（語意檢索公開資源）。</td></tr>
-            <tr><td><strong>Agent 管理</strong> <code>/agents</code></td><td>建立 / 編輯 Agent：system prompt 即時預覽、模型 / 語言 / Temperature、<span class="hl">綁定 Skills</span>、套用範本、草稿自動儲存。</td></tr>
-            <tr><td><strong>Skill 管理</strong> <code>/skills</code></td><td>zip 上傳 / 下載 / 線上編輯；搜尋框左側可切換<span class="hl">關鍵字查詢 ⇄ AI 查詢</span>。</td></tr>
-            <tr><td><strong>Script 管理</strong> <code>/scripts</code></td><td>腳本資源管理（支援整個資料夾上傳），公開瀏覽與收藏下載。</td></tr>
-            <tr><td><strong>Skill 建議</strong> <code>/skill-suggestions</code></td><td>Skill 工廠自動從對話學出的候選清單（附 pending 計數徽章），人工審核採納 / 駁回。</td></tr>
-            <tr><td><strong>對話</strong> <code>/sessions</code>、<code>/projects</code></td><td>新對話、Session 列表（可掛多 Agent）、對話專案分組與專案記憶；ChatGPT 風格雙區導航。</td></tr>
-            <tr><td><strong>系統管理</strong> <code>/admin/*</code><span class="badge" style="margin-left:6px;">admin</span></td><td><code>users</code>（使用者 / 角色）、<code>models</code>（LLM 模型清單）、<code>agent-languages</code>（語言）、<code>agent-templates</code>（範本）、<code>settings</code>（系統設定）。</td></tr>
+            <tr><td><strong>儀錶板 Dashboard</strong></td><td>公開市集入口：Skills / Agents / Scripts / 最常使用 頁籤 + 跨資源<span class="hl">排行榜</span>；支援關鍵字與 <span class="hl">AI 查詢</span>兩種模式。</td></tr>
+            <tr><td><strong>Agents</strong></td><td>Agent 列表（全部 / 我的 / 我的收藏）、建立 / 編輯表單（角色 prompt、語言、模型、Skills 多選、範本套用、草稿）、下載 AGENTS.md、檢視 <span class="hl">Skill 推薦</span>。</td></tr>
+            <tr><td><strong>Skills</strong></td><td>Skill 列表（SearchModeBar 切換<span class="hl">關鍵字查詢 ⇄ AI 查詢</span>）、ZIP 上傳 / 整包重上傳 / 單檔線上編輯、被哪些 Agent 使用、標籤篩選。</td></tr>
+            <tr><td><strong>Scripts</strong></td><td>腳本資源管理，支援單檔或整資料夾上傳、公開分享與下載。</td></tr>
+            <tr><td><strong>Projects / 對話</strong></td><td>ChatGPT 風格雙區導航（Project 內 Session + 游離 Session）；對話畫面含<span class="hl">記憶側欄</span>（SSE 即時更新）與 Skill 建議側欄；可掛多個 Agent 並切換主 Agent；支援圖片 / 文字附件。</td></tr>
+            <tr><td><strong>Skill 建議</strong></td><td>Agentic Skill 工廠產出的候選清單，逐筆檢視信心分數與來源記憶後<span class="hl">核准 / 駁回</span>。</td></tr>
+            <tr><td><strong>系統管理</strong><span class="badge" style="margin-left:6px;">admin</span></td><td>使用者管理（角色 / 停用）、LLM 模型清單（可同步 OpenRouter catalog）、Agent 語言 / 範本維護、系統設定（RAG / 記憶 / 分類器參數）。</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="muted small">member 誤入 admin 頁會被前端路由守衛導向 <code>/403</code>；實際權限過濾一律由後端完成。</p>
     </section>
 
     <!-- 12 維運核心觀念 -->
     <section id="ops-concept">
       <h2 class="sec"><span class="num">12</span>維運核心觀念</h2>
-      <p class="sectlead">操作前先記住這幾條，能避開九成「為什麼沒反應 / 為什麼不能刪」的疑惑。</p>
+      <p class="sectlead">操作前先記住這幾條，能避開九成「為什麼沒反應 / 找不到」的疑惑。</p>
       <ol class="steps">
-        <li><strong>所有 LLM 呼叫必經 <code>call_llm_metered</code></strong>——這是全系統唯一計量出口，繞過即漏帳；code review 必檢 <code>from app.clients.openrouter import</code> 不得出現在計量層以外。</li>
-        <li><strong>記憶是非同步的</strong>：送出訊息後由背景 Worker 抽取，<span class="key">不會立即出現</span>；前端靠 SSE <code>memory_updated</code> 事件更新，佇列深度可由 <code>GET /health</code> 查看。</li>
-        <li><strong>軟刪除為主</strong>：資源刪除保留歷史紀錄；S3 檔案<span class="hl">絕不真刪</span>（versioning + 刪除 tag），誤刪可還原。</li>
-        <li><strong>軟刪 / 切換可見性僅擁有者本人</strong>——admin 可修改他人資源，但<span class="key">不能代刪、不能代切可見性</span>。</li>
-        <li><strong>Migration 走 Flyway 增量鏈</strong>（V1–V61）：舊 V 檔<span class="rd">禁止修改</span>，任何 schema 變更只能新增 V 檔。</li>
-        <li><strong>Skill 向量寫入側自動維護</strong>：新增 / 編輯 Skill 會自動重算 embedding；歷史資料需跑 backfill script。語意檢索門檻 <code>skill.rag.min_score</code> 出廠 0.45，可於系統設定調整。</li>
-        <li><strong>Log 噪音用 <code>LOG_LEVEL</code> 控制</strong>：預設 INFO，正式部署建議 WARNING。</li>
-        <li><strong>LINE / Telegram 為架構預留</strong>：compose 有變數 passthrough，但後端尚無對應程式——目前<span class="key">尚未實作</span>，勿據此排錯。</li>
+        <li><strong>記憶是非同步產生的</strong>：對話結束後由背景 worker 摘要 + 向量化，<span class="key">數秒到數十秒</span>後才出現在記憶側欄（SSE 會自動推播更新），不是即時同步。</li>
+        <li><strong>不是每句話都會變記憶</strong>：規則預篩會略過寒暄、emoji 等低價值訊息；分類器也會讓此類訊息 <span class="hl">skip 不呼叫 LLM</span>。</li>
+        <li><strong>AI 查詢有品質門檻</strong>：相似度低於 <span class="hl">0.45</span> 一律不回傳 —— 查無結果代表真的沒有語意相近的 Skill，而非系統故障；該查詢仍會寫入稽核 log。</li>
+        <li><strong>Skill 向量自動維護</strong>：建立 / 更新 / 重上傳 Skill 時自動重建三條向量，無須手動操作；歷史資料才需要跑 backfill script。</li>
+        <li><strong>多為軟刪除</strong>：資源刪除保留歷史（S3 檔案以 tag 標記 <code>status=(deleted)</code>，<span class="rd">絕不物理刪除</span>），計數與稽核可追溯。</li>
+        <li><strong>所有 LLM 花費都有帳</strong>：任何繞過 <code>llm_metering</code> 直呼 OpenRouter 的寫法都是<span class="rd">違規</span>；查成本一律以 <code>llm_call_log</code>（30 天保留）為準。</li>
       </ol>
     </section>
 
@@ -841,166 +842,147 @@ flowchart LR
       <p class="sectlead">照情境找對應流程，依步驟點即可。</p>
 
       <div class="playbook-head">
-        <h3>A · 幫新成員開通帳號</h3>
-        <div class="ctx">情境：新同事要開始使用平台。</div>
+        <h3>A · 建立第一個 Agent 並開始對話</h3>
+        <div class="ctx">情境：新使用者想要一個懂特定領域的 AI 助手。</div>
       </div>
       <ol class="steps">
-        <li>請對方以 <strong>DF-SSO</strong> 直接登入（公司帳號），或於 <code>/register</code> 註冊本地帳號——兩者預設角色皆為 <code>member</code>，即可建資源、對話。</li>
-        <li>若需管理權限，admin 至 <code>/admin/users</code> 將其角色調為 <code>admin</code>。</li>
+        <li>「Agents」→ <strong>新增 Agent</strong>：填名稱與角色 prompt（可先<strong>套用範本</strong>再修改），選語言偏好與 LLM 模型，必要時調 temperature / max_tokens preset。</li>
+        <li>在表單的 <strong>Skills 多選</strong>掛上需要的技能（可先用 <a href="#playbook-c">Playbook C</a> 的 AI 查詢找 Skill）。</li>
+        <li>到「對話」<strong>建立 Session</strong>（可先建 Project 分類，或直接建游離 Session）→ 選這個 Agent → 開始對話（SSE 逐字回覆）。</li>
+        <li>對話幾輪後，右側<strong>記憶側欄</strong>會陸續出現系統萃取的記憶條目；之後的對話會自動檢索注入相關記憶。</li>
+        <li>需要多位專家協作時，可在 Session 內<strong>加掛其他 Agent</strong>（1:N）並切換主要回應者。</li>
       </ol>
 
       <div class="playbook-head">
-        <h3>B · 建一個會用 Skill 的 Agent 並開始對話</h3>
-        <div class="ctx">情境：想把一套工作方法（如程式碼審查規範）變成可對話的 AI 角色。</div>
+        <h3>B · 上傳 / 更新一個 Skill</h3>
+        <div class="ctx">情境：想把整理好的技能包分享給自己或全平台的 Agent 使用。</div>
       </div>
       <ol class="steps">
-        <li>到 <code>/skills</code> <strong>上傳 Skill</strong>（zip，可含多份 md，會自動拼接進 prompt）。</li>
-        <li>到 <code>/agents/new</code> <strong>建立 Agent</strong>：填 system prompt（或套範本）、選模型與語言、<strong>勾選剛上傳的 Skills</strong>。</li>
-        <li>到 <code>/sessions/new</code> <strong>開新對話</strong>並選擇該 Agent；對話中可再<span class="hl">掛入其他 Agent</span> 協作（指定 primary）。</li>
-        <li>正常對話即可——重點會自動變成記憶，之後的對話愈來愈懂上下文。</li>
+        <li>「Skills」→ <strong>上傳</strong>：填名稱 / 描述、選公開或私人、上傳 ZIP（上限 50MB）。內容建議含 <code>SKILL.md</code>（語意檢索會優先讀取它建立 content 向量）。</li>
+        <li>系統自動為 name / description / content <strong>建立三條向量</strong>，立即可被 AI 查詢召回。</li>
+        <li><strong>小改</strong>：進 Skill 詳情用<strong>單檔線上編輯</strong>；<strong>大改</strong>：用<strong>整包重上傳</strong>。兩者觸發前都會顯示「被 N 個 Agent 使用中」提醒影響面。</li>
+        <li>若編輯時回 <code>409</code>，代表有人先改過（樂觀鎖），重新載入最新版再改。</li>
+      </ol>
+
+      <div class="playbook-head" id="playbook-c">
+        <h3>C · 用 AI 查詢找 Skill</h3>
+        <div class="ctx">情境：不知道確切名稱，只能用一句話描述需求。</div>
+      </div>
+      <ol class="steps">
+        <li>「Skills」列表或儀錶板公開市集，把 SearchModeBar 切到 <strong>AI 查詢</strong>。</li>
+        <li>用自然語言描述需求（例：「幫我把會議逐字稿整理成紀要」）→ 按<strong>查詢</strong>。</li>
+        <li>結果依語意相似度排序，附 <span class="hl">AI 徽章與推薦理由</span>（介面不顯示分數）；點卡片進詳情即可掛載到 Agent。</li>
+        <li><strong>查無結果</strong>代表平台目前沒有語意相近的 Skill —— 這筆查詢已寫入稽核 log，admin 可據此補充內容。</li>
       </ol>
 
       <div class="playbook-head">
-        <h3>C · 找不到合適的 Skill</h3>
-        <div class="ctx">情境：想找「能幫我部署專案」之類的技能，但關鍵字搜不到。</div>
+        <h3>D · 審核 Agentic Skill 候選</h3>
+        <div class="ctx">情境：Skill 工廠從對話記憶中自學出了新技能候選。</div>
+      </div>
+      <ol class="steps">
+        <li>進「<strong>Skill 建議</strong>」頁，檢視候選的內容、<span class="hl">信心分數</span>與來源記憶。</li>
+        <li><strong>核准</strong>：候選轉為正式 Skill 入庫（自動建向量、可被檢索與掛載）；<strong>駁回</strong>：丟棄。候選以 Redis 暫存（TTL 7 天），逾期未審自動失效。</li>
+        <li>對話中若收到 <span class="hl">Skill 推薦</span>提示（SSE 事件），也可直接就地核准 / 駁回。</li>
+      </ol>
+
+      <div class="playbook-head">
+        <h3>E · admin：新增可用模型 / 調整系統參數</h3>
+        <div class="ctx">情境：要開放新的 LLM 模型給大家選用，或調整 RAG / 記憶行為。</div>
       </div>
       <ul>
-        <li>在 <code>/skills</code> 或儀表板公開 Skills 頁籤，把搜尋框左側模式切成 <strong>AI 查詢</strong>，用自然語言描述需求送出。</li>
-        <li>系統做<span class="hl">語意檢索</span>並附 <span class="hl">LLM 推薦理由</span>；查無結果代表相似度低於門檻（0.45）——換個說法再查，或自己上傳後公開分享。</li>
+        <li><strong>新增模型</strong>：「系統管理 → 模型」可瀏覽 <span class="hl">OpenRouter catalog</span> 挑選加入，設定顯示名稱、預設模型與 max_output_tokens；member 端表單下拉立即可選。</li>
+        <li><strong>調整參數</strong>：「系統管理 → 設定」維護 key-value 系統設定，涵蓋三層 RAG 門檻（top_k / min_score）、記憶萃取模型、分類器規則門檻、Skill RAG（<code>skill.rag.*</code>）等；<span class="key">改門檻前先看 llm_call_log 的 rag 命中數據</span>再動手。</li>
+        <li><strong>使用者管理</strong>：調整角色（admin / member）、停用帳號。</li>
       </ul>
 
       <div class="playbook-head">
-        <h3>D · 管理可用的 LLM 模型</h3>
-        <div class="ctx">情境：要開放新模型、或下架昂貴 / 停供的模型。</div>
+        <h3>F · 查成本與稽核紀錄</h3>
+        <div class="ctx">情境：想知道 LLM 花了多少錢、誰下載了什麼、大家都在搜什麼。</div>
       </div>
       <ul>
-        <li>admin 至 <code>/admin/models</code> 新增 / 停用模型（provider 統一為 OpenRouter）；member 建 Agent 時只能從<span class="hl">啟用中清單</span>選。</li>
-        <li>可設定 <code>is_default</code> 預設模型與 <code>max_output_tokens</code> 上限。</li>
-      </ul>
-
-      <div class="playbook-head">
-        <h3>E · 查 LLM 花費與異常用量</h3>
-        <div class="ctx">情境：要知道這個月花多少、哪個人 / Agent 最燒錢。</div>
-      </div>
-      <ul>
-        <li>成本資料在 <code>llm_call_log</code>（admin metrics 端點 / SQL 查詢），可依 <span class="hl">user / session / agent / purpose</span>（chat、memory_extract、embedding、classifier…）維度切片。</li>
-        <li>Classifier 同時記 <span class="hl">baseline 成本</span>（假設全走貴模型會花多少），「省了多少」有數據可證。</li>
-      </ul>
-
-      <div class="playbook-head">
-        <h3>F · 處理 Skill 工廠的建議</h3>
-        <div class="ctx">情境：Sidebar「Skill 建議」出現 pending 徽章。</div>
-      </div>
-      <ul>
-        <li>到 <code>/skill-suggestions</code> 逐筆審核：系統從對話記憶自動學出的 Skill 候選，<strong>採納</strong>即正式入庫成 Skill、<strong>退回</strong>即駁回。</li>
-        <li>建議<span class="key">一律人工審核</span>後才入庫，工廠不會自動發布。</li>
-      </ul>
-
-      <div class="playbook-head">
-        <h3>G · 帳號異常鎖定 / 停用</h3>
-        <div class="ctx">情境：有人被鎖在門外，或要收回離職者的存取權。</div>
-      </div>
-      <ul>
-        <li><strong>被鎖</strong>：連續錯 5 次鎖 15 分、10 次鎖 1 小時可等待自動解鎖；<span class="rd">15 次為永久鎖</span>（<code>is_active=False</code>），須 admin 至 <code>/admin/users</code> 解鎖。</li>
-        <li><strong>停用</strong>：admin 將帳號停用即拒絕登入；資源採軟刪除，歷史紀錄與稽核不受影響。</li>
+        <li><strong>LLM 成本</strong>：admin <code>GET /api/v1/admin/metrics/cost</code> 彙總成本 / 延遲 / 失敗；明細在 <code>llm_call_log</code>（含 RAG 命中數與最高分，<span class="key">保留 30 天</span>）。</li>
+        <li><strong>記憶 pipeline 追蹤</strong>：admin debug 端點可 trace 單一 Session 的記憶產生歷程與檢索結果，佇列 / DLQ 深度見 <code>GET /health</code>。</li>
+        <li><strong>下載稽核</strong>：<code>download_log</code> 表記錄誰在何時下載了什麼（含名稱快照），目前以 SQL 查詢、無 UI。</li>
+        <li><strong>AI 查詢稽核</strong>：<code>skill_search_log</code> 表含查詢語句與 JSONB 結果快照（相似度分數在此），<span class="hl">0 命中也記錄</span>，是內容缺口的第一手訊號。</li>
       </ul>
     </section>
 
-    <!-- 14 使用者：對話與記憶手冊 -->
-    <section id="manual">
-      <h2 class="sec"><span class="num">14</span>使用者：對話與記憶手冊</h2>
-      <p class="sectlead">日常使用者最常用的對話功能與「記憶怎麼運作」。</p>
-
-      <h3>① 開始對話</h3>
-      <ul>
-        <li><code>/sessions/new</code> 選一個 Agent 開聊；Session <span class="hl">可不綁專案</span>，快速提問無負擔。</li>
-        <li>要長期經營的主題，建議掛在<strong>對話專案</strong>（<code>/projects</code>）下——專案會聚合出自己的<span class="hl">專案層記憶</span>。</li>
-      </ul>
-
-      <h3>② 多 Agent 協作</h3>
-      <ul>
-        <li>同一 Session 可<span class="hl">掛多個 Agent</span>（指定 primary），不同專長的 Agent 在同場對話接力。</li>
-      </ul>
-
-      <h3>③ 附件</h3>
-      <ul>
-        <li>支援上傳附件：<span class="hl">圖片</span>由 vision 模型理解、<span class="hl">文字檔</span>內容拼入 prompt；檔案存 S3。</li>
-      </ul>
-
-      <h3>④ 記憶如何生效</h3>
-      <div class="flow" style="flex-direction:row; flex-wrap:wrap; gap:10px; align-items:center;">
-        <div class="flow-node" style="flex:1; min-width:130px;"><div class="t">你正常對話</div><div class="d">不用特別「叫它記住」</div></div>
-        <div class="arrow" style="padding:0 4px;">→</div>
-        <div class="flow-node accent" style="flex:1; min-width:130px;"><div class="t">背景自動抽取</div><div class="d">重點寫入 Session 記憶，並逐層聚合到專案 / 個人偏好</div></div>
-        <div class="arrow" style="padding:0 4px;">→</div>
-        <div class="flow-node store" style="flex:1; min-width:130px;"><div class="t">下次對話自動帶上</div><div class="d">相關記憶檢索後注入，不必重講背景</div></div>
-      </div>
-      <p class="muted small" style="margin-top:10px;">記憶抽取是非同步的，送出訊息後幾秒內完成；完成時介面會收到 <code>memory_updated</code> 即時更新。</p>
-
-      <h3>⑤ 資源分享與下載</h3>
-      <ul>
-        <li>自己的 Agent / Skill / Script 切成 <code>public</code> 即全站可見；他人可<span class="hl">收藏、下載</span>（計入排行與 <code>download_log</code> 稽核）。</li>
-        <li>下載 Agent 會輸出 <code>AGENTS.md</code>；Skill / Script 為原始檔案包。</li>
-      </ul>
-
-      <div class="note warn">
-        <div class="head">⚠ 帳號安全</div>
-        Access Token 僅存於瀏覽器記憶體，重新整理由 Refresh Cookie 自動換發——<strong>不需要</strong>也<strong>不應</strong>手動保存 Token；共用電腦請務必登出（登出即撤銷 Refresh Token）。
-      </div>
-    </section>
-
-    <!-- 15 API 端點總覽 -->
+    <!-- 14 API 端點總覽 -->
     <section id="api">
-      <h2 class="sec"><span class="num">15</span>API 端點總覽</h2>
-      <p class="sectlead">總前綴 <code>/api/v1</code>；完整 Request / Response Schema 見後端 Swagger <code>/api/docs</code>。</p>
+      <h2 class="sec"><span class="num">14</span>API 端點總覽</h2>
+      <p class="sectlead">全部前綴 <code>/api/v1</code>，統一回應 <code>ApiResponse&lt;T&gt;</code>；完整 Schema 見後端 Swagger <code>/api/docs</code>。</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>分類</th><th>路徑前綴</th><th>說明</th></tr></thead>
           <tbody>
-            <tr><td>健康檢查</td><td><code>/api/v1/health</code></td><td>存活檢查（含記憶佇列深度 LLEN）</td></tr>
-            <tr><td>認證</td><td><code>/api/v1/auth/*</code></td><td>register / login / logout / refresh / reset-password；SSO 四端點（<code>sso/authorize-url</code>、<code>sso/exchange</code>、<code>sso/logout</code>、<code>sso/back-channel-logout</code>）</td></tr>
-            <tr><td>管理後台</td><td><code>/api/v1/admin/*</code></td><td>users、roles、llm-models、agent-languages、agent-templates、settings、metrics（admin 專屬）</td></tr>
-            <tr><td>Agent</td><td><code>/api/v1/agents/*</code></td><td>Agent CRUD、下載 AGENTS.md、可見性</td></tr>
-            <tr><td>Skill</td><td><code>/api/v1/skills/*</code></td><td>CRUD、zip 上傳 / 下載、線上編輯；<code>POST /skills/search</code> AI 語意查詢（<code>scope</code>=visible/public）</td></tr>
-            <tr><td>Script</td><td><code>/api/v1/scripts/*</code></td><td>腳本 CRUD、資料夾上傳、公開瀏覽</td></tr>
-            <tr><td>對話</td><td><code>/api/v1/chat/*</code></td><td>projects、sessions、messages（SSE 串流）、session-agent 掛載 / primary、attachments、事件訂閱</td></tr>
-            <tr><td>儀表板</td><td><code>/api/v1/dashboard/*</code></td><td>排行榜等統計資料</td></tr>
-            <tr><td>收藏</td><td><code>/{agents,skills,scripts}/{uid}/favorite</code>、<code>/users/me/favorites</code></td><td>收藏 / 取消收藏、我的收藏清單</td></tr>
-            <tr><td>Skill 建議</td><td><code>/api/v1/skill-suggestions/*</code></td><td>Skill 工廠候選的檢視與審核</td></tr>
-            <tr><td>標籤</td><td><code>/api/v1/tags/*</code></td><td>per-user 標籤池管理與資源標記</td></tr>
-            <tr><td>唯讀清單</td><td><code>/api/v1/models</code>、<code>/api/v1/agent-languages</code>、<code>/api/v1/agent-templates</code>、<code>/api/v1/settings</code></td><td>啟用中模型 / 語言 / 範本清單、公開系統設定（管理走 <code>/admin</code>）</td></tr>
+            <tr><td>認證</td><td><code>/auth/*</code></td><td>註冊、登入、登出、Refresh、重設密碼；DF-SSO exchange / logout / back-channel</td></tr>
+            <tr><td>Agents</td><td><code>/agents/*</code></td><td>CRUD、掛載 Skills、下載 AGENTS.md、Skill 推薦核准 / 駁回</td></tr>
+            <tr><td>Skills</td><td><code>/skills/*</code></td><td>CRUD、上傳 / 重上傳 / 單檔編輯、下載、usage；<strong><code>POST /skills/search</code></strong> 語意檢索（AI 查詢）</td></tr>
+            <tr><td>Scripts</td><td><code>/scripts/*</code></td><td>腳本 CRUD、檔案 / 資料夾上傳、下載</td></tr>
+            <tr><td>對話</td><td><code>/chat/*</code></td><td>Projects / Sessions / Messages（SSE streaming）、多 Agent 掛載與 promote、附件、記憶查詢、<code>/sessions/{uid}/events</code> SSE 事件、Skill 建議核准 / 駁回</td></tr>
+            <tr><td>社群互動</td><td><code>/social/*</code>（收藏）、<code>/dashboard/rankings</code></td><td>收藏 / 取消收藏、跨資源排行榜</td></tr>
+            <tr><td>標籤</td><td><code>/tags/*</code></td><td>per-user 標籤池 CRUD 與 entity 掛載</td></tr>
+            <tr><td>唯讀清單</td><td><code>/models</code>、<code>/agent-languages</code>、<code>/agent-templates</code>、<code>/settings/public</code></td><td>member 端表單下拉資料來源</td></tr>
+            <tr><td>Admin</td><td><code>/admin/*</code></td><td>使用者 / 角色、LLM 模型（含 OpenRouter catalog）、語言、範本、系統設定、<code>/metrics/cost</code>、記憶 trace 與 debug、手動觸發聚合</td></tr>
+            <tr><td>健康檢查</td><td><code>/health</code>、<code>/health/ready</code></td><td>存活與就緒探針；<code>/health</code> 含 Redis 佇列 / DLQ 深度</td></tr>
           </tbody>
         </table>
       </div>
+    </section>
+
+    <!-- 15 資料庫 Schema 速覽 -->
+    <section id="schema">
+      <h2 class="sec"><span class="num">15</span>資料庫 Schema 速覽</h2>
+      <p class="sectlead">Flyway 增量 migration <code>V1</code>–<code>V61</code>；命名慣例：<code>pid BIGSERIAL</code> 內部主鍵 + <code>*_uid UUID</code> 對外識別 + <code>is_deleted</code> 軟刪 + trigger 維護 <code>updated_at</code>。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:28%">資料表</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>user</code> / <code>user_role</code></td><td>使用者帳號與角色（seed <code>admin</code> / <code>member</code>）</td></tr>
+            <tr><td><code>agent</code> / <code>agent_skill</code></td><td>Agent 設定與 Skill 掛載中介表；含收藏 / 下載計數</td></tr>
+            <tr><td><code>skill</code> / <code>script</code></td><td>技能與腳本資源（檔案存 S3 <code>storage_key</code>）</td></tr>
+            <tr><td><code>llm_model</code> / <code>agent_language</code> / <code>agent_template</code></td><td>模型清單、語言選項、Agent 範本（DB 驅動下拉）</td></tr>
+            <tr><td><code>system_setting</code></td><td>key-value 系統設定（RAG / 記憶 / 分類器 / Skill RAG 參數）</td></tr>
+            <tr><td><code>chat_project</code> / <code>chat_session</code> / <code>chat_message</code> / <code>chat_attachment</code> / <code>session_agent</code></td><td>對話容器、訊息、附件與多 Agent 關聯（Session:Agent 1:N）</td></tr>
+            <tr><td><strong><code>chat_memory</code> / <code>project_memory</code> / <code>user_memory</code></strong></td><td>三層記憶，各含 <code>embedding VECTOR(1536)</code> + <span class="hl">HNSW cosine 索引</span></td></tr>
+            <tr><td><strong><code>skill_embedding</code></strong></td><td>Skill 多向量表（1:N，<code>source_type ∈ name / description / content</code>）+ HNSW；刻意不建唯一約束，<span class="key">為 content chunking 預留</span></td></tr>
+            <tr><td><code>agentic_skill_suggestion</code></td><td>Agentic 自學 Skill 候選（scope / confidence / 來源記憶）</td></tr>
+            <tr><td><code>llm_call_log</code></td><td>LLM 呼叫成本 / 延遲 / 失敗 / RAG 命中 metrics（30 天保留）</td></tr>
+            <tr><td><code>user_favorite</code> / <code>tag</code> / <code>entity_tag</code></td><td>泛型收藏、per-user 標籤池與多對多掛載</td></tr>
+            <tr><td><code>download_log</code> / <code>skill_search_log</code></td><td>下載稽核與 AI 查詢稽核（JSONB 結果快照，寫入即不可變）</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted small">向量皆為 1536 維（<code>text-embedding-3-small</code>）；相似度定義 <code>score = 1 - (embedding &lt;=&gt; query)</code>（cosine）。詳細規範見 <code>docs/Design-Base/21-database.md</code>。</p>
     </section>
 
     <!-- 16 故障排除 Runbook -->
     <section id="runbook">
       <h2 class="sec"><span class="num">16</span>故障排除 Runbook</h2>
-      <p class="sectlead">使用者回報異常時，依症狀對照可能原因與第一步該檢查什麼。</p>
+      <p class="sectlead">回報「怪怪的」時，依症狀對照可能原因與第一步該檢查什麼。</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th style="width:30%">症狀</th><th>可能原因</th><th>先檢查什麼</th></tr></thead>
           <tbody>
-            <tr><td>登入一直失敗 / 顯示鎖定</td><td>連續錯誤觸發漸進鎖定（5 / 10 / 15 次）</td><td>等待自動解鎖；<span class="rd">15 次為永久鎖</span>，由 admin 至 <code>/admin/users</code> 解鎖</td></tr>
-            <tr><td>SSO 登入轉圈 / 失敗</td><td>SSO 設定錯誤或回調鏈中斷</td><td>Coolify 環境變數 <code>SSO_URL / SSO_APP_ID / SSO_APP_SECRET / BACKEND_INTERNAL_URL</code>；DF-SSO 服務本身是否正常</td></tr>
-            <tr><td>AI 查詢永遠 0 筆</td><td>embedding 未 backfill，或門檻過嚴</td><td><code>skill_embedding</code> 是否有資料（跑 backfill script）；系統設定 <code>skill.rag.min_score</code>（出廠 0.45）</td></tr>
-            <tr><td>對話後記憶沒出現</td><td>Worker 卡住或佇列堆積</td><td><code>GET /health</code> 看佇列 LLEN；檢查 DLQ（<code>chat:memory:dlq</code>）與 backend log</td></tr>
-            <tr><td>上傳 Skill / 附件失敗</td><td>超過大小上限或 S3 憑證失效</td><td><code>SKILLS_MAX_FILE_SIZE</code>（預設 50MB）；AWS 憑證與 bucket（<code>agents-platform-*-datas</code>）</td></tr>
-            <tr><td>對話沒有逐字串流</td><td>中間反向代理緩衝 SSE</td><td>proxy 關閉 buffering；<code>curl -N</code> 直打後端驗證</td></tr>
-            <tr><td>頁面被導到 <code>/403</code></td><td>member 訪問 admin 專屬頁</td><td>確認帳號角色；需要權限找 admin 調整</td></tr>
-            <tr><td>整站打不開</td><td>容器異常或 migration 失敗</td><td>Coolify 看各容器狀態；flyway container 是否成功結束（exit 0）</td></tr>
+            <tr><td>對話送出後沒有任何回覆</td><td>OpenRouter Key 無效 / 餘額不足，或所選模型已停用</td><td><code>llm_call_log</code> 最新失敗紀錄；「系統管理 → 模型」確認模型啟用</td></tr>
+            <tr><td>記憶側欄一直不更新</td><td>背景 worker 停擺或佇列堆積</td><td><code>GET /health</code> 看 Redis 佇列 / DLQ 深度；backend log 搜 worker 錯誤</td></tr>
+            <tr><td>AI 查詢一直 0 命中</td><td>語意真的不相近，或歷史 Skill 未跑向量 backfill</td><td><code>skill_search_log</code> 看歷史快照分數；確認 <code>skill_embedding</code> 有該 Skill 的三筆向量</td></tr>
+            <tr><td>Skill 單檔編輯回 <code>409</code></td><td>樂觀鎖：他人已先更新</td><td>重新載入最新版再編輯，屬正常保護非故障</td></tr>
+            <tr><td>圖片附件沒有被理解</td><td>所選模型不支援 vision，或分類器未升級路線</td><td>換支援 vision 的模型；含圖片訊息應自動走 expensive 路線</td></tr>
+            <tr><td>登入後馬上被登出 / SSO 循環</td><td>refresh cookie 網域 / <code>secure</code> 設定不符，或 SSO hint cookie 殘留</td><td><code>APP_ENV</code> 與網域是否 https；清除 <code>*.zerozero.tw</code> cookie 重試</td></tr>
+            <tr><td><span class="rd">backend 起不來</span></td><td>Flyway migrate 失敗（backend 依賴其成功完成），或 <code>SECRET_KEY</code> / CORS 驗證不過</td><td>flyway 容器 log 找失敗的 <code>V*</code>；檢查 <code>.env</code> 必填項</td></tr>
+            <tr><td>前端打錯 API 位址</td><td><code>NEXT_PUBLIC_API_URL</code> 是 build 階段內聯</td><td>確認 build 時的值，改值需<span class="hl">重 build 前端 image</span></td></tr>
           </tbody>
         </table>
       </div>
       <div class="note info">
-        <div class="head">深入排查</div>
-        後端 log 等級由 <code>LOG_LEVEL</code> 控制（正式建議 WARNING，排查時可暫調 INFO）；DB 可經正式 compose 內建的 <span class="hl">Adminer</span>（port 8080，須加存取限制）檢視；LLM 呼叫層問題查 <code>llm_call_log</code> 的錯誤與延遲欄位。
+        <div class="head">深入排查工具</div>
+        admin 可用 <span class="hl">記憶 trace 端點</span>追單一 Session 的記憶產生歷程與檢索命中；<code>LOG_LEVEL=INFO</code>（開發預設）可看到記憶 pipeline 的結構化 log；DB 層可透過 Adminer 直接查表。
       </div>
     </section>
 
     <footer class="page">
-      Agents Memory System · Agent 驅動 × 持久化記憶的 AI 助手平台 · 本文件為專案說明用途，技術棧與版本以原始碼為準。
+      Agents Memory System · Agent 驅動 + 持久化記憶的 AI 助手平台 · 本文件為專案說明用途，技術棧與版本以原始碼為準。
     </footer>
 
   </div>
